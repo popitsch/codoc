@@ -1,0 +1,2 @@
+20	60022	.	G	A	743.37	PASS	AC=1;AF=0.50;AN=2;BaseQRankSum=0.379;DP=128;Dels=0.00;FS=1.273;HRun=1;HaplotypeScore=0.0000;MQ=44.27;MQ0=6;MQRankSum=-1.459;QD=14.58;ReadPosRankSum=3.642;set=variant	GT:AD:DP:GQ:PL	0/1:25,26:51:99:773,0,575	./.
+20	60032	.	G	A	743.37	PASS	AC=1;AF=0.50;AN=2;BaseQRankSum=0.379;DP=125;Dels=0.00;FS=1.273;HRun=1;HaplotypeScore=0.0000;MQ=44.27;MQ0=6;MQRankSum=-1.459;QD=14.58;ReadPosRankSum=3.642;set=variant	GT:AD:DP:GQ:PL	0/1:25,26:51:99:773,0,575	./.

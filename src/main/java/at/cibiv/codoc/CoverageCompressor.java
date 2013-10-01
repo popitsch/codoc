@@ -1,0 +1,1247 @@
+package at.cibiv.codoc;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Date;
+import java.util.Iterator;
+import java.util.List;
+import java.util.SortedSet;
+import java.util.TreeSet;
+
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.MissingOptionException;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.OptionGroup;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.PosixParser;
+
+import at.cibiv.codoc.io.AbstractDataBlock.BLOCK_COMPRESSION_METHOD;
+import at.cibiv.codoc.io.CompressedFile;
+import at.cibiv.codoc.io.FileDataOutputBlock;
+import at.cibiv.codoc.io.FileHeader;
+import at.cibiv.codoc.quant.LogarithmicGridQuatization;
+import at.cibiv.codoc.quant.PercentageQuatization;
+import at.cibiv.codoc.quant.QuantizationFunction;
+import at.cibiv.codoc.quant.RegularGridQuatization;
+import at.cibiv.ngs.tools.bed.BedToolsCoverageIterator;
+import at.cibiv.ngs.tools.bed.SimpleBEDFile;
+import at.cibiv.ngs.tools.lds.GenomicInterval;
+import at.cibiv.ngs.tools.sam.iterator.AbstractRead;
+import at.cibiv.ngs.tools.sam.iterator.AttributeFilter;
+import at.cibiv.ngs.tools.sam.iterator.ChromosomeIteratorListener;
+import at.cibiv.ngs.tools.sam.iterator.CoverageIterator;
+import at.cibiv.ngs.tools.sam.iterator.ParseException;
+import at.cibiv.ngs.tools.sam.iterator.SAMBaseProfileIterator;
+import at.cibiv.ngs.tools.util.FileUtils;
+import at.cibiv.ngs.tools.util.GenomicPosition;
+import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
+import at.cibiv.ngs.tools.util.Statistics;
+import at.cibiv.ngs.tools.util.StringUtils;
+import at.cibiv.ngs.tools.vcf.SimpleVCFFile;
+import at.cibiv.ngs.tools.vcf.SimpleVCFVariant;
+import bgraph.util.BGraphException;
+import bgraph.util.PropertyConfiguration;
+
+/**
+ * A compressor for genomic coverage information.
+ * 
+ * @author niko.popitsch@univie.ac.at
+ * 
+ */
+public class CoverageCompressor implements ChromosomeIteratorListener {
+
+	/**
+	 * Debug flag.
+	 */
+	static boolean debug = false;
+
+	public static final String CMD = "compress";
+	public static final String CMD_INFO = "Extracts and compressed coverage data from a SAM/BAM file.";
+
+
+	public static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd G 'at' HH:mm:ss z");
+
+	/**
+	 * The compression method used for envelope-compression. Note that each
+	 * stream may have its own compression method configured! Generic streams,
+	 * however, use this method.
+	 */
+	public BLOCK_COMPRESSION_METHOD defaultCompressionMethod = FileDataOutputBlock.DEFAULT_COMPRESSION_METHOD;
+
+	/**
+	 * List of standard streams
+	 */
+	public static enum STANDARD_STREAM {
+		CHR, POS, COV1, COV2
+	}
+
+	/**
+	 * List of quantization methods
+	 */
+	public static enum QUANT_METHOD {
+		PERC, GRID, LOG2
+	}
+
+	public static final String OPT_BEST_COMPRESSION = "best";
+	public static final String OPT_BLOCKSIZE = "blockSize";
+	public static final String OPT_COMPRESSION_ALGORITHM = "compressionAlgorithm";
+	public static final String OPT_QUANT_METHOD = "qmethod";
+	public static final String OPT_QUANT_PARAM = "qparam";
+	public static final String OPT_KEEP_WORKDIR = "keepWorkDir";
+	public static final String OPT_CREATE_STATS = "createStats";
+	public static final String OPT_STATS_FILE = "statsFile";
+	public static final String OPT_DUMP_RAW = "dumpRawCoverage";
+	public static final String OPT_BAM_FILE = "bamFile";
+	public static final String OPT_COVERAGE_FILE = "covFile";
+	public static final String OPT_OUT_FILE = "outFile";
+	public static final String OPT_VCF_FILE = "vcfFile";
+	public static final String OPT_BED_FILE = "bedFile";
+	public static final String OPT_BAM_FILTER = "bamFilter";
+	public static final String OPT_TMP_DIR = "tmpDir";
+	public static final String OPT_SCALE_COVERAGE = "scaleCoverage";
+	public static final String OPT_VERBOSE = "v";
+
+	public static final String OPT_BLOCK_BORDERS = "blockBorders";
+	public static final String OPT_CHR_LIST = "originalChromosomes";
+
+	public static double DEFAULT_BLOCKSIZE = 1000000; // # of codewords per block.
+
+	/**
+	 * The quantization function.
+	 */
+	private QuantizationFunction quant;
+
+	/**
+	 * Output stream for chromosomes
+	 */
+	private List<FileDataOutputBlock<String>> chrData = new ArrayList<>();
+
+	/**
+	 * the knot-point position
+	 */
+	private List<FileDataOutputBlock<Integer>> posData = new ArrayList<>();
+
+	/**
+	 * the knot-point coverage 1
+	 */
+	private List<FileDataOutputBlock<Integer>> cov1Data = new ArrayList<>();
+
+	/**
+	 * the knot-point coverage 2
+	 */
+	private List<FileDataOutputBlock<Integer>> cov2Data = new ArrayList<>();
+
+	/**
+	 * The coverage iterator
+	 */
+	private CoverageIterator<?> coverageIterator;
+
+	/**
+	 * ROI file
+	 */
+	private SimpleBEDFile roiFile;
+
+	/**
+	 * The header of the compressed file.
+	 */
+	private CompressionHeader header;
+
+	/**
+	 * A list of messages.
+	 */
+	private Collection<String> messages = new ArrayList<String>();
+
+	/**
+	 * A list of warning messages.
+	 */
+	private Collection<Throwable> warnings = new ArrayList<Throwable>();
+
+	/**
+	 * Statistics.
+	 */
+	private Statistics statistics;
+
+	/**
+	 * last written coordinate.
+	 */
+	private Long lastwrittenpos1 = null;
+
+	/**
+	 * index of the current data blocks
+	 */
+	private int currentBlockIndex;
+
+	/**
+	 * Chrom was changed right now.
+	 */
+	private boolean chromWasChanged = false;
+
+	/**
+	 * The working dir
+	 */
+	private File workDir;
+
+	/**
+	 * Current configuration.
+	 */
+	private PropertyConfiguration config;
+
+	/**
+	 * A list of the block border positions.
+	 */
+	private List<GenomicPosition> blockBorders;
+
+	/**
+	 * An ordered(!) list of the original chromosome names
+	 */
+	private List<String> chrOrigList;
+	
+	/**
+	 * The number of codewords per data block
+	 */
+	private double blockSize = DEFAULT_BLOCKSIZE;
+
+	/**
+	 * Constructor.
+	 * 
+	 * @param sortedSamFile
+	 * @param vcfFile
+	 * @param regionsOfInterest
+	 * @param out
+	 * @throws IOException
+	 * @throws ParseException
+	 */
+	public CoverageCompressor(PropertyConfiguration config) throws Throwable {
+		this.config = config;
+
+		CoverageIterator<?> it = null;
+
+		if (config.getProperty(OPT_BAM_FILE) != null) {
+
+			// get BAM filters
+			ArrayList<AttributeFilter> filters = null;
+			if (config.getProperty(OPT_BAM_FILTER, (String) null) != null) {
+				filters = new ArrayList<AttributeFilter>();
+				String tmp[] = config.getProperty(OPT_BAM_FILTER).split(";");
+				for (String t : tmp) {
+					AttributeFilter f = AttributeFilter.parseFromString(t);
+					if (f != null)
+						filters.add(f);
+					else
+						warnings.add(new BGraphException("Unable to parse filter string " + t + " - IGNORING"));
+				}
+
+			}
+			// Iterator pointing to the current pileup.
+			File sortedSamFile = new File(config.getProperty(OPT_BAM_FILE));
+			if (debug)
+				System.out.println("Extracting and compressing coverage from " + sortedSamFile);
+			it = new SAMBaseProfileIterator(sortedSamFile, filters);
+		} else {
+			File coverageFile = new File(config.getProperty(OPT_COVERAGE_FILE));
+			float scaleFactor = 1.0f;
+			if (config.hasProperty(OPT_SCALE_COVERAGE))
+				scaleFactor = Float.parseFloat(config.getProperty(OPT_SCALE_COVERAGE));
+			it = new BedToolsCoverageIterator(coverageFile, COORD_TYPE.ONEBASED, scaleFactor);
+		}
+
+		it.addListener(this);
+		compress(it);
+	}
+
+	/**
+	 * Constructor.
+	 * 
+	 * @param sortedSamFile
+	 * @param vcfFile
+	 * @param regionsOfInterest
+	 * @param out
+	 * @throws IOException
+	 * @throws ParseException
+	 */
+	public CoverageCompressor(CoverageIterator<?> it, PropertyConfiguration config) throws Throwable {
+		this.config = config;
+		it.addListener(this);
+		compress(it);
+	}
+
+	/**
+	 * Constructor.
+	 * 
+	 * @param sortedSamFile
+	 * @param vcfFile
+	 * @param regionsOfInterest
+	 * @param out
+	 * @throws IOException
+	 * @throws ParseException
+	 */
+	public CoverageCompressor(CoverageIterator<?> it, File vcfFile, File outFile) throws Throwable {
+		it.addListener(this);
+		PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
+		if (vcfFile != null)
+			config.setProperty(CoverageCompressor.OPT_VCF_FILE, vcfFile.getAbsolutePath());
+		config.setProperty(CoverageCompressor.OPT_OUT_FILE, outFile.getAbsolutePath());
+		config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512");
+		config.setProperty(CoverageCompressor.OPT_QUANT_METHOD, QUANT_METHOD.PERC.name());
+		config.setProperty(CoverageCompressor.OPT_QUANT_PARAM, "0.2");
+		this.config = config;
+
+		compress(it);
+	}
+
+	/**
+	 * Create a new indexed block.
+	 * 
+	 * @throws IOException
+	 */
+	private void createIndexedBlock() throws IOException {
+		try {
+			// System.out.println("CREATE BLOCK");
+			// close and compress the old blocks
+			if (currentBlockIndex >= 0) {
+				chrData.get(currentBlockIndex).close();
+				posData.get(currentBlockIndex).close();
+				cov1Data.get(currentBlockIndex).close();
+				cov2Data.get(currentBlockIndex).close();
+
+				chrData.get(currentBlockIndex).compress();
+				posData.get(currentBlockIndex).compress();
+				cov1Data.get(currentBlockIndex).compress();
+				cov2Data.get(currentBlockIndex).compress();
+				
+				//System.out.println("Compressed block " + currentBlockIndex);MemoryUtils.debugMemory();
+			}
+
+			chrData.add(new FileDataOutputBlock<String>(STANDARD_STREAM.CHR.name(), FileUtils.createTempFile(workDir, STANDARD_STREAM.CHR.name() + "_")));
+			posData.add(new FileDataOutputBlock<Integer>(STANDARD_STREAM.POS.name(), FileUtils.createTempFile(workDir, STANDARD_STREAM.POS.name() + "_")));
+			cov1Data.add(new FileDataOutputBlock<Integer>(STANDARD_STREAM.COV1.name(), FileUtils.createTempFile(workDir, STANDARD_STREAM.COV1.name() + "_")));
+			cov2Data.add(new FileDataOutputBlock<Integer>(STANDARD_STREAM.COV2.name(), FileUtils.createTempFile(workDir, STANDARD_STREAM.COV2.name() + "_")));
+
+			currentBlockIndex = chrData.size() - 1;
+			// configure
+			chrData.get(currentBlockIndex).configure(config);
+			posData.get(currentBlockIndex).configure(config);
+			cov1Data.get(currentBlockIndex).configure(config);
+			cov2Data.get(currentBlockIndex).configure(config);
+
+			// update index
+			blockBorders.add(coverageIterator.getGenomicPosition());
+
+			// System.out.println("BLOCK BORDER: " +
+			// coverageIterator.getGenomicPosition());
+
+		} catch (Throwable e) {
+			throw new IOException("Error creating new index block!", e);
+		}
+	}
+
+	/**
+	 * Write a codeword.
+	 * 
+	 * @param out
+	 * @param chr
+	 * @param pos1
+	 * @param lc
+	 * @param cov
+	 * @return
+	 * @throws IOException
+	 */
+	protected boolean writeCodeword(String chr, Long pos1, int lc, int cov, String type) throws IOException {
+
+		// create first data blocks
+		if (chrData.size() == 0) {
+			createIndexedBlock();
+		}
+
+		double cw = statistics.inc("codewords");
+
+		if (lastwrittenpos1 == null)
+			lastwrittenpos1 = 1l;
+		int posDiff = (int) (pos1 - lastwrittenpos1);
+		if (posDiff <= 0) {
+			// System.out.println("SKIP CODE: " + chr + ":" + pos1 + "\t" +
+			// posDiff + "\tlc:" + lc + "\trc:" + cov + "\t" + type);
+			return false;
+		}
+
+		// System.out.println("CODE: " + chr + ":" + pos1 + "\t" + posDiff +
+		// "\tlc:" + lc + "\trc:" + cov + "\t" + type);
+
+		chrData.get(currentBlockIndex).getStream().push(chr);
+		posData.get(currentBlockIndex).getStream().push(posDiff);
+		cov1Data.get(currentBlockIndex).getStream().push(lc);
+		cov2Data.get(currentBlockIndex).getStream().push(cov);
+
+		if (cw % blockSize == 0) {
+			createIndexedBlock();
+			lastwrittenpos1 = null;
+			if ((!chromWasChanged) && (!type.equals("last")))
+				writeCodeword(chr, pos1, lc, cov, "firstofblock");
+		} else {
+			lastwrittenpos1 = pos1;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Called when a new chromosome was detected.
+	 */
+	public void notifyChangedChromosome(String chr) throws IOException {
+		chromWasChanged = true;
+	}
+
+	/**
+	 * Called when a new read was added
+	 */
+	public void notifyAddedRead(AbstractRead p) throws IOException {
+	}
+
+	/**
+	 * Called when a read was finished
+	 */
+	public void notifyRemovedRead(AbstractRead p) throws IOException {
+	}
+
+	public void addWarning(Throwable warning) {
+		warnings.add(warning);
+	}
+
+	public Collection<Throwable> getWarnings() {
+		return warnings;
+	}
+
+	public CoverageIterator<?> getCoverageIterator() {
+		return coverageIterator;
+	}
+
+	public void addMessage(String message) {
+		messages.add(message);
+	}
+
+	public Collection<String> getMessages() {
+		return messages;
+	}
+
+	/**
+	 * Create a config string for some standard stream.
+	 * 
+	 * @param s
+	 * @param namevaluepairs
+	 * @return
+	 */
+	protected static String createConfigString(STANDARD_STREAM id, String... namevaluepairs) {
+		return createConfigString(id.name(), namevaluepairs);
+	}
+
+	/**
+	 * Create a config string for some standard stream.
+	 * 
+	 * @param s
+	 * @param namevaluepairs
+	 * @return
+	 */
+	protected static String createConfigString(String id, String... namevaluepairs) {
+		StringBuilder sb = new StringBuilder();
+		for (String nv : namevaluepairs)
+			sb.append(id + "-" + nv + "\n");
+		return sb.toString();
+	}
+
+	public Statistics getStatistics() {
+		return statistics;
+	}
+
+	/**
+	 * Default configuration
+	 * 
+	 * @return
+	 * @throws IOException
+	 */
+	public static PropertyConfiguration getDefaultConfiguration(BLOCK_COMPRESSION_METHOD compression) {
+		StringBuffer sb = new StringBuffer();
+
+		// set default compression algorithm
+		sb.append("version=" + Main.VERSION + "\n");
+
+		// set creation time
+		sb.append("created=" + sdf.format(new Date()) + "\n");
+
+		// chr
+		sb.append(createConfigString(STANDARD_STREAM.CHR, "type=rle", "datatype=string", "lengthtype=integer", "debug=false", "compression=" + compression));
+
+		// pos
+		sb.append(createConfigString(STANDARD_STREAM.POS, "type=golomb", "k=2", "datatype=integer", "debug=false", "compression=" + compression));
+
+		// cov1
+		sb.append(createConfigString(STANDARD_STREAM.COV1, "type=standard", "datatype=integer", "lengthtype=byte", "debug=false", "compression=" + compression));
+
+		// cov2
+		sb.append(createConfigString(STANDARD_STREAM.COV2, "type=standard", "datatype=integer", "lengthtype=byte", "debug=false", "compression=" + compression));
+
+		return PropertyConfiguration.fromString(sb.toString());
+	}
+
+	/**
+	 * Instantiate a quantization function.
+	 * 
+	 * @param qm
+	 * @param qp
+	 * @return
+	 * @throws BGraphException
+	 */
+	protected static QuantizationFunction instantiateQuantizationFunction(PropertyConfiguration config) throws BGraphException {
+		QUANT_METHOD qm = (QUANT_METHOD) StringUtils.findInEnum(config.getProperty(OPT_QUANT_METHOD), QUANT_METHOD.values());
+		if (qm == null)
+			throw new BGraphException("No valid quantization method provided (" + config.getProperty(OPT_QUANT_METHOD) + "). Set any of "
+					+ Arrays.toString(QUANT_METHOD.values()));
+
+		switch (qm) {
+		case PERC:
+			if (config.getProperty(OPT_QUANT_PARAM) == null)
+				throw new BGraphException("No valid quantization parameter (percentage) provided. Set a float value.");
+			double qp = Double.parseDouble(config.getProperty(OPT_QUANT_PARAM));
+			return new PercentageQuatization(qp);
+		case GRID:
+			if (config.getProperty(OPT_QUANT_PARAM) == null)
+				throw new BGraphException("No valid quantization parameter (grid height)  provided. Set a float value.");
+			qp = Double.parseDouble(config.getProperty(OPT_QUANT_PARAM));
+			return new RegularGridQuatization(qp);
+		case LOG2:
+			return new LogarithmicGridQuatization();
+		}
+		throw new BGraphException("No valid quantization method passed " + qm);
+	}
+
+	/**
+	 * Positions the iterator to the variant right after the passed position
+	 * 
+	 * @param it
+	 * @param pos1
+	 * @return
+	 */
+	private SimpleVCFVariant positionRightAfter(Iterator<SimpleVCFVariant> it, Long pos1) {
+		if (!it.hasNext())
+			return null;
+		SimpleVCFVariant ret = it.next();
+		while (ret.getPosition().longValue() <= pos1) {
+			if (!it.hasNext())
+				return null;
+			ret = it.next();
+		}
+		return ret;
+	}
+
+	/**
+	 * Compression
+	 * 
+	 * @param sortedSamFile
+	 * @param outFile
+	 * @param filters
+	 * @param vcfFile
+	 * @param regionsOfInterest
+	 * @param workDir
+	 * @param config
+	 * @throws Throwable
+	 */
+	protected void compress(CoverageIterator<?> coverageIterator) throws Throwable {
+
+
+		this.coverageIterator = coverageIterator;
+		long startTime = System.currentTimeMillis();
+		boolean keepWorkDir = config.getBooleanProperty(OPT_KEEP_WORKDIR, false);
+		boolean createStats = config.getBooleanProperty(OPT_CREATE_STATS, false);
+		boolean dumpRawCoverage = config.getBooleanProperty(OPT_DUMP_RAW, false);
+		debug = config.getBooleanProperty(OPT_VERBOSE, false);		
+		this.blockSize = config.hasProperty(OPT_BLOCKSIZE) ? Double.parseDouble(OPT_BLOCKSIZE) : DEFAULT_BLOCKSIZE;
+		if (blockSize <= 1) // safety
+			throw new RuntimeException("Minimum Block size is 1!");
+
+		// set quantization method
+		this.quant = instantiateQuantizationFunction(config);
+
+		// prepare working files
+		File outFile = new File(config.getProperty(OPT_OUT_FILE));
+		File vcfFile = config.hasProperty(OPT_VCF_FILE) ? new File(config.getProperty(OPT_VCF_FILE)) : null;
+		File regionsOfInterest = config.hasProperty(OPT_BED_FILE) ? new File(config.getProperty(OPT_BED_FILE)) : null;
+		this.workDir = config.hasProperty(OPT_TMP_DIR) ? new File(config.getProperty(OPT_TMP_DIR)) : new File(outFile.getParentFile(), "" + Math.random());
+		if (!workDir.exists()) {
+			if (!workDir.mkdirs())
+				throw new IOException("Could not create temporary directory " + workDir);
+		}
+		File rawCoverageFile = null;
+		if (dumpRawCoverage)
+			rawCoverageFile = new File(outFile.getAbsolutePath() + ".rawcoverage");
+		File statsFile = null;
+		if (createStats) {
+			statsFile = new File(config.getProperty(OPT_STATS_FILE, outFile.getAbsolutePath() + ".stats"));
+		}
+
+		currentBlockIndex = -1;
+		lastwrittenpos1 = null;
+
+		// statistics
+		statistics = new Statistics();
+
+		try {
+			this.header = new CompressionHeader();
+			this.blockBorders = new ArrayList<>();
+			this.chrOrigList = new ArrayList<>();
+
+			// Init VCF data
+			SimpleVCFVariant currentVariant = null;
+			Iterator<SimpleVCFVariant> variants = null;
+			SimpleVCFFile vcf = (vcfFile != null) ? new SimpleVCFFile(vcfFile) : null;
+
+			// print raw coverage?
+			PrintStream rawCoverage = null;
+			if (rawCoverageFile != null)
+				rawCoverage = new PrintStream(rawCoverageFile);
+
+			// init regions of interest
+			GenomicInterval currentRoi = null;
+			int maxRois = 0;
+			boolean inRoi = false;
+			boolean skipChrom = false;
+			Iterator<GenomicInterval> rois = null;
+			if (regionsOfInterest != null) {
+				this.roiFile = new SimpleBEDFile(regionsOfInterest);
+				maxRois = roiFile.getIntervals().size();
+			} else {
+				inRoi = true;
+			}
+
+			long c = 0;
+
+			int coverage = 0, lastCoverage = 0;
+			int minBorder = quant.getMinBorder(coverage);
+			int maxBorder = quant.getMaxBorder(coverage);
+			long pos1 = 0, lastPos1 = 0;
+			String chr = null;
+			String lastChr = null;
+			// Indicates whether the profile iterator is currently in the zone
+			// of 0-coverage at the beginning of a chromosome.
+			boolean headingzeros = true;
+			chromWasChanged = true;
+
+			while (coverageIterator.hasNext()) {
+				statistics.inc("coverage-values");
+				c++;
+				if (debug) {
+					if (c % 100000 == 0)
+						System.out.print(".");
+					if (c % 10000000 == 0)
+						System.out.println();
+				}
+
+				// skip if chrom is finished.
+				if (skipChrom) {
+					if (chromWasChanged)
+						skipChrom = false;
+					else {
+						coverageIterator.skip();
+						statistics.inc("skipped-values");
+						continue;
+					}
+				}
+
+				// ..................................................................
+				// Load next coverage
+				// ..................................................................
+				coverage = coverageIterator.nextCoverage();
+				pos1 = coverageIterator.getOffset();
+				chr = coverageIterator.getCurrentReference();
+				boolean isExternalCoverage = false; // this will be an
+													// estimated, not a "known",
+													// external coverage.
+				// System.out.println("=> " + chr + ":" + pos1 + " = " +
+				// coverage);
+
+				// ..................................................................
+				// Chromosome change. (i.e., chr is the new chrom already)
+				// ..................................................................
+				if (chromWasChanged) {
+					// finish chrom!
+					if (roiFile == null)
+						writeCodeword(lastChr, lastPos1 + 1, lastCoverage, 0, "last1");
+					String prefixedChr = StringUtils.prefixedChr(chr);
+
+					// load ROIs
+					if (roiFile != null) {
+						if (roiFile.getIntervalsPerChrom().get(prefixedChr) != null) {
+							SortedSet<GenomicInterval> tmp = new TreeSet<GenomicInterval>(roiFile.getIntervalsPerChrom().get(prefixedChr));
+							rois = tmp.iterator();
+						} else
+							skipChrom = true;
+					}
+
+					// load VCF data
+					if (vcf != null) {
+						List<SimpleVCFVariant> vars = vcf.getVariants(prefixedChr);
+						if ((vars != null) && (vars.size() > 0)) {
+							SortedSet<SimpleVCFVariant> tmp = new TreeSet<SimpleVCFVariant>(vars);
+							variants = tmp.iterator();
+							currentVariant = positionRightAfter(variants, pos1);
+						}
+					}
+
+					// update values
+					if (!chrOrigList.contains(chr))
+						chrOrigList.add(chr);
+					chromWasChanged = false;
+					lastPos1 = 0;
+					lastwrittenpos1 = null;
+					lastCoverage = 0;
+					minBorder = quant.getMinBorder(lastCoverage);
+					maxBorder = quant.getMaxBorder(lastCoverage);
+					headingzeros = true;
+					header.addValue("sequence", prefixedChr);
+				}
+
+				// ..................................................................
+				// check whether we are in a ROI
+				// ..................................................................
+				if (roiFile != null) {
+					if (currentRoi == null) {
+						// is there a roi?
+						if ((rois == null) || (!rois.hasNext()))
+							continue;
+						currentRoi = rois.next();
+						statistics.inc("ROIs");
+					}
+					// are we within the current roi?
+					if (inRoi) {
+						// NOTE that BED intervals are 0-based
+						inRoi = currentRoi.contains(pos1 - 1);
+						if (!inRoi) {
+							// LEFT ROI
+							writeCodeword(lastChr, lastPos1, lastCoverage, coverage, "left roi");
+							currentRoi = null;
+							maxRois--;
+							if (maxRois <= 0)
+								break;
+							if ((rois == null) || (!rois.hasNext()))
+								skipChrom = true;
+						}
+					} else {
+						// NOTE that BED intervals are 0-based
+						inRoi = currentRoi.contains(pos1);
+						if (inRoi) {
+							// ENTERED a ROI
+							// writeCodeword(originalChr, pos1, coverage,
+							// coverage);
+							// System.out.println("ENTERED ROI " + currentRoi);
+						}
+					}
+				}
+				if (!inRoi)
+					continue;
+
+				// ..................................................................
+				// check whether we "HIT" a variant
+				// ..................................................................
+				if (currentVariant != null) {
+					if (pos1 == currentVariant.getPosition().intValue()) {
+						// System.err.println("HIT VAR " + currentVariant);
+						statistics.inc("hit-variants");
+						// get actual coverage from Variant!
+						Integer varCov = currentVariant.estimateCoverage();
+						if (varCov != null) {
+							coverage = varCov;
+							// set isExternalCoverage to true => Borders will be
+							// adapted!
+							isExternalCoverage = true;
+						}
+						// move to next variant with *different* coordinates
+						// (in VCF, there may be multiple variants at one
+						// genomic position
+						// wr!)
+						currentVariant = positionRightAfter(variants, pos1 + 1);
+						// System.err.println("VAR: " + currentVariant);
+					}
+				}
+
+				// ..................................................................
+				// raw coverages
+				// ..................................................................
+				if (coverage > 0)
+					headingzeros = false;
+				if ((rawCoverage != null) && (!headingzeros))
+					rawCoverage.println(chr + "\t" + pos1 + "\t" + coverage);
+
+				// ..................................................................
+				// check coverages
+				// ..................................................................
+
+				statistics.setMin("minimum-coverage", coverage);
+				statistics.setMax("maximum-coverage", coverage);
+
+				if (coverage < minBorder) {
+					// write code
+					writeCodeword(chr, pos1, lastCoverage, coverage, "min border " + minBorder);
+					minBorder = quant.getMinBorder(coverage);
+					maxBorder = quant.getMaxBorder(coverage);
+					statistics.inc("left-lower-border");
+				} else if (coverage > maxBorder) {
+					// store point right after error-interval is left
+					writeCodeword(chr, pos1, lastCoverage, coverage, "max border " + maxBorder);
+					minBorder = quant.getMinBorder(coverage);
+					maxBorder = quant.getMaxBorder(coverage);
+					statistics.inc("left-upper-border");
+				}
+
+				if (isExternalCoverage) {
+					minBorder = quant.getMinBorder(coverage);
+					maxBorder = quant.getMaxBorder(coverage);
+				}
+
+				// store values
+				lastCoverage = coverage;
+				lastPos1 = pos1;
+				lastChr = chr;
+			}
+
+			// ..................................................................
+			// Finished
+			// ..................................................................
+
+			// write last codeword (only if not ROI).
+			if (roiFile == null)
+				writeCodeword(chr, pos1 + 1, lastCoverage, coverage, "last");
+
+			// write block borders.
+			blockBorders.add(new GenomicPosition(chr, pos1));
+			String tmp = null;
+			for (GenomicPosition bb : blockBorders) {
+				if (tmp == null)
+					tmp = bb.toStringOrig();
+				else
+					tmp += "," + bb.toStringOrig();
+			}
+			config.setProperty(OPT_BLOCK_BORDERS, tmp);
+			// write chromosome list
+			tmp = null;
+			for (String co : chrOrigList) {
+				if (tmp == null)
+					tmp = co;
+				else
+					tmp += "," + co;
+			}
+			config.setProperty(OPT_CHR_LIST, tmp);
+
+			if (debug)
+				System.out.println("block borders: " + config.getProperty(OPT_BLOCK_BORDERS));
+			double t = (System.currentTimeMillis() - startTime);
+			statistics.set("time [ms]", t);
+			statistics.set("sampled positions", (double) c);
+			statistics.set("speed [pos/ms]", ((double) c / t));
+
+		} finally {
+
+			// garbage collect
+			System.gc();
+
+			// close and compress individual blocks
+			//System.out.println("Finished, now compressing blocks. " + currentBlockIndex );MemoryUtils.debugMemory();
+
+			// close block to flush buffers.
+			chrData.get(currentBlockIndex).close();
+			posData.get(currentBlockIndex).close();
+			cov1Data.get(currentBlockIndex).close();
+			cov2Data.get(currentBlockIndex).close();
+			
+			//System.out.println("closed.");MemoryUtils.debugMemory();
+			
+			// compress the block
+			chrData.get(currentBlockIndex).compress();
+			posData.get(currentBlockIndex).compress();
+			cov1Data.get(currentBlockIndex).compress();
+			cov2Data.get(currentBlockIndex).compress();
+
+			//System.out.println("Ok.");MemoryUtils.debugMemory();
+
+			// get statistics
+			int val = 0;
+			for (FileDataOutputBlock<String> block : chrData) {
+				val += block.getStream().getEncodedEntities();
+			}
+			statistics.set("encodedChroms", val);
+			val = 0;
+			for (FileDataOutputBlock<Integer> block : posData) {
+				val += block.getStream().getEncodedEntities();
+			}
+			statistics.set("encodedPos", val);
+			val = 0;
+			for (FileDataOutputBlock<Integer> block : cov1Data) {
+				val += block.getStream().getEncodedEntities();
+			}
+			statistics.set("encodedCov1", val);
+			val = 0;
+			for (FileDataOutputBlock<Integer> block : cov2Data) {
+				val += block.getStream().getEncodedEntities();
+			}
+			statistics.set("encodedCov2", val);
+
+			// create Header
+			FileHeader header = new FileHeader(FileUtils.createTempFile(workDir, "header_"));
+			header.setConfiguration(config);
+			for (FileDataOutputBlock<?> b : chrData)
+				header.addBlock(b);
+			for (FileDataOutputBlock<?> b : posData)
+				header.addBlock(b);
+			for (FileDataOutputBlock<?> b : cov1Data)
+				header.addBlock(b);
+			for (FileDataOutputBlock<?> b : cov2Data)
+				header.addBlock(b);
+			header.toFile();
+			// merge all blocks
+			CompressedFile cf = new CompressedFile(header);
+			cf.toFile(outFile);
+
+			// delete temporary files.
+			if (!keepWorkDir) {
+				if (header != null)
+					if (!header.deleteFiles())
+						addWarning(new BGraphException("Could not remove header file " + header.getF1()));
+				for (FileDataOutputBlock<?> b : chrData) {
+					if (!b.deleteFiles())
+						addWarning(new BGraphException("Could not remove temporary file(s) of " + b));
+				}
+				for (FileDataOutputBlock<?> b : posData) {
+					if (!b.deleteFiles())
+						addWarning(new BGraphException("Could not remove temporary file(s) of " + b));
+				}
+				for (FileDataOutputBlock<?> b : cov1Data) {
+					if (!b.deleteFiles())
+						addWarning(new BGraphException("Could not remove temporary file(s) of " + b));
+				}
+				for (FileDataOutputBlock<?> b : cov2Data) {
+					if (!b.deleteFiles())
+						addWarning(new BGraphException("Could not remove temporary file(s) of " + b));
+				}
+
+				// delete temporary directory
+				if (!workDir.delete())
+					addMessage("Could not remove temporary directory " + workDir);
+			}
+
+			// stats
+			statistics.set("TOTAL (compressed) [byte]", outFile.length());
+			if (statsFile != null) {
+				PrintStream statsOut = new PrintStream(statsFile);
+				statsOut.println(statistics);
+				statsOut.println(config);
+			}
+		}
+	}
+
+	/**
+	 * Convenience method. Will block-compress with GZIP.
+	 * 
+	 * filter: FLAGS^^1024;FLAGS^^51 qmethod: perc qparam: 0.2
+	 */
+	public static boolean compress(File sortedBam, File vcfFile, File outFile, boolean verbose, String... flags) {
+
+		PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
+		config.setProperty(CoverageCompressor.OPT_BAM_FILE, sortedBam.getAbsolutePath());
+		config.setProperty(CoverageCompressor.OPT_VCF_FILE, vcfFile.getAbsolutePath());
+		config.setProperty(CoverageCompressor.OPT_OUT_FILE, outFile.getAbsolutePath());
+		config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512");
+		config.setProperty(CoverageCompressor.OPT_QUANT_METHOD, QUANT_METHOD.PERC.name());
+		config.setProperty(CoverageCompressor.OPT_QUANT_PARAM, "0.2");
+
+		for (String f : flags)
+			config.setProperty(f, "true");
+
+		if (verbose)
+			debug = true;
+		CoverageCompressor compressor = null;
+		try {
+			compressor = new CoverageCompressor(config);
+			return true;
+		} catch (Throwable e) {
+			if (debug)
+				e.printStackTrace();
+			return false;
+		} finally {
+			if (debug) {
+				if (compressor != null)
+					for (String m : compressor.getMessages())
+						System.out.println("> " + m);
+			}
+			if ((compressor != null) && (compressor.getWarnings().size()) > 0) {
+				System.err.println("Warnings: ");
+				compressor.dumpWarnings();
+			}
+		}
+	}
+
+	/**
+	 * Dump all warnings to stderr.
+	 */
+	public void dumpWarnings() {
+		for (Throwable w : getWarnings())
+			w.printStackTrace(System.err);
+	}
+
+	/**
+	 * Print usage information.
+	 * 
+	 * @param options
+	 */
+	private static void usage(Options options, String subcommand, String e) {
+		HelpFormatter hf = new HelpFormatter();
+		hf.setLeftPadding(10);
+		hf.setDescPadding(2);
+		hf.setWidth(160);
+		hf.setSyntaxPrefix("Usage:    ");
+		hf.printHelp("java -jar x.jar " + CMD, "Params:", options, "", true);
+		if (e != null)
+			System.out.println("\nError: " + e);
+		System.exit(1);
+	}
+
+	/**
+	 * @param args
+	 * @throws ParseException
+	 * @throws IOException
+	 */
+	public static void main(String[] args) throws IOException, ParseException {
+
+		
+//		args = new String[] { "-" + OPT_COVERAGE_FILE,
+//				"/project/oesi/genomicAmbiguity/wgs-coverage-test/ERR174377-sorted.bam.bedtoolscoverage", "-o",
+//				"/project/oesi/genomicAmbiguity/wgs-coverage-test/ERR174377-sorted.bam.bedtoolscoverage.p005.comp", 
+//				"-" + OPT_QUANT_METHOD, "PERC",
+//				"-" + OPT_QUANT_PARAM, "0.05"};
+
+		
+//		args = new String[] { "-" + OPT_COVERAGE_FILE,
+//				"/project/oesi/genomicAmbiguity/random-genome-test/motiftest/randomGenome-repeatmotif-100bp-step10.bam.data", "-o",
+//				"/project/oesi/genomicAmbiguity/random-genome-test/motiftest/randomGenome-repeatmotif-100bp-step10.bam.data.comp", "-" + OPT_SCALE_COVERAGE,
+//				"100.0" };
+
+		// args = new String[] { "-bam",
+		// "/scratch/testbams/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam",
+		// "-o",
+		// "/scratch/testbams/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam.compressed",
+		// "-vcf",
+		// "/scratch/testbams/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped.bam-GATK-final.vcf",
+		// "-rawcoverage",
+		// "/scratch/testbams/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam.rawcoverage"
+		// };
+		//
+		// args = new String[] { "-bam",
+		// "/scratch/testbams/13524_ATCACG_D223KACXX_3_20130430B_20130430_1.trimmed.bam-WRG.bam",
+		// "-o",
+		// "/scratch/testbams/13524_ATCACG_D223KACXX_3_20130430B_20130430_1.trimmed.bam-WRG.bam.compressed",
+		// "-vcf",
+		// "/scratch/testbams/13524_ATCACG_D223KACXX_3_20130430B_20130430_1.trimmed.samt.vcf",
+		// //
+		// "-bed",
+		// "/scratch/testbams/13524_ATCACG_D223KACXX_3_20130430B_20130430_1.trimmed.bam-WRG.bam.roi",
+		// "-createStats", "-dumpRawCoverage" };
+		
+//		 args = new String[] { "-bam", "/scratch/testbams/small.bam",
+//		 "-o", "src/test/resources/covcompress/small.compressed",
+//		 //"-vcf", "/scratch/testbams/small.vcf",
+//		 //"-" + OPT_BED_FILE, "src/test/resources/covcompress/small.roi",
+//		 "-" + OPT_COMPRESSION_ALGORITHM, "BZIP2",
+//		 "-" + OPT_QUANT_METHOD, QUANT_METHOD.PERC.name(),
+//		 "-" + OPT_QUANT_PARAM, "0.2",
+//		 //"-createStats",
+//		 //"-dumpRawCoverage",
+//		 };
+//		 
+		// args = new String[] { "-"+OPT_COVERAGE_FILE,
+		// "/project/oesi/genomicAmbiguity/hg19-genomereads-100bp-CHRY-step10.bam.data",
+		// "-o",
+		// "/project/oesi/genomicAmbiguity/hg19-genomereads-100bp-CHRY-step10.bam.data.comp",
+		// "-" + OPT_QUANT_METHOD, QUANT_METHOD.GRID.name(),
+		// "-" + OPT_QUANT_PARAM, "5.0"
+		// };
+		// args = new String[] { "-bam",
+		// "/project/oesi/Project_Oesophagus/called_variants/1_N/1_N-aln-final-sorted-RECAL.bam",
+		// "-o",
+		// "/project/oesi/Project_Oesophagus/coveragetest/1_N-debugging.compressed",
+		// "-vcf",
+		// "/project/oesi/Project_Oesophagus/called_variants/1_N/1_N-MERGED-final.vcf",
+		// "-bed",
+		// "/project/oesi/Project_Oesophagus/coveragetest/test-roi-1_N.bed",
+		// "-dumpRawCoverage", "-createStats", };
+
+		CommandLineParser parser = new PosixParser();
+
+		// create the Options
+		Options options = new Options();
+		options.addOption("h", "help", false, "Print this usage information.");
+
+		try {
+			// parse the command line arguments
+			CommandLine line = parser.parse(options, args, true);
+
+			// validate that block-size has been set
+			if (line.hasOption("h")) {
+				usage(options, null, null);
+			}
+			options = new Options();
+
+			OptionGroup inputGroup = new OptionGroup();
+			inputGroup.setRequired(true);
+
+			Option opt = new Option("bam", true, "Input BAM file");
+			opt.setLongOpt(OPT_BAM_FILE);
+			opt.setRequired(true);
+			inputGroup.addOption(opt);
+
+			opt = new Option("cov", true, "Input coverage file");
+			opt.setLongOpt(OPT_COVERAGE_FILE);
+			opt.setRequired(true);
+			inputGroup.addOption(opt);
+
+			options.addOptionGroup(inputGroup);
+
+			opt = new Option("vcf", true, "Input VCF file (optional)");
+			opt.setLongOpt(OPT_VCF_FILE);
+			opt.setRequired(false);
+			options.addOption(opt);
+
+			opt = new Option(OPT_BED_FILE, true, "Input BED file containing regions of interest (optional). The file will be interpreted 0-based!");
+			opt.setRequired(false);
+			options.addOption(opt);
+
+			opt = new Option("o", true, "Output file");
+			opt.setLongOpt("out");
+			opt.setRequired(true);
+			options.addOption(opt);
+
+			opt = new Option("t", true, "Temporary working directory (default is current dir)");
+			opt.setLongOpt("temp");
+			opt.setRequired(false);
+			options.addOption(opt);
+
+			opt = new Option(OPT_KEEP_WORKDIR, false, "Do not delete the work directory (e.g., for debugging purposes)");
+			opt.setRequired(false);
+			options.addOption(opt);
+
+			opt = new Option(OPT_CREATE_STATS, false, "Create a statistics file (default: false)");
+			opt.setRequired(false);
+			options.addOption(opt);
+
+			opt = new Option(OPT_STATS_FILE, true, "Statistics file name (default: <outfile>.stats)");
+			opt.setRequired(false);
+			options.addOption(opt);
+
+			opt = new Option(OPT_DUMP_RAW, false,
+					"Create raw coverage file (<outfile>.rawcoverage). No heading or trailing 0-coverage zones will be included. 1-based coords");
+			opt.setRequired(false);
+			options.addOption(opt);
+
+			opt = new Option(OPT_QUANT_METHOD, true, "Quantization method (PERC, GRID, LOG2)");
+			opt.setRequired(false);
+			options.addOption(opt);
+
+			opt = new Option(OPT_QUANT_PARAM, true, "Quantization parameter (0.2)");
+			opt.setRequired(false);
+			options.addOption(opt);
+			
+			opt = new Option(OPT_BLOCKSIZE, true, "Number of codewords per data block ("+DEFAULT_BLOCKSIZE+")");
+			opt.setRequired(false);
+			options.addOption(opt);
+
+			opt = new Option(OPT_SCALE_COVERAGE, true,
+					"Optional parameter for scaling the coverage values. Applicable only for coverage file input (not for BAM files). (default: none)");
+			opt.setRequired(false);
+			options.addOption(opt);
+
+			Option opt_compalgo = new Option(OPT_COMPRESSION_ALGORITHM, true, "Used evelope compression algorithm "
+					+ Arrays.toString(FileDataOutputBlock.BLOCK_COMPRESSION_METHOD.values()) + ". Default method is "
+					+ FileDataOutputBlock.DEFAULT_COMPRESSION_METHOD + ", the option " + OPT_BEST_COMPRESSION
+					+ " overrides this setting and will always use BZIP compression.");
+			opt_compalgo.setRequired(false);
+			options.addOption(opt_compalgo);
+
+			// example: filter reads that were marked as PCR dupl or failed QC:
+			// -filter FLAGS^^1024 -filter "FLAGS^^512
+			Option filter = new Option(
+					"filter",
+					true,
+					"Filter by SAM attribute. Multiple filters can be provided that will be combined by a logical AND. Note that filters have no effect on reads that have no value for the according attribute. Examples: 'X0>9', 'X1=ABC', 'FLAGS^^512', 'none',... [default: -filter FLAGS^^1024 -filter FLAGS^^512]");
+			filter.setRequired(false);
+			options.addOption(filter);
+
+			options.addOption(OPT_VERBOSE, "verbose", false, "be verbose");
+
+			line = parser.parse(options, args);
+
+			// determine envelope compression algorithm
+			BLOCK_COMPRESSION_METHOD compressionMethod = FileDataOutputBlock.compFromString(line.getOptionValue(OPT_COMPRESSION_ALGORITHM));
+			if (line.hasOption(OPT_BEST_COMPRESSION))
+				compressionMethod = BLOCK_COMPRESSION_METHOD.BZIP2;
+
+			// parse filter string
+			String[] tmp = line.getOptionValues("filter");
+			String filters = null;
+			if (tmp == null) {
+				filters = "FLAGS^^1024;FLAGS^^512";
+			} else if (!tmp[0].equalsIgnoreCase("none")) {
+				for (int i = 0; i < tmp.length; i++) {
+					if (filters == null)
+						filters = tmp[i];
+					else
+						filters += ";" + tmp[i];
+				}
+			}
+
+			// create configuration
+			PropertyConfiguration conf = CoverageCompressor.getDefaultConfiguration(compressionMethod);
+			if (line.hasOption(OPT_BAM_FILE))
+				conf.setProperty(OPT_BAM_FILE, line.getOptionValue(OPT_BAM_FILE));
+			if (line.hasOption(OPT_COVERAGE_FILE))
+				conf.setProperty(OPT_COVERAGE_FILE, line.getOptionValue(OPT_COVERAGE_FILE));
+			conf.setProperty(OPT_OUT_FILE, line.getOptionValue("o"));
+			if (line.hasOption("t"))
+				conf.setProperty(OPT_TMP_DIR, line.getOptionValue("t"));
+			if (line.hasOption("vcf"))
+				conf.setProperty(OPT_VCF_FILE, line.getOptionValue("vcf"));
+			if (line.hasOption(OPT_BED_FILE))
+				conf.setProperty(OPT_BED_FILE, line.getOptionValue(OPT_BED_FILE));
+			if (filters != null)
+				conf.setProperty(OPT_BAM_FILTER, filters);
+			if (line.hasOption(OPT_STATS_FILE))
+				conf.setProperty(OPT_STATS_FILE, line.getOptionValue(OPT_STATS_FILE));
+			if ( line.hasOption(OPT_BLOCKSIZE))
+				conf.setProperty(OPT_BLOCKSIZE, line.getOptionValue(OPT_BLOCKSIZE));
+			conf.setProperty(OPT_KEEP_WORKDIR, line.hasOption(OPT_KEEP_WORKDIR) + "");
+			conf.setProperty(OPT_CREATE_STATS, line.hasOption(OPT_CREATE_STATS) + "");
+			conf.setProperty(OPT_DUMP_RAW, line.hasOption(OPT_DUMP_RAW) + "");
+			conf.setProperty(OPT_QUANT_METHOD, line.hasOption(OPT_QUANT_METHOD) ? line.getOptionValue(OPT_QUANT_METHOD) : QUANT_METHOD.PERC.name());
+			conf.setProperty(OPT_QUANT_PARAM, line.hasOption(OPT_QUANT_PARAM) ? line.getOptionValue(OPT_QUANT_PARAM) : "0.2");
+			if (line.hasOption(OPT_SCALE_COVERAGE))
+				conf.setProperty(OPT_SCALE_COVERAGE, line.getOptionValue(OPT_SCALE_COVERAGE));
+			conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
+
+			CoverageCompressor compressor = new CoverageCompressor(conf);
+			compressor.dumpWarnings();
+			System.out.println("Finished.");
+			System.exit(0);
+
+		} catch (MissingOptionException e) {
+			System.err.println("Error: " + e.getMessage());
+			System.err.println();
+			usage(options, null, e.toString());
+		} catch (Throwable e) {
+			e.printStackTrace();
+			usage(options, null, e.toString());
+		}
+
+	}
+
+}
