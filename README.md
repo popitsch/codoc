@@ -1,4 +1,4 @@
 codoc
 =====
 
-CODOC project
+Welcome to the CODOC project
