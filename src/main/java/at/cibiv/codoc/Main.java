@@ -41,14 +41,14 @@ public class Main {
 	 */
 	public static void main(String[] args) throws Throwable {
 
-		File vfile = new File("version.properties");PropertyConfiguration p =null;
-		if ( vfile.exists())
-		p = new PropertyConfiguration(vfile);
-		else
-			if ( ClassLoader.getSystemResourceAsStream("version.properties") != null )
+		File vfile = new File("version.properties");
+		PropertyConfiguration p = null;
+		if (vfile.exists())
+			p = new PropertyConfiguration(vfile);
+		else if (ClassLoader.getSystemResourceAsStream("version.properties") != null)
 			p = new PropertyConfiguration(ClassLoader.getSystemResourceAsStream("version.properties"));
-		
-		VERSION = ( p != null) ? p.getProperty("version", "?"):"?";
+
+		VERSION = (p != null) ? p.getProperty("version", "?") : "?";
 
 		// create the command line parser
 		CommandLineParser parser = new PosixParser();

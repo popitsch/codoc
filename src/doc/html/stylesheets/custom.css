@@ -1,0 +1,16 @@
+.menu
+{
+background-image:url('../img/forward.png');
+background-repeat:no-repeat;
+background-position:2px;
+padding-left:22px;
+}
+.menu a:link, .menu a:visited, .menu a:active
+{
+	color: #000000;
+}
+.menu a:hover
+{
+	color: #000000;
+	text-decoration:underline;
+}

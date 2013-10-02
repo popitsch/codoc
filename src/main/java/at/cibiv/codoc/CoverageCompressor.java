@@ -3,6 +3,7 @@ package at.cibiv.codoc;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -65,7 +66,6 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	public static final String CMD = "compress";
 	public static final String CMD_INFO = "Extracts and compressed coverage data from a SAM/BAM file.";
 
-
 	public static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd G 'at' HH:mm:ss z");
 
 	/**
@@ -111,7 +111,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	public static final String OPT_BLOCK_BORDERS = "blockBorders";
 	public static final String OPT_CHR_LIST = "originalChromosomes";
 
-	public static double DEFAULT_BLOCKSIZE = 1000000; // # of codewords per block.
+	public static double DEFAULT_BLOCKSIZE = 1000000; // # of codewords per
+														// block.
 
 	/**
 	 * The quantization function.
@@ -202,7 +203,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * An ordered(!) list of the original chromosome names
 	 */
 	private List<String> chrOrigList;
-	
+
 	/**
 	 * The number of codewords per data block
 	 */
@@ -315,8 +316,9 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				posData.get(currentBlockIndex).compress();
 				cov1Data.get(currentBlockIndex).compress();
 				cov2Data.get(currentBlockIndex).compress();
-				
-				//System.out.println("Compressed block " + currentBlockIndex);MemoryUtils.debugMemory();
+
+				// System.out.println("Compressed block " +
+				// currentBlockIndex);MemoryUtils.debugMemory();
 			}
 
 			chrData.add(new FileDataOutputBlock<String>(STANDARD_STREAM.CHR.name(), FileUtils.createTempFile(workDir, STANDARD_STREAM.CHR.name() + "_")));
@@ -469,7 +471,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		StringBuffer sb = new StringBuffer();
 
 		// set default compression algorithm
-		sb.append("version=" + Main.VERSION + "\n");
+		sb.append("codoc-version=" + Main.VERSION + "\n");
 
 		// set creation time
 		sb.append("created=" + sdf.format(new Date()) + "\n");
@@ -553,13 +555,12 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 */
 	protected void compress(CoverageIterator<?> coverageIterator) throws Throwable {
 
-
 		this.coverageIterator = coverageIterator;
 		long startTime = System.currentTimeMillis();
 		boolean keepWorkDir = config.getBooleanProperty(OPT_KEEP_WORKDIR, false);
 		boolean createStats = config.getBooleanProperty(OPT_CREATE_STATS, false);
 		boolean dumpRawCoverage = config.getBooleanProperty(OPT_DUMP_RAW, false);
-		debug = config.getBooleanProperty(OPT_VERBOSE, false);		
+		debug = config.getBooleanProperty(OPT_VERBOSE, false);
 		this.blockSize = config.hasProperty(OPT_BLOCKSIZE) ? Double.parseDouble(OPT_BLOCKSIZE) : DEFAULT_BLOCKSIZE;
 		if (blockSize <= 1) // safety
 			throw new RuntimeException("Minimum Block size is 1!");
@@ -849,23 +850,24 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			System.gc();
 
 			// close and compress individual blocks
-			//System.out.println("Finished, now compressing blocks. " + currentBlockIndex );MemoryUtils.debugMemory();
+			// System.out.println("Finished, now compressing blocks. " +
+			// currentBlockIndex );MemoryUtils.debugMemory();
 
 			// close block to flush buffers.
 			chrData.get(currentBlockIndex).close();
 			posData.get(currentBlockIndex).close();
 			cov1Data.get(currentBlockIndex).close();
 			cov2Data.get(currentBlockIndex).close();
-			
-			//System.out.println("closed.");MemoryUtils.debugMemory();
-			
+
+			// System.out.println("closed.");MemoryUtils.debugMemory();
+
 			// compress the block
 			chrData.get(currentBlockIndex).compress();
 			posData.get(currentBlockIndex).compress();
 			cov1Data.get(currentBlockIndex).compress();
 			cov2Data.get(currentBlockIndex).compress();
 
-			//System.out.println("Ok.");MemoryUtils.debugMemory();
+			// System.out.println("Ok.");MemoryUtils.debugMemory();
 
 			// get statistics
 			int val = 0;
@@ -996,13 +998,66 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * 
 	 * @param options
 	 */
+	@SuppressWarnings({ "unchecked" })
 	private static void usage(Options options, String subcommand, String e) {
+		int w = 120;
+
+		Options mandatory = new Options();
+
+		for (Object o : options.getRequiredOptions())
+			if (o instanceof Option) {
+				if (((Option) o).isRequired())
+					mandatory.addOption((Option) o);
+			} else if (o instanceof OptionGroup) {
+				if (((OptionGroup) o).isRequired())
+					mandatory.addOptionGroup((OptionGroup) o);
+			} 
+		for ( Option o : (Collection<Option>) options.getOptions() )
+			if ( o.isRequired() )
+				mandatory.addOption( o);
+		PrintWriter pw = new PrintWriter(System.out);
 		HelpFormatter hf = new HelpFormatter();
-		hf.setLeftPadding(10);
-		hf.setDescPadding(2);
-		hf.setWidth(160);
-		hf.setSyntaxPrefix("Usage:    ");
-		hf.printHelp("java -jar x.jar " + CMD, "Params:", options, "", true);
+		hf.setSyntaxPrefix("");
+
+		hf.printUsage(pw, w, "Usage:  java -jar x.jar " + CMD, options);
+		pw.println();
+		pw.flush();
+
+		hf.printHelp(pw, w, "Mandatory Params", "", mandatory, 8, 2, "");
+		pw.flush();
+		pw.println();
+
+		hf.printHelp(pw, w, "Params", "", options, 8, 2, "");
+
+		pw.flush();
+
+		System.out.println();
+
+		// hf.printOptions(pw, width, options, leftPad, descPad)
+
+		System.out.println();
+		System.out.println("\t-------------------------------- FILTERS -----------------------------------");
+		System.out.println("\tFilters can be used to restrict the coverage extraction from am SAM/BAM file");
+		System.out.println("\tto reads that match the given filter criteria. Multiple filters are combined");
+		System.out.println("\tby a logical AND. Filters are of the form <FIELD><OPERATOR><VALUE>");
+		System.out.println();
+		System.out.println("\tPossible fields:");
+		System.out.println("\tMAPQ\tthe mapping quality");
+		System.out.println("\tFLAGS\tthe read flags");
+		System.out.println("\tOther names will be mapped directly to the optional field name in the SAM file.");
+		System.out.println("\tUse e.g., NM for the 'number of mismatches' field. Reads that do not have a field");
+		System.out.println("\tset will be included. @see http://samtools.sourceforge.net/SAMv1.pdf");
+		System.out.println();
+		System.out.println("\tPossible operators:");
+		System.out.println("\t<, <=, =, >, >=, ^^ (flag unset), && (flag set)");
+		System.out.println();
+		System.out.println("\tExample: (do NOT use reads with mapping quality <= 20, or multiple perfect hits)");
+		System.out.println("\t-filter 'MAPQ>20' -filter 'H0=1'");
+		System.out.println("\t----------------------------------------------------------------------------");
+
+		System.out.println();
+		System.out.println("\tCODOC " + (Main.VERSION == null ? "" : Main.VERSION) + " (c) 2013");
+
 		if (e != null)
 			System.out.println("\nError: " + e);
 		System.exit(1);
@@ -1014,69 +1069,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * @throws IOException
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
-
 		
-//		args = new String[] { "-" + OPT_COVERAGE_FILE,
-//				"/project/oesi/genomicAmbiguity/wgs-coverage-test/ERR174377-sorted.bam.bedtoolscoverage", "-o",
-//				"/project/oesi/genomicAmbiguity/wgs-coverage-test/ERR174377-sorted.bam.bedtoolscoverage.p005.comp", 
-//				"-" + OPT_QUANT_METHOD, "PERC",
-//				"-" + OPT_QUANT_PARAM, "0.05"};
-
-		
-//		args = new String[] { "-" + OPT_COVERAGE_FILE,
-//				"/project/oesi/genomicAmbiguity/random-genome-test/motiftest/randomGenome-repeatmotif-100bp-step10.bam.data", "-o",
-//				"/project/oesi/genomicAmbiguity/random-genome-test/motiftest/randomGenome-repeatmotif-100bp-step10.bam.data.comp", "-" + OPT_SCALE_COVERAGE,
-//				"100.0" };
-
-		// args = new String[] { "-bam",
-		// "/scratch/testbams/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam",
-		// "-o",
-		// "/scratch/testbams/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam.compressed",
-		// "-vcf",
-		// "/scratch/testbams/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped.bam-GATK-final.vcf",
-		// "-rawcoverage",
-		// "/scratch/testbams/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam.rawcoverage"
-		// };
-		//
-		// args = new String[] { "-bam",
-		// "/scratch/testbams/13524_ATCACG_D223KACXX_3_20130430B_20130430_1.trimmed.bam-WRG.bam",
-		// "-o",
-		// "/scratch/testbams/13524_ATCACG_D223KACXX_3_20130430B_20130430_1.trimmed.bam-WRG.bam.compressed",
-		// "-vcf",
-		// "/scratch/testbams/13524_ATCACG_D223KACXX_3_20130430B_20130430_1.trimmed.samt.vcf",
-		// //
-		// "-bed",
-		// "/scratch/testbams/13524_ATCACG_D223KACXX_3_20130430B_20130430_1.trimmed.bam-WRG.bam.roi",
-		// "-createStats", "-dumpRawCoverage" };
-		
-//		 args = new String[] { "-bam", "/scratch/testbams/small.bam",
-//		 "-o", "src/test/resources/covcompress/small.compressed",
-//		 //"-vcf", "/scratch/testbams/small.vcf",
-//		 //"-" + OPT_BED_FILE, "src/test/resources/covcompress/small.roi",
-//		 "-" + OPT_COMPRESSION_ALGORITHM, "BZIP2",
-//		 "-" + OPT_QUANT_METHOD, QUANT_METHOD.PERC.name(),
-//		 "-" + OPT_QUANT_PARAM, "0.2",
-//		 //"-createStats",
-//		 //"-dumpRawCoverage",
-//		 };
-//		 
-		// args = new String[] { "-"+OPT_COVERAGE_FILE,
-		// "/project/oesi/genomicAmbiguity/hg19-genomereads-100bp-CHRY-step10.bam.data",
-		// "-o",
-		// "/project/oesi/genomicAmbiguity/hg19-genomereads-100bp-CHRY-step10.bam.data.comp",
-		// "-" + OPT_QUANT_METHOD, QUANT_METHOD.GRID.name(),
-		// "-" + OPT_QUANT_PARAM, "5.0"
-		// };
-		// args = new String[] { "-bam",
-		// "/project/oesi/Project_Oesophagus/called_variants/1_N/1_N-aln-final-sorted-RECAL.bam",
-		// "-o",
-		// "/project/oesi/Project_Oesophagus/coveragetest/1_N-debugging.compressed",
-		// "-vcf",
-		// "/project/oesi/Project_Oesophagus/called_variants/1_N/1_N-MERGED-final.vcf",
-		// "-bed",
-		// "/project/oesi/Project_Oesophagus/coveragetest/test-roi-1_N.bed",
-		// "-dumpRawCoverage", "-createStats", };
-
 		CommandLineParser parser = new PosixParser();
 
 		// create the Options
@@ -1087,21 +1080,17 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			// parse the command line arguments
 			CommandLine line = parser.parse(options, args, true);
 
-			// validate that block-size has been set
-			if (line.hasOption("h")) {
-				usage(options, null, null);
-			}
 			options = new Options();
 
 			OptionGroup inputGroup = new OptionGroup();
 			inputGroup.setRequired(true);
 
-			Option opt = new Option("bam", true, "Input BAM file");
+			Option opt = new Option("bam", true, "Input BAM file (using this will exclude the -cov parameter)");
 			opt.setLongOpt(OPT_BAM_FILE);
 			opt.setRequired(true);
 			inputGroup.addOption(opt);
 
-			opt = new Option("cov", true, "Input coverage file");
+			opt = new Option("cov", true, "Input coverage file (using this will exclude the -bam parameter)");
 			opt.setLongOpt(OPT_COVERAGE_FILE);
 			opt.setRequired(true);
 			inputGroup.addOption(opt);
@@ -1140,19 +1129,19 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			options.addOption(opt);
 
 			opt = new Option(OPT_DUMP_RAW, false,
-					"Create raw coverage file (<outfile>.rawcoverage). No heading or trailing 0-coverage zones will be included. 1-based coords");
+					"Create raw coverage file (<outfile>.rawcoverage). No heading or trailing 0-coverage zones will be included. Output will be 1-based coordinates.");
 			opt.setRequired(false);
 			options.addOption(opt);
 
-			opt = new Option(OPT_QUANT_METHOD, true, "Quantization method (PERC, GRID, LOG2)");
+			opt = new Option(OPT_QUANT_METHOD, true, "Quantization method (PERC, GRID, LOG2); default: PERC");
 			opt.setRequired(false);
 			options.addOption(opt);
 
-			opt = new Option(OPT_QUANT_PARAM, true, "Quantization parameter (0.2)");
+			opt = new Option(OPT_QUANT_PARAM, true, "Quantization parameter (default: 0.2)");
 			opt.setRequired(false);
 			options.addOption(opt);
-			
-			opt = new Option(OPT_BLOCKSIZE, true, "Number of codewords per data block ("+DEFAULT_BLOCKSIZE+")");
+
+			opt = new Option(OPT_BLOCKSIZE, true, "Number of codewords per data block (default: " + DEFAULT_BLOCKSIZE + ")");
 			opt.setRequired(false);
 			options.addOption(opt);
 
@@ -1161,23 +1150,26 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			opt.setRequired(false);
 			options.addOption(opt);
 
-			Option opt_compalgo = new Option(OPT_COMPRESSION_ALGORITHM, true, "Used evelope compression algorithm "
+			Option opt_compalgo = new Option(OPT_COMPRESSION_ALGORITHM, true, "Used envelope compression algorithm "
 					+ Arrays.toString(FileDataOutputBlock.BLOCK_COMPRESSION_METHOD.values()) + ". Default method is "
-					+ FileDataOutputBlock.DEFAULT_COMPRESSION_METHOD + ", the option " + OPT_BEST_COMPRESSION
-					+ " overrides this setting and will always use BZIP compression.");
+					+ FileDataOutputBlock.DEFAULT_COMPRESSION_METHOD);
 			opt_compalgo.setRequired(false);
 			options.addOption(opt_compalgo);
 
 			// example: filter reads that were marked as PCR dupl or failed QC:
 			// -filter FLAGS^^1024 -filter "FLAGS^^512
-			Option filter = new Option(
-					"filter",
-					true,
-					"Filter by SAM attribute. Multiple filters can be provided that will be combined by a logical AND. Note that filters have no effect on reads that have no value for the according attribute. Examples: 'X0>9', 'X1=ABC', 'FLAGS^^512', 'none',... [default: -filter FLAGS^^1024 -filter FLAGS^^512]");
+			Option filter = new Option("filter", true, "Filter used reads by SAM attribute (applicable only in combination with -bam, not -cov). "
+					+ "Multiple filters can be provided that will be combined by a logical AND. Note that filters have "
+					+ "no effect on reads that have no value for the according attribute. Examples: 'X0>9', 'X1=ABC', "
+					+ "'FLAGS^^512', 'none',... [default: -filter FLAGS^^1024 -filter FLAGS^^512]." + "See below for more help on filters.");
 			filter.setRequired(false);
 			options.addOption(filter);
 
 			options.addOption(OPT_VERBOSE, "verbose", false, "be verbose");
+
+			if (line.hasOption("h")) {
+				usage(options, null, null);
+			}
 
 			line = parser.parse(options, args);
 
@@ -1217,7 +1209,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				conf.setProperty(OPT_BAM_FILTER, filters);
 			if (line.hasOption(OPT_STATS_FILE))
 				conf.setProperty(OPT_STATS_FILE, line.getOptionValue(OPT_STATS_FILE));
-			if ( line.hasOption(OPT_BLOCKSIZE))
+			if (line.hasOption(OPT_BLOCKSIZE))
 				conf.setProperty(OPT_BLOCKSIZE, line.getOptionValue(OPT_BLOCKSIZE));
 			conf.setProperty(OPT_KEEP_WORKDIR, line.hasOption(OPT_KEEP_WORKDIR) + "");
 			conf.setProperty(OPT_CREATE_STATS, line.hasOption(OPT_CREATE_STATS) + "");
@@ -1239,6 +1231,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			usage(options, null, e.toString());
 		} catch (Throwable e) {
 			e.printStackTrace();
+			System.err.println();
 			usage(options, null, e.toString());
 		}
 

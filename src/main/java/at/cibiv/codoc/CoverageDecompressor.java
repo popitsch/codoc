@@ -585,6 +585,7 @@ public class CoverageDecompressor {
 
 	/**
 	 * Close the decompressor.
+	 * 
 	 * @throws IOException
 	 */
 	public void close() throws IOException {
@@ -932,11 +933,12 @@ public class CoverageDecompressor {
 	 */
 	public void interactiveQuerying() throws Throwable {
 		String cmd = null;
+		System.out.println("Decompressed " + getCovFile());
+		System.out.println("Enter '?' to get a list of available chromosomes and 'q' to quit.");
 
 		do {
 			try {
-				System.out.println("Data from " + getCovFile());
-				System.out.print("position? (chr:pos) : ");
+				System.out.print("Enter position (chr:pos) : ");
 				BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
 				cmd = input.readLine();
 
@@ -1184,7 +1186,7 @@ public class CoverageDecompressor {
 	 * 
 	 * @param options
 	 */
-	private static void usage(Options options, String subcommand, String e) {
+	private static void usage(Options options, CMD_COMMANDS subcommand, String e) {
 
 		if (subcommand == null) {
 			System.out.println("Usage:\t\tjava -jar x.jar " + CMD + " <command> [options]:\t");
@@ -1195,13 +1197,30 @@ public class CoverageDecompressor {
 			System.out.println("Command:\t" + CMD_COMMANDS.TOBED + "\tconvert to BED file");
 			System.out.println();
 		} else {
-			System.out.println("Unknown command: " + subcommand);
 			HelpFormatter hf = new HelpFormatter();
 			hf.setLeftPadding(10);
 			hf.setDescPadding(2);
 			hf.setWidth(160);
 			hf.setSyntaxPrefix("Usage:    ");
-			hf.printHelp("java -jar x.jar " + CMD + " " + subcommand, "Params:", options, "", true);
+			String footer = "\n";
+			switch (subcommand) {
+			case HEAD:
+				footer += "Prints the header from a compressed coverage file.";
+				break;
+			case QUERY:
+				footer += "Starts an interactive query session.";
+				break;
+			case TOBED:
+				footer += "Creates a BED file containing regions that are above/below given coverage thresholds.";
+				break;
+			case TOWIG:
+				footer += "Converts the coverage data to a WIG file.";
+				break;
+			default:
+				break;
+			}
+			hf.printHelp("java -jar x.jar " + CMD + " " + subcommand, "Params:", options, footer, true);
+
 		}
 		if (e != null)
 			System.out.println("\nError: " + e);
@@ -1215,110 +1234,12 @@ public class CoverageDecompressor {
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
 
-		//args = new String[] { CMD_COMMANDS.HEAD.name(), "-" + OPT_COV_FILE, "/scratch/projects/codoc/test/small.bam.comp" };
-
-		// args = new String[] { CMD_COMMANDS.TOBED.name(), "-" + OPT_COV_FILE,
-		// "/project/oesi/genomicAmbiguity/random-genome-test/motiftest/randomGenome-repeatmotif-100bp-step10.bam.data.comp",
-		// "-max", "50",
-		// // "-max", "0",
-		// "-" + OPT_OUT_FILE,
-		// "/project/oesi/genomicAmbiguity/random-genome-test/motiftest/lowscoreregions.bed"
-		// };
-		// args = new String[] { CMD_COMMANDS.QUERY.name(), "-" + OPT_COV_FILE,
-		// "/project/oesi/genomicAmbiguity/random-genome-test/motiftest/randomGenome-repeatmotif-100bp-step10.bam.data.comp"
-		// };
-		// args = new String[] { CMD_COMMANDS.QUERY.name(), "-" + OPT_COV_FILE,
-		// "/project/oesi/genomicAmbiguity/wgs-coverage-test/ERR174377-sorted.bam.bedtoolscoverage.p01.comp",
-		// "-v"
-		// };
-		// args = new String[] { CMD_COMMANDS.QUERY.name(), "-" + OPT_COV_FILE,
-		// "/project/oesi/bgraph/compression-eval/data/NA12878/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped-FILTERED.bam.g2.comp",
-		// "-v" };
-
-		// args = new String[] { "evaluate", "-i",
-		// "/scratch/testbams/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam.compressed",
-		// "-vcf",
-		// "/scratch/testbams/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped.bam-GATK-final.vcf",
-		// "-rawcoverage",
-		// "/scratch/testbams/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam.rawcoverage",
-		// "-stats",
-		// "/scratch/testbams/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam.decompstats",
-		// "-o",
-		// "/scratch/testbams/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20.bam.interpolated"
-		// };
-		// args = new String[] { "evaluate", "-" + OPT_COV_FILE,
-		// "/scratch/testbams/13524_ATCACG_D223KACXX_3_20130430B_20130430_1.trimmed.bam-WRG.bam.compressed",
-		// "-" + OPT_VCF_FILE,
-		// "/scratch/testbams/13524_ATCACG_D223KACXX_3_20130430B_20130430_1.trimmed.samt.vcf",
-		// "-" + OPT_RAWCOV_FILE,
-		// "/scratch/testbams/13524_ATCACG_D223KACXX_3_20130430B_20130430_1.trimmed.bam-WRG.bam.compressed.rawcoverage",
-		// "-" + OPT_STATS_FILE,
-		// "/scratch/testbams/13524_ATCACG_D223KACXX_3_20130430B_20130430_1.trimmed.bam-WRG.bam.decompstats",
-		// "-" + OPT_OUT_FILE,
-		// "/scratch/testbams/13524_ATCACG_D223KACXX_3_20130430B_20130430_1.trimmed.bam-WRG.bam.interpolated"
-		// };
-		//
-		// args = new String[] { CMD_COMMANDS.TOBED.name(), "-" + OPT_COV_FILE,
-		// "/scratch/testbams/small.bam.compressed", "-" + OPT_VCF_FILE,
-		// "/scratch/testbams/small.vcf", "-min", "1",
-		// // "-max", "0",
-		// "-" + OPT_CHR_LEN_FILE, "/scratch/testbams/hg19.fa.chrLen", "-" +
-		// OPT_OUT_FILE, "/scratch/testbams/small.bam.uncovered.bed" };
-
-		// args = new String[] {
-		// CMD_COMMANDS.TOBED.toString(),
-		// "-" + OPT_COV_FILE,
-		// "/project/oesi/bgraph/compression-eval/results-human-NA12878/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped.bam.bgraph.p01.comp",
-		// "-" + OPT_OUT_FILE,
-		// "/project/oesi/bgraph/compression-eval/results-human-NA12878/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped.bam.bgraph.p01.comp.covered.bed",
-		// "-" + OPT_VCF_FILE,
-		// "/project/ngs-work/niko/ngs-tools-eval/ngc-eval/NA12878/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped.bam-SAMTOOLS-final.vcf",
-		// "-" + OPT_CHR_LEN_FILE,
-		// "/scratch/testbams/B31_Schutzer_reference.genomesize", "-" +
-		// OPT_VERBOSE, "-min", "1" };
-
-		// args = new String[] { CMD_COMMANDS.TOWIG.toString(), "-" +
-		// OPT_COV_FILE,
-		// "/scratch/testbams/small.bam.compressed", "-" +
-		// OPT_WIG_FILE,
-		// "/scratch/testbams/small.bam.compressed.wig", "-" +
-		// OPT_VCF_FILE, "/scratch/testbams/small.vcf",
-		// // "-"+OPT_WIG_INTERPOLATED,
-		// "-" + OPT_VERBOSE };
-		// args = new String[] { CMD_COMMANDS.TOWIG.toString(), "-" +
-		// OPT_COV_FILE,
-		// "/project/oesi/genomicAmbiguity/hg19-genomereads-100bp-CHRY-step10.bam.data.comp",
-		// "-" +
-		// OPT_WIG_FILE,
-		// "/project/oesi/genomicAmbiguity/hg19-genomereads-100bp-CHRY-step10.bam.data.comp.wig",
-		// "-" + OPT_VERBOSE };
-		// args = new String[] { CMD_COMMANDS.QUERY.toString(), "-" +
-		// OPT_COV_FILE, "/scratch/testbams/small.bam.compressed", "-" +
-		// OPT_VCF_FILE,
-		// "/scratch/testbams/small.vcf",
-		// "-" + OPT_CHR_LEN_FILE,
-		// "/scratch/testbams/hg19.fa.chrLen"
-		// };
-
-		// args = new String[] { CMD_COMMANDS.QUERY.toString(), "-" +
-		// OPT_COV_FILE,
-		// "/project/oesi/bgraph/compression-eval/results-human-NA12878/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped.bam.bgraph.p005.comp",
-		// "-" + OPT_VCF_FILE,
-		// "/project/ngs-work/niko/ngs-tools-eval/ngc-eval/NA12878/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped.bam-SAMTOOLS-final.vcf",
-		// };
-
-		// args = new String[] { CMD_COMMANDS.QUERY.toString(),
-		// "-"+OPT_COV_FILE,
-		// "src/test/resources/covcompress/small.compressed",
-		// "-"+OPT_VCF_FILE,
-		// "src/test/resources/covcompress/small.vcf",
-		// };
-
 		CommandLineParser parser = new PosixParser();
 
 		// create the Options
 		Options options = new Options();
 		options.addOption("h", "help", false, "Print this usage information.");
+		CMD_COMMANDS subcommand = null;
 
 		try {
 
@@ -1330,7 +1251,7 @@ public class CoverageDecompressor {
 				usage(options, null, null);
 			}
 
-			CMD_COMMANDS subcommand = (CMD_COMMANDS) StringUtils.findInEnum(line.getArgs()[0], CMD_COMMANDS.values());
+			subcommand = (CMD_COMMANDS) StringUtils.findInEnum(line.getArgs()[0], CMD_COMMANDS.values());
 			// usage
 			if (line.hasOption("h")) {
 				usage(options, null, null);
@@ -1344,7 +1265,7 @@ public class CoverageDecompressor {
 				case HEAD:
 					options = new Options();
 
-					Option opt = new Option(OPT_COV_FILE, true, "Input file.");
+					Option opt = new Option(OPT_COV_FILE, true, "Compressed coverage input file.");
 					opt.setLongOpt("cov");
 					opt.setRequired(true);
 					options.addOption(opt);
@@ -1381,12 +1302,12 @@ public class CoverageDecompressor {
 				case TOWIG:
 					options = new Options();
 
-					opt = new Option(OPT_COV_FILE, true, "Input file.");
+					opt = new Option(OPT_COV_FILE, true, "Compressed coverage input file.");
 					opt.setLongOpt("cov");
 					opt.setRequired(true);
 					options.addOption(opt);
 
-					opt = new Option(OPT_VCF_FILE, true, "Input VCF file (optional).");
+					opt = new Option(OPT_VCF_FILE, true, "VCF file used for the compression (optional).");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1395,7 +1316,7 @@ public class CoverageDecompressor {
 					options.addOption(opt);
 
 					opt = new Option(OPT_CHR_LEN_FILE, true,
-							"Chromosome length. Used to determine what genomic positions will be considered. File format: chr\\tlength");
+							"Chromosome lengths (file format: chr\\tlength\\n). Use to get proper padding for zero-coverage regions.");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1435,12 +1356,12 @@ public class CoverageDecompressor {
 				case TOBED:
 					options = new Options();
 
-					opt = new Option(OPT_COV_FILE, true, "Input file.");
+					opt = new Option(OPT_COV_FILE, true, "Compressed coverage input file.");
 					opt.setLongOpt("cov");
 					opt.setRequired(true);
 					options.addOption(opt);
 
-					opt = new Option(OPT_VCF_FILE, true, "Input VCF file (optional).");
+					opt = new Option(OPT_VCF_FILE, true, "VCF file used for the compression (optional).");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1449,7 +1370,7 @@ public class CoverageDecompressor {
 					options.addOption(opt);
 
 					opt = new Option(OPT_CHR_LEN_FILE, true,
-							"Chromosome length. Used to determine what genomic positions will be considered. File format: chr\\tlength");
+							"Chromosome lengths (file format: chr\\tlength\\n). Use to get proper padding for zero-coverage regions.");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1462,11 +1383,11 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option("min", true, "minimum coverage (optional).");
+					opt = new Option("min", true, "minimum coverage (omit to leave unrestricted).");
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option("max", true, "maximum coverage (optional).");
+					opt = new Option("max", true, "maximum coverage (omit to leave unrestricted).");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1513,17 +1434,17 @@ public class CoverageDecompressor {
 
 					options = new Options();
 
-					opt = new Option(OPT_COV_FILE, true, "Input file.");
+					opt = new Option(OPT_COV_FILE, true, "Compressed coverage input file.");
 					opt.setLongOpt("cov");
 					opt.setRequired(true);
 					options.addOption(opt);
 
 					opt = new Option(OPT_CHR_LEN_FILE, true,
-							"Chromosome length. Used to determine what genomic positions will be considered. File format: chr\\tlength");
+							"Chromosome lengths (file format: chr\\tlength\\n). Use to get proper padding for zero-coverage regions.");
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_VCF_FILE, true, "Input VCF file (optional).");
+					opt = new Option(OPT_VCF_FILE, true, "VCF file used for the compression (optional).");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1566,10 +1487,12 @@ public class CoverageDecompressor {
 
 		} catch (MissingOptionException e) {
 			e.printStackTrace();
-			usage(options, null, e.toString());
+			System.err.println();
+			usage(options, subcommand, e.toString());
 		} catch (Throwable e) {
 			e.printStackTrace();
-			usage(options, null, e.toString());
+			System.err.println();
+			usage(options, subcommand, e.toString());
 		}
 
 	}
