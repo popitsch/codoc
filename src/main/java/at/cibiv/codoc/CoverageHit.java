@@ -1,6 +1,11 @@
 package at.cibiv.codoc;
 
-
+/**
+ * A query hit.
+ * 
+ * @author niko.popitsch@univie.ac.at
+ *
+ */
 public class CoverageHit {
 
 	private float interpolatedCoverage;
@@ -88,7 +93,26 @@ public class CoverageHit {
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		sb.append("hit: " + getInterpolatedCoverage() + " [" + interval.getChr()+ ":" + interval.getMin() + "-" + interval.getMax() + "], low:" + getLowerBoundary() + ", up: " + getUpperBoundary());
+		sb.append(getInterpolatedCoverage() + " [" + interval.getChr()+ ":" + interval.getMin() + "-" + interval.getMax() + "]" +
+				", low:[" + getLowerBoundary() + "/" + getInterval().getLeftCoverage() + "]" +
+				", up:[" + getUpperBoundary() + "/" + getInterval().getRightCoverage() + "]" +
+				", isFuzzy:" + isFuzzy() + 
+				", isPadding:" + isPadding() + 
+				", prev:"+getInterval().getPrev() +
+				", next:"+getInterval().getNext()
+				);
+		
+//		System.out.println("isFuzzy: " + hit.isFuzzy());
+//		System.out.println("isPadding: " + hit.isPadding());
+//		// System.out.println("prev:" +
+//		// hit.getInterval().getAnnotation("prev"));
+//		// System.out.println("next:" +
+//		// hit.getInterval().getAnnotation("next"));
+//		System.out.println("prev:" + hit.getInterval().getPrev());
+//		System.out.println("next:" + hit.getInterval().getNext());
+//		System.out.println("lc: " + hit.getInterval().getLeftCoverage());
+//		System.out.println("rc: " + hit.getInterval().getRightCoverage());
+		
 		return sb.toString();
 	}
 

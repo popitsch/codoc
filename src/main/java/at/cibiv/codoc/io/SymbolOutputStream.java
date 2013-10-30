@@ -5,6 +5,11 @@ import java.io.OutputStream;
 
 import at.cibiv.ngs.tools.sam.iterator.CharEncoder.SYMBOLS;
 
+/**
+ * @see SymbolInputStream
+ * @author niko.popitsch@univie.ac.at
+ *
+ */
 public class SymbolOutputStream implements PushableStream<SYMBOLS> {
 
 	SubByteOutputStream sout = null;

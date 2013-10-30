@@ -5,9 +5,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 
-import bgraph.util.BGraphException;
-import bgraph.util.PropertyConfiguration;
-
+import at.cibiv.codoc.utils.CodocException;
+import at.cibiv.codoc.utils.PropertyConfiguration;
 import at.cibiv.ngs.tools.sam.iterator.CharEncoder.SYMBOLS;
 
 /**
@@ -39,39 +38,39 @@ public class StreamFactory {
 		BYTE, INTEGER, CHARACTER
 	}
 
-	private static STREAM_TYPE stFromString(String s) throws BGraphException {
+	private static STREAM_TYPE stFromString(String s) throws CodocException {
 		if (s == null)
-			throw new BGraphException("Invalid stream type " + s + "  [" + Arrays.toString(STREAM_TYPE.values())
+			throw new CodocException("Invalid stream type " + s + "  [" + Arrays.toString(STREAM_TYPE.values())
 					+ "]");
 		for (STREAM_TYPE t : STREAM_TYPE.values()) {
 			if (t.name().equalsIgnoreCase(s))
 				return t;
 		}
-		throw new BGraphException("Invalid stream type " + s + "  [" + Arrays.toString(STREAM_TYPE.values())
+		throw new CodocException("Invalid stream type " + s + "  [" + Arrays.toString(STREAM_TYPE.values())
 				+ "]");
 	}
 
-	private static STREAM_DATA_TYPE sdtFromString(String s) throws BGraphException {
+	private static STREAM_DATA_TYPE sdtFromString(String s) throws CodocException {
 		if (s == null)
-			throw new BGraphException("Invalid stream datatype " + s + "  ["
+			throw new CodocException("Invalid stream datatype " + s + "  ["
 					+ Arrays.toString(STREAM_DATA_TYPE.values()) + "]");
 		for (STREAM_DATA_TYPE t : STREAM_DATA_TYPE.values()) {
 			if (t.name().equalsIgnoreCase(s))
 				return t;
 		}
-		throw new BGraphException("Invalid stream datatype " + s + "  ["
+		throw new CodocException("Invalid stream datatype " + s + "  ["
 				+ Arrays.toString(STREAM_DATA_TYPE.values()) + "]");
 	}
 
-	private static STREAM_LENGTH_TYPE sltFromString(String s) throws BGraphException {
+	private static STREAM_LENGTH_TYPE sltFromString(String s) throws CodocException {
 		if (s == null)
-			throw new BGraphException("Invalid stream lengthtype " + s + "  ["
+			throw new CodocException("Invalid stream lengthtype " + s + "  ["
 					+ Arrays.toString(STREAM_LENGTH_TYPE.values()) + "]");
 		for (STREAM_LENGTH_TYPE t : STREAM_LENGTH_TYPE.values()) {
 			if (t.name().equalsIgnoreCase(s))
 				return t;
 		}
-		throw new BGraphException("Invalid stream lengthtype " + s + "  ["
+		throw new CodocException("Invalid stream lengthtype " + s + "  ["
 				+ Arrays.toString(STREAM_LENGTH_TYPE.values()) + "]");
 	}
 
@@ -88,24 +87,24 @@ public class StreamFactory {
 			OutputStream o3, PropertyConfiguration conf, String prefix) throws Throwable {
 
 		if ((conf == null) || (prefix == null))
-			throw new BGraphException("No proper stream configuration!");
+			throw new CodocException("No proper stream configuration!");
 
 		// debug property
 		boolean debug = Boolean.parseBoolean(conf.getProperty(prefix + "-debug", "false"));
 
 		// get stream type
-		STREAM_TYPE type = stFromString(conf.getProperty(prefix + "-type", new BGraphException(
+		STREAM_TYPE type = stFromString(conf.getProperty(prefix + "-type", new CodocException(
 				"No stream type configured for " + prefix + "  [" + Arrays.toString(STREAM_TYPE.values()) + "]")));
 
 		switch (type) {
 		case PREFIX:
 			STREAM_DATA_TYPE datatype3 = sdtFromString(conf.getProperty(
 					prefix + "-datatype",
-					new BGraphException("No stream datatype configured for " + prefix + "  ["
+					new CodocException("No stream datatype configured for " + prefix + "  ["
 							+ Arrays.toString(STREAM_DATA_TYPE.values()) + "]")));
 			STREAM_LENGTH_TYPE lengthtype3 = sltFromString(conf.getProperty(
 					prefix + "-lengthtype",
-					new BGraphException("No stream lengthtype configured for " + prefix + "  ["
+					new CodocException("No stream lengthtype configured for " + prefix + "  ["
 							+ Arrays.toString(STREAM_LENGTH_TYPE.values()) + "]")));
 			Boolean storeDiff = Boolean.parseBoolean(conf.getProperty(prefix + "-storediff", "false"));
 
@@ -120,10 +119,10 @@ public class StreamFactory {
 					return new PrefixOutputStream<Integer>(o1, o2, o3, Integer.class, storeDiff, debug);
 				}
 			default:
-				throw new BGraphException("Prefix encoding supported only for strings");
+				throw new CodocException("Prefix encoding supported only for strings");
 			}
 		default:
-			throw new BGraphException("Stream type not supported!");
+			throw new CodocException("Stream type not supported!");
 
 		}
 	}
@@ -141,24 +140,24 @@ public class StreamFactory {
 			String prefix) throws Throwable {
 
 		if ((conf == null) || (prefix == null))
-			throw new BGraphException("No proper stream configuration!");
+			throw new CodocException("No proper stream configuration!");
 
 		// debug property
 		boolean debug = Boolean.parseBoolean(conf.getProperty(prefix + "-debug", "false"));
 
 		// get stream type
-		STREAM_TYPE type = stFromString(conf.getProperty(prefix + "-type", new BGraphException(
+		STREAM_TYPE type = stFromString(conf.getProperty(prefix + "-type", new CodocException(
 				"No stream type configured for " + prefix + "  [" + Arrays.toString(STREAM_TYPE.values()) + "]")));
 
 		switch (type) {
 		case SUBBYTE:
 			Integer maxSymbols = null;
 			try {
-				String tmp = conf.getProperty(prefix + "-maxSymbols", new BGraphException(
+				String tmp = conf.getProperty(prefix + "-maxSymbols", new CodocException(
 						"No maxSymbols parameter configured for " + prefix));
 				maxSymbols = Integer.parseInt(tmp);
 			} catch (NumberFormatException e) {
-				throw new BGraphException("Invalid maxSymbols " + e);
+				throw new CodocException("Invalid maxSymbols " + e);
 			}
 			return new SubByteOutputStream(out, maxSymbols);
 		case SYMBOLS:
@@ -166,15 +165,15 @@ public class StreamFactory {
 		case GOLOMB:
 			STREAM_DATA_TYPE datatype4 = sdtFromString(conf.getProperty(
 					prefix + "-datatype",
-					new BGraphException("No stream datatype configured for " + prefix + "  ["
+					new CodocException("No stream datatype configured for " + prefix + "  ["
 							+ Arrays.toString(STREAM_DATA_TYPE.values()) + "]")));
 			Integer k = null;
 			try {
-				String kstr = conf.getProperty(prefix + "-k", new BGraphException(
+				String kstr = conf.getProperty(prefix + "-k", new CodocException(
 						"No golomb k parameter configured for " + prefix));
 				k = Integer.parseInt(kstr);
 			} catch (NumberFormatException e) {
-				throw new BGraphException("Invalid k " + e);
+				throw new CodocException("Invalid k " + e);
 			}
 
 			switch (datatype4) {
@@ -185,16 +184,16 @@ public class StreamFactory {
 			case INTEGER:
 				return new GolombOutputStream<Integer>(out, k, Integer.class);
 			default:
-				throw new BGraphException("Golomb encoding supported only for positive integers");
+				throw new CodocException("Golomb encoding supported only for positive integers");
 			}
 		case RLE:
 			STREAM_DATA_TYPE datatype = sdtFromString(conf.getProperty(
 					prefix + "-datatype",
-					new BGraphException("No stream datatype configured for " + prefix + "  ["
+					new CodocException("No stream datatype configured for " + prefix + "  ["
 							+ Arrays.toString(STREAM_DATA_TYPE.values()) + "]")));
 			STREAM_LENGTH_TYPE lengthtype = sltFromString(conf.getProperty(
 					prefix + "-lengthtype",
-					new BGraphException("No stream lengthtype configured for " + prefix + "  ["
+					new CodocException("No stream lengthtype configured for " + prefix + "  ["
 							+ Arrays.toString(STREAM_LENGTH_TYPE.values()) + "]")));
 			switch (datatype) {
 			case BYTE:
@@ -237,12 +236,12 @@ public class StreamFactory {
 					return new RunLengthOutputStream<String, Integer>(out, out, String.class, Integer.class, debug);
 				}
 			case SYMBOLS:
-				throw new BGraphException("Heterogenous stream required");
+				throw new CodocException("Heterogenous stream required");
 			}
 		case STANDARD:
 			STREAM_DATA_TYPE datatype2 = sdtFromString(conf.getProperty(
 					prefix + "-datatype",
-					new BGraphException("No stream datatype configured for " + prefix + "  ["
+					new CodocException("No stream datatype configured for " + prefix + "  ["
 							+ Arrays.toString(STREAM_DATA_TYPE.values()) + "]")));
 			switch (datatype2) {
 			case BYTE:
@@ -259,7 +258,7 @@ public class StreamFactory {
 		case MIXED:
 			return new MixedOutputStream(out, debug);
 		default:
-			throw new BGraphException("Stream type not supported!");
+			throw new CodocException("Stream type not supported!");
 		}
 
 	}
@@ -277,24 +276,24 @@ public class StreamFactory {
 	public static PushableStream<? extends Object> createHeterogenousOutputStream(OutputStream outData,
 			OutputStream outLen, PropertyConfiguration conf, String prefix) throws Throwable {
 		if ((conf == null) || (prefix == null))
-			throw new BGraphException("No proper stream configuration!");
+			throw new CodocException("No proper stream configuration!");
 
 		// debug property
 		boolean debug = Boolean.parseBoolean(conf.getProperty(prefix + "-debug", "false"));
 
 		// get stream type
-		STREAM_TYPE type = stFromString(conf.getProperty(prefix + "-type", new BGraphException(
+		STREAM_TYPE type = stFromString(conf.getProperty(prefix + "-type", new CodocException(
 				"No stream type configured for " + prefix + "  [" + Arrays.toString(STREAM_TYPE.values()) + "]")));
 
 		switch (type) {
 		case RLE:
 			STREAM_DATA_TYPE datatype = sdtFromString(conf.getProperty(
 					prefix + "-datatype",
-					new BGraphException("No stream datatype configured for " + prefix + "  ["
+					new CodocException("No stream datatype configured for " + prefix + "  ["
 							+ Arrays.toString(STREAM_DATA_TYPE.values()) + "]")));
 			STREAM_LENGTH_TYPE lengthtype = sltFromString(conf.getProperty(
 					prefix + "-lengthtype",
-					new BGraphException("No stream lengthtype configured for " + prefix + "  ["
+					new CodocException("No stream lengthtype configured for " + prefix + "  ["
 							+ Arrays.toString(STREAM_LENGTH_TYPE.values()) + "]")));
 			switch (datatype) {
 			case BYTE:
@@ -357,7 +356,7 @@ public class StreamFactory {
 		case NULL:
 			return new StandardOutputStream<Object>(null, Object.class, debug);
 		default:
-			throw new BGraphException("Stream type cannot be heterogenous! " + type);
+			throw new CodocException("Stream type cannot be heterogenous! " + type);
 
 		}
 	}
@@ -365,8 +364,8 @@ public class StreamFactory {
 	public static PopableStream<?> createTripleInputStream(InputStream in1, InputStream in2, InputStream in3,
 			PropertyConfiguration conf, String prefix) throws Throwable {
 		if ((conf == null) || (prefix == null))
-			throw new BGraphException("No proper stream configuration!");
-		STREAM_TYPE type = stFromString(conf.getProperty(prefix + "-type", new BGraphException(
+			throw new CodocException("No proper stream configuration!");
+		STREAM_TYPE type = stFromString(conf.getProperty(prefix + "-type", new CodocException(
 				"No stream type configured for " + prefix + "  [" + Arrays.toString(STREAM_TYPE.values()) + "]")));
 		// debug property
 		boolean debug = Boolean.parseBoolean(conf.getProperty(prefix + "-debug", "false"));
@@ -375,11 +374,11 @@ public class StreamFactory {
 		case PREFIX:
 			STREAM_DATA_TYPE datatype3 = sdtFromString(conf.getProperty(
 					prefix + "-datatype",
-					new BGraphException("No stream datatype configured for " + prefix + "  ["
+					new CodocException("No stream datatype configured for " + prefix + "  ["
 							+ Arrays.toString(STREAM_DATA_TYPE.values()) + "]")));
 			STREAM_LENGTH_TYPE lengthtype3 = sltFromString(conf.getProperty(
 					prefix + "-lengthtype",
-					new BGraphException("No stream lengthtype configured for " + prefix + "  ["
+					new CodocException("No stream lengthtype configured for " + prefix + "  ["
 							+ Arrays.toString(STREAM_LENGTH_TYPE.values()) + "]")));
 			Boolean storeDiff = Boolean.parseBoolean(conf.getProperty(prefix + "-storediff", "false"));
 
@@ -394,11 +393,11 @@ public class StreamFactory {
 					return new PrefixInputStream<Integer>(in1, in2, in3, Integer.class, storeDiff, debug);
 				}
 			default:
-				throw new BGraphException("Prefix encoding supported only for strings");
+				throw new CodocException("Prefix encoding supported only for strings");
 			}
 
 		}
-		throw new BGraphException("Stream type not supported!");
+		throw new CodocException("Stream type not supported!");
 	}
 
 	/**
@@ -411,8 +410,8 @@ public class StreamFactory {
 	public static PopableStream<?> createInputStream(InputStream in, PropertyConfiguration conf, String prefix)
 			throws Throwable {
 		if ((conf == null) || (prefix == null))
-			throw new BGraphException("No proper stream configuration!");
-		STREAM_TYPE type = stFromString(conf.getProperty(prefix + "-type", new BGraphException(
+			throw new CodocException("No proper stream configuration!");
+		STREAM_TYPE type = stFromString(conf.getProperty(prefix + "-type", new CodocException(
 				"No stream type configured for " + prefix + "  [" + Arrays.toString(STREAM_TYPE.values()) + "]")));
 
 		// debug property
@@ -421,11 +420,11 @@ public class StreamFactory {
 		case SUBBYTE:
 			Integer maxSymbols = null;
 			try {
-				String tmp = conf.getProperty(prefix + "-maxSymbols", new BGraphException(
+				String tmp = conf.getProperty(prefix + "-maxSymbols", new CodocException(
 						"No maxSymbols parameter configured for " + prefix));
 				maxSymbols = Integer.parseInt(tmp);
 			} catch (NumberFormatException e) {
-				throw new BGraphException("Invalid maxSymbols "+ e);
+				throw new CodocException("Invalid maxSymbols "+ e);
 			}
 			return new SubByteInputStream(in, maxSymbols);
 		case SYMBOLS:
@@ -433,15 +432,15 @@ public class StreamFactory {
 		case GOLOMB:
 			STREAM_DATA_TYPE datatype4 = sdtFromString(conf.getProperty(
 					prefix + "-datatype",
-					new BGraphException("No stream datatype configured for " + prefix + "  ["
+					new CodocException("No stream datatype configured for " + prefix + "  ["
 							+ Arrays.toString(STREAM_DATA_TYPE.values()) + "]")));
 			Integer k = null;
 			try {
-				String kstr = conf.getProperty(prefix + "-k", new BGraphException(
+				String kstr = conf.getProperty(prefix + "-k", new CodocException(
 						"No golomb k parameter configured for " + prefix));
 				k = Integer.parseInt(kstr);
 			} catch (NumberFormatException e) {
-				throw new BGraphException("Invalid k "+ e);
+				throw new CodocException("Invalid k "+ e);
 			}
 
 			switch (datatype4) {
@@ -452,16 +451,16 @@ public class StreamFactory {
 			case INTEGER:
 				return new GolombInputStream<Integer>(in, k, Integer.class);
 			default:
-				throw new BGraphException("Golomb encoding supported only for positive integers");
+				throw new CodocException("Golomb encoding supported only for positive integers");
 			}
 		case RLE:
 			STREAM_DATA_TYPE datatype = sdtFromString(conf.getProperty(
 					prefix + "-datatype",
-					new BGraphException("No stream datatype configured for " + prefix + "  ["
+					new CodocException("No stream datatype configured for " + prefix + "  ["
 							+ Arrays.toString(STREAM_DATA_TYPE.values()) + "]")));
 			STREAM_LENGTH_TYPE lengthtype = sltFromString(conf.getProperty(
 					prefix + "-lengthtype",
-					new BGraphException("No stream lengthtype configured for " + prefix + "  ["
+					new CodocException("No stream lengthtype configured for " + prefix + "  ["
 							+ Arrays.toString(STREAM_LENGTH_TYPE.values()) + "]")));
 			switch (datatype) {
 			case BYTE:
@@ -506,12 +505,12 @@ public class StreamFactory {
 					return new RunLengthInputStream<String, Integer>(in, in, String.class, Integer.class, debug);
 				}
 			case SYMBOLS:
-				throw new BGraphException("Heterogenous stream required");
+				throw new CodocException("Heterogenous stream required");
 			}
 		case STANDARD:
 			STREAM_DATA_TYPE datatype2 = sdtFromString(conf.getProperty(
 					prefix + "-datatype",
-					new BGraphException("No stream datatype configured for " + prefix + "  ["
+					new CodocException("No stream datatype configured for " + prefix + "  ["
 							+ STREAM_DATA_TYPE.values() + "]")));
 			switch (datatype2) {
 			case BYTE:
@@ -528,7 +527,7 @@ public class StreamFactory {
 		case MIXED:
 			return new MixedInputStream(in, debug);
 		}
-		throw new BGraphException("Stream type not supported!");
+		throw new CodocException("Stream type not supported!");
 	}
 
 	/**
@@ -541,8 +540,8 @@ public class StreamFactory {
 	public static PopableStream<?> createHeterogenousInputStream(InputStream inData, InputStream inLen,
 			PropertyConfiguration conf, String prefix) throws Throwable {
 		if ((conf == null) || (prefix == null))
-			throw new BGraphException("No proper stream configuration!");
-		STREAM_TYPE type = stFromString(conf.getProperty(prefix + "-type", new BGraphException(
+			throw new CodocException("No proper stream configuration!");
+		STREAM_TYPE type = stFromString(conf.getProperty(prefix + "-type", new CodocException(
 				"No stream type configured for " + prefix + "  [" + Arrays.toString(STREAM_TYPE.values()) + "]")));
 
 		// debug property
@@ -552,11 +551,11 @@ public class StreamFactory {
 		case RLE:
 			STREAM_DATA_TYPE datatype = sdtFromString(conf.getProperty(
 					prefix + "-datatype",
-					new BGraphException("No stream datatype configured for " + prefix + "  ["
+					new CodocException("No stream datatype configured for " + prefix + "  ["
 							+ Arrays.toString(STREAM_DATA_TYPE.values()) + "]")));
 			STREAM_LENGTH_TYPE lengthtype = sltFromString(conf.getProperty(
 					prefix + "-lengthtype",
-					new BGraphException("No stream lengthtype configured for " + prefix + "  ["
+					new CodocException("No stream lengthtype configured for " + prefix + "  ["
 							+ Arrays.toString(STREAM_LENGTH_TYPE.values()) + "]")));
 			switch (datatype) {
 			case BYTE:
@@ -621,7 +620,7 @@ public class StreamFactory {
 		case NULL:
 			return new StandardInputStream<Object>(null, Object.class, debug);
 		default:
-			throw new BGraphException("Stream type cannot be heterogenous: " + type);
+			throw new CodocException("Stream type cannot be heterogenous: " + type);
 		}
 	}
 

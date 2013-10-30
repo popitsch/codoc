@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 /**
+ * A stream implementation that supports the push() operation.
  * 
  * @author niko.popitsch@univie.ac.at
  *

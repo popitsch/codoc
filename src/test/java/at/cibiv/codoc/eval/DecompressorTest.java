@@ -13,13 +13,13 @@ import at.cibiv.codoc.CoverageCompressor.QUANT_METHOD;
 import at.cibiv.codoc.CoverageDecompressor;
 import at.cibiv.codoc.CoverageHit;
 import at.cibiv.codoc.io.AbstractDataBlock.BLOCK_COMPRESSION_METHOD;
+import at.cibiv.codoc.utils.PropertyConfiguration;
 import at.cibiv.ngs.tools.lds.GenomicITree;
 import at.cibiv.ngs.tools.lds.GenomicInterval;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
 import at.cibiv.ngs.tools.vcf.SimpleVCFFile;
 import at.cibiv.ngs.tools.vcf.SimpleVCFVariant;
-import bgraph.util.PropertyConfiguration;
 
 public class DecompressorTest {
 
@@ -73,7 +73,7 @@ public class DecompressorTest {
 		// check VCF knot points
 		SimpleVCFFile vcfFile = new SimpleVCFFile(new File(vcf));
 		for (SimpleVCFVariant v : vcfFile.getVariants()) {
-			System.out.println("CHECK " + v + "\n(coverage: " + v.estimateCoverage() + ")");
+			//System.out.println("CHECK " + v + "\n(coverage: " + v.estimateCoverage() + ")");
 			if (v.estimateCoverage() != null)
 				Assert.assertEquals((float) v.estimateCoverage(),
 						decompressor.query(new GenomicPosition(v.getChromosome(), v.getPosition(), COORD_TYPE.ONEBASED)).getInterpolatedCoverage());

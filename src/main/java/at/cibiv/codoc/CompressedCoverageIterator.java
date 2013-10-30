@@ -5,14 +5,14 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import at.cibiv.codoc.utils.PropertyConfiguration;
 import at.cibiv.ngs.tools.sam.iterator.ChromosomeIteratorListener;
 import at.cibiv.ngs.tools.sam.iterator.CoverageIterator;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
-import bgraph.util.PropertyConfiguration;
 
 /**
- * Iterates over the coverage, does not include padding intervals.
+ * Iterates over the coverage. Note that this iterator does not support padding intervals.
  * 
  * @author niko.popitsch@univie.ac.at
  * 
@@ -260,42 +260,5 @@ public class CompressedCoverageIterator implements CoverageIterator<CoverageHit>
 		return decomp;
 	}
 
-	public static void main(String[] args) throws Throwable {
-		PrintStream out = System.out;// new PrintStream("test.csv");
-
-		PropertyConfiguration conf1 = CoverageDecompressor.getDefaultConfiguration();
-		conf1.setProperty(CoverageDecompressor.OPT_COV_FILE,
-				"/project/oesi/genomicAmbiguity/random-genome-test/motiftest/randomGenome-repeatmotif-100bp-step10.bam.data.comp");
-		// conf1.setProperty(CoverageDecompressor.OPT_VCF_FILE,
-		// "/scratch/testbams/small.vcf");
-
-		// PropertyConfiguration conf2 =
-		// CoverageDecompressor.getDefaultConfiguration();
-		// conf2.setProperty(CoverageDecompressor.OPT_COV_FILE,
-		// "/scratch/testbams/evaluation1/small.bam.bgraph.p02.comp");
-		// conf2.setProperty(CoverageDecompressor.OPT_VCF_FILE,
-		// "/scratch/testbams/small.vcf");
-
-		CompressedCoverageIterator it1 = new CompressedCoverageIterator(conf1);
-		out.println("IT1");
-		while (it1.hasNext()) {
-			CoverageHit hit = it1.next();
-			GenomicPosition pos = it1.getGenomicPosition();
-			if (pos.get0Position() % 1000000 == 0)
-				out.println(pos.toString1based() + "\t" + hit.getInterpolatedCoverage());
-		}
-		// CompressedCoverageIterator it2 = new
-		// CompressedCoverageIterator(conf2);
-		// out.println("IT2");
-		// while (it2.hasNext()) {
-		// CoverageHit hit = it2.next();
-		// GenomicPosition pos = it2.getPosition();
-		// out.println(pos + "\t" + hit.getInterpolatedCoverage());
-		// }
-		// out.println("DIFF");
-		// subtract(new CompressedCoverageIterator(conf1), new
-		// CompressedCoverageIterator(conf2), out);
-
-	}
 
 }

@@ -9,8 +9,9 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
-import bgraph.util.FileUtils;
-import bgraph.util.PropertyConfiguration;
+import at.cibiv.codoc.utils.FileUtils;
+import at.cibiv.codoc.utils.PropertyConfiguration;
+
 
 /**
  * A file header that manages multiple data blocks.

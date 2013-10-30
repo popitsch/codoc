@@ -9,7 +9,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
 
-import bgraph.util.PropertyConfiguration;
+import at.cibiv.codoc.utils.PropertyConfiguration;
 
 /**
  * Main class
@@ -32,6 +32,7 @@ public class Main {
 		System.out.println("Usage:\t\tjava -jar x.jar <command> [options]:\t");
 		System.out.println("\t\t" + CoverageCompressor.CMD + "\t" + CoverageCompressor.CMD_INFO);
 		System.out.println("\t\t" + CoverageDecompressor.CMD + "\t" + CoverageDecompressor.CMD_INFO);
+		System.out.println("\t\t" + CoverageTools.CMD + "\t\t" + CoverageTools.CMD_INFO);
 		System.exit(1);
 	}
 
@@ -71,6 +72,8 @@ public class Main {
 				CoverageCompressor.main(args2);
 			} else if (line.getArgs()[0].equalsIgnoreCase(CoverageDecompressor.CMD)) {
 				CoverageDecompressor.main(args2);
+			} else if (line.getArgs()[0].equalsIgnoreCase(CoverageTools.CMD)) {
+				CoverageTools.main(args2);
 			} else
 				usage(options);
 

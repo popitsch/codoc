@@ -5,6 +5,11 @@ import java.io.InputStream;
 
 import at.cibiv.ngs.tools.util.MathUtil;
 
+/**
+ * A pop-able stream that delivers entries with differing datatypes.
+ * @author niko.popitsch@univie.ac.at
+ *
+ */
 public class MixedInputStream implements PopableStream<Object> {
 
 	/**

@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * 
+ * A stream of items that supports the pop() operation.
  * @author niko.popitsch@univie.ac.at
  * 
  * @param <T>

@@ -4,10 +4,11 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-import bgraph.util.FileUtils;
+import at.cibiv.codoc.utils.FileUtils;
+
 
 /**
- * 
+ * A compressed file.
  * @author niko.popitsch@univie.ac.at
  * 
  */

@@ -97,13 +97,6 @@
 					<descriptorRefs>
 						<descriptorRef>jar-with-dependencies</descriptorRef>
 					</descriptorRefs>
-					<manifest>
-						<mainClass>bgraph.Main</mainClass>
-						<packageName>bgraph</packageName>
-						<addClasspath>true</addClasspath>
-					</manifest>
-					<!-- uncomment to use a custom manifest -->
-					<!--manifestFile>src/main/mvn-assemblies/MANIFEST.MF</manifestFile -->
 
 				</configuration>
 			</plugin>
@@ -125,15 +118,29 @@
 		</dependency>
 
 		<dependency>
-			<groupId>cibiv</groupId>
-			<artifactId>bgraph-core</artifactId>
-			<version>0.0.1</version>
+			<groupId>igv</groupId>
+			<artifactId>igv</artifactId>
+			<version>20130628</version>
+			<scope>test</scope>
+			<exclusions>
+				<!-- exclude sam and picard as it conflicts -->
+				<exclusion>
+					<groupId>sam</groupId>
+					<artifactId>sam</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>picard</groupId>
+					<artifactId>picard</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
+
+
 
 	</dependencies>
 
 	<profiles>
-		<!--  define a profile -->
+		<!-- define a profile -->
 		<profile>
 			<id>env-dev</id>
 			<activation>

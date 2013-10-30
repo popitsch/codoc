@@ -91,7 +91,7 @@ buckets=c("[0]","[1]","[1,2]","[2,4]","[4,8]","[8,16]","[16,32]","[32,64]","[64,
 #		scale_x_log10(breaks=meandiffs$bucket, labels=buckets )
 
 labelx=1300
-labelfontsize=4
+labelfontsize=5
 
 mybreaks=c(0.7,1,2,4,8,16,32,64,128,256,512,1024 )
 
@@ -155,6 +155,9 @@ g0=ggplot( meandiffs, aes(bucket)) +
 	scale_x_log10(breaks=mybreaks, labels=buckets ) + 
 
 	theme(legend.position = "none") +
+	theme(axis.text=element_text(size=14)) +
+	theme(axis.title.x=element_text(size=14)) +
+	theme(axis.title.y=element_text(size=14)) +
 	
 	ggtitle(paste("Lossy compression error\n", filename,sep='')) + 
 	theme(plot.title = element_text(lineheight=.8, face="bold"))
@@ -203,6 +206,9 @@ g1=ggplot( data, aes(sizes, avediffs, label=labels, color=cols)) +
 		xlab("File size [byte]") + 
 		ylab("Average difference from true signal") +	
 		theme(plot.title = element_text(lineheight=.8, face="bold")) +
+		theme(axis.text=element_text(size=14)) +
+		theme(axis.title.x=element_text(size=14)) +
+		theme(axis.title.y=element_text(size=14)) +
 		theme(legend.position = "none")
 
 for ( i in 1:length(sizes) )

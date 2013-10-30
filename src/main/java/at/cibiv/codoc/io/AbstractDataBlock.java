@@ -1,5 +1,10 @@
 package at.cibiv.codoc.io;
 
+/**
+ * A block of data.
+ * @author niko.popitsch@univie.ac.at
+ *
+ */
 public abstract class AbstractDataBlock {
 
 	/**

@@ -17,13 +17,12 @@ import at.cibiv.codoc.CoverageDecompressor;
 import at.cibiv.codoc.CoverageHit;
 import at.cibiv.codoc.eval.StatsEntry.ENTRY_TYPE;
 import at.cibiv.codoc.io.AbstractDataBlock.BLOCK_COMPRESSION_METHOD;
+import at.cibiv.codoc.utils.FileUtils;
+import at.cibiv.codoc.utils.PropertyConfiguration;
 import at.cibiv.ngs.tools.util.DebugUtil;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
 import at.cibiv.ngs.tools.util.TabIterator;
-
-import bgraph.util.FileUtils;
-import bgraph.util.PropertyConfiguration;
 
 public class EvaluateDataformats {
 

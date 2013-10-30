@@ -11,6 +11,7 @@ import at.cibiv.ngs.tools.lds.GenomicITree;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 
 /**
+ * An interval tree of code words. 
  * 
  * @author niko.popitsch@univie.ac.at
  * 

@@ -11,12 +11,12 @@ import java.util.Map;
 
 import at.cibiv.codoc.CompressedCoverageIterator;
 import at.cibiv.codoc.CoverageDecompressor;
+import at.cibiv.codoc.utils.PropertyConfiguration;
 import at.cibiv.ngs.tools.bed.BedToolsCoverageIterator;
 import at.cibiv.ngs.tools.sam.iterator.CoverageIterator;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
 import at.cibiv.ngs.tools.util.StringUtils;
-import bgraph.util.PropertyConfiguration;
 
 /**
  * An iterator that synchronized the genomic positions of two coverage iterators

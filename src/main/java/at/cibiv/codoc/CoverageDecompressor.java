@@ -27,6 +27,8 @@ import at.cibiv.codoc.io.FileDataInputBlock;
 import at.cibiv.codoc.io.FileDataOutputBlock;
 import at.cibiv.codoc.io.FileHeader;
 import at.cibiv.codoc.quant.QuantizationFunction;
+import at.cibiv.codoc.utils.CodocException;
+import at.cibiv.codoc.utils.PropertyConfiguration;
 import at.cibiv.ngs.tools.lds.GenomicITree;
 import at.cibiv.ngs.tools.lds.GenomicInterval;
 import at.cibiv.ngs.tools.sam.iterator.ParseException;
@@ -37,9 +39,13 @@ import at.cibiv.ngs.tools.util.TabIterator;
 import at.cibiv.ngs.tools.vcf.SimpleVCFFile;
 import at.cibiv.ngs.tools.vcf.SimpleVCFVariant;
 import at.cibiv.ngs.tools.wig.WigOutputStream;
-import bgraph.util.BGraphException;
-import bgraph.util.PropertyConfiguration;
 
+/**
+ * A decompressor for DOC data.
+ * 
+ * @author niko.popitsch@univie.ac.at
+ *
+ */
 public class CoverageDecompressor {
 
 	public static final String CMD = "decompress";
@@ -209,7 +215,7 @@ public class CoverageDecompressor {
 	 */
 	public CoverageDecompressor(PropertyConfiguration conf) throws Throwable {
 		if (conf == null) {
-			throw new BGraphException("Cannot decompress with null configuration");
+			throw new CodocException("Cannot decompress with null configuration");
 		}
 		// dump header and exit?
 		if (conf.getBooleanProperty(OPT_DUMP_HEADER_AND_EXIT, false)) {
@@ -317,19 +323,19 @@ public class CoverageDecompressor {
 
 		if (!chrData.get(idx).isDecompressed())
 			if (!chrData.get(idx).decompress())
-				throw new BGraphException("Could not remove decompressed file(s) of " + chrData.get(idx));
+				throw new CodocException("Could not remove decompressed file(s) of " + chrData.get(idx));
 		chrData.get(idx).configure(compressedConfig);
 		if (!posData.get(idx).isDecompressed())
 			if (!posData.get(idx).decompress())
-				throw new BGraphException("Could not remove decompressed file(s) of " + posData.get(idx));
+				throw new CodocException("Could not remove decompressed file(s) of " + posData.get(idx));
 		posData.get(idx).configure(compressedConfig);
 		if (!cov1Data.get(idx).isDecompressed())
 			if (!cov1Data.get(idx).decompress())
-				throw new BGraphException("Could not remove decompressed file(s) of " + cov1Data.get(idx));
+				throw new CodocException("Could not remove decompressed file(s) of " + cov1Data.get(idx));
 		cov1Data.get(idx).configure(compressedConfig);
 		if (!cov2Data.get(idx).isDecompressed())
 			if (!cov2Data.get(idx).decompress())
-				throw new BGraphException("Could not remove decompressed file(s) of " + cov2Data.get(idx));
+				throw new CodocException("Could not remove decompressed file(s) of " + cov2Data.get(idx));
 		cov2Data.get(idx).configure(compressedConfig);
 
 		String lastchr = "";
@@ -534,7 +540,7 @@ public class CoverageDecompressor {
 				if (block != null)
 					block.close();
 			} catch (IOException e) {
-				throw new BGraphException("Cannot close block " + block, e);
+				throw new CodocException("Cannot close block " + block, e);
 			}
 		}
 		for (FileDataInputBlock<Integer> block : posData) {
@@ -542,7 +548,7 @@ public class CoverageDecompressor {
 				if (block != null)
 					block.close();
 			} catch (IOException e) {
-				throw new BGraphException("Cannot close block " + block, e);
+				throw new CodocException("Cannot close block " + block, e);
 			}
 		}
 		for (FileDataInputBlock<Integer> block : cov1Data) {
@@ -550,7 +556,7 @@ public class CoverageDecompressor {
 				if (block != null)
 					block.close();
 			} catch (IOException e) {
-				throw new BGraphException("Cannot close block " + block, e);
+				throw new CodocException("Cannot close block " + block, e);
 			}
 		}
 		for (FileDataInputBlock<Integer> block : cov2Data) {
@@ -558,7 +564,7 @@ public class CoverageDecompressor {
 				if (block != null)
 					block.close();
 			} catch (IOException e) {
-				throw new BGraphException("Cannot close block " + block, e);
+				throw new CodocException("Cannot close block " + block, e);
 			}
 		}
 
@@ -692,7 +698,7 @@ public class CoverageDecompressor {
 				this.vcfFile = conf.hasProperty(OPT_VCF_FILE) ? new File(conf.getProperty(OPT_VCF_FILE)) : null;
 			// Check whether file was compressed with VCF knotpoints
 			if (compressedConfig.hasProperty(CoverageCompressor.OPT_VCF_FILE) && vcfFile == null)
-				System.err.println(new BGraphException("NOTE that file was compressed with the VCF file "
+				System.err.println(new CodocException("NOTE that file was compressed with the VCF file "
 						+ compressedConfig.getProperty(CoverageCompressor.OPT_VCF_FILE)
 						+ " but decompression was called without this file. Results will be inaccurate."));
 
@@ -744,7 +750,7 @@ public class CoverageDecompressor {
 			if (debug)
 				System.out.println("Block-borders:" + Arrays.toString(bb));
 			if (bb.length < 2)
-				throw new BGraphException("Found less than 1 block!");
+				throw new CodocException("Found less than 1 block!");
 			for (int i = 1; i < bb.length; i++) {
 				int blockId = (i - 1);
 				GenomicPosition p1 = new GenomicPosition(bb[i - 1].split(":")[0], new Long(bb[i - 1].split(":")[1]));
@@ -946,7 +952,7 @@ public class CoverageDecompressor {
 					break;
 
 				if (cmd.equalsIgnoreCase("?")) {
-					System.out.println(chrOrigList);
+					System.out.println("chr:\t" + chrOrigList);
 					continue;
 				}
 
@@ -956,25 +962,25 @@ public class CoverageDecompressor {
 				// System.out.println("Query " + pos);\
 				CoverageHit hit = query(pos);
 				if (hit == null)
-					System.out.println("N/A");
+					System.out.println("cov:\tN/A");
 				else {
 					if (hit.isFuzzy()) {
-						System.out.println(hit.getInterpolatedCoverage() + " [" + hit.getLowerBoundary() + "-" + hit.getUpperBoundary() + "]");
+						System.out.println("cov:\t" + hit.getInterpolatedCoverage() + " [" + hit.getLowerBoundary() + "-" + hit.getUpperBoundary() + "]");
 					} else
-						System.out.println(hit.getInterpolatedCoverage());
+						System.out.println("cov:\t" + hit.getInterpolatedCoverage());
 
-					System.out.println("hit: " + hit);
-					System.out.println("isFuzzy: " + hit.isFuzzy());
-					System.out.println("isPadding: " + hit.isPadding());
-					// System.out.println("prev:" +
-					// hit.getInterval().getAnnotation("prev"));
-					// System.out.println("next:" +
-					// hit.getInterval().getAnnotation("next"));
-					System.out.println("prev:" + hit.getInterval().getPrev());
-					System.out.println("next:" + hit.getInterval().getNext());
-					System.out.println("lc: " + hit.getInterval().getLeftCoverage());
-					System.out.println("rc: " + hit.getInterval().getRightCoverage());
-					System.out.println("time:" + (hit.getExecTime() / 1000) + "micros.");
+					System.out.println("\tinfo:\t" + hit);
+//					System.out.println("isFuzzy: " + hit.isFuzzy());
+//					System.out.println("isPadding: " + hit.isPadding());
+//					// System.out.println("prev:" +
+//					// hit.getInterval().getAnnotation("prev"));
+//					// System.out.println("next:" +
+//					// hit.getInterval().getAnnotation("next"));
+//					System.out.println("prev:" + hit.getInterval().getPrev());
+//					System.out.println("next:" + hit.getInterval().getNext());
+//					System.out.println("lc: " + hit.getInterval().getLeftCoverage());
+//					System.out.println("rc: " + hit.getInterval().getRightCoverage());
+					System.out.println("\ttime:\t" + (hit.getExecTime() / 1000) + "micros.");
 				}
 
 			} catch (NumberFormatException e0) {
@@ -1233,6 +1239,8 @@ public class CoverageDecompressor {
 	 * @throws IOException
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
+		
+		args=new String[] {"query", "-cov", "src/test/resources/covcompress/small.compressed" };
 
 		CommandLineParser parser = new PosixParser();
 

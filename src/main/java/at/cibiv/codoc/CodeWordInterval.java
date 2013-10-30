@@ -4,6 +4,8 @@ import at.cibiv.ngs.tools.lds.GenomicInterval;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
 
 /**
+ * A genomic interval that additionally stores all data required for
+ * interpolating coverage values.
  * 
  * @author niko.popitsch@univie.ac.at
  * 
@@ -58,13 +60,12 @@ public class CodeWordInterval extends GenomicInterval {
 	public void setNext(CodeWordInterval next) {
 		this.next = next;
 	}
-	
+
 	@Override
 	public String toString() {
 		String ret = super.toString();
-		ret+=", lc:"+getLeftCoverage() + ",rc:"+getRightCoverage();
+		ret += ", lc:" + getLeftCoverage() + ",rc:" + getRightCoverage();
 		return ret;
 	}
-	
 
 }

@@ -2,7 +2,7 @@ package at.cibiv.codoc.quant;
 
 import at.ac.univie.cs.mis.lds.index.itree.Interval;
 import at.ac.univie.cs.mis.lds.index.itree.IntervalImpl;
-import bgraph.util.BGraphException;
+import at.cibiv.codoc.utils.CodocException;
 
 /**
  * Quantization based on coverage-percentage.
@@ -16,9 +16,9 @@ public class PercentageQuatization implements QuantizationFunction {
 
 	private double percentage;
 
-	public PercentageQuatization(double percentage) throws BGraphException {
+	public PercentageQuatization(double percentage) throws CodocException {
 		if ((percentage < 0) || (percentage > 1f))
-			throw new BGraphException("percentage has to be in [0; 1]");
+			throw new CodocException("percentage has to be in [0; 1]");
 		this.percentage = percentage;
 	}
 
@@ -31,12 +31,12 @@ public class PercentageQuatization implements QuantizationFunction {
 	public int getMinBorder(int coverage) {
 		return (int) Math.round((double) coverage * (1d - percentage));
 	}
-	
+
 	@Override
-	public Interval<Integer> getBorderInterval( int coverage ) {
+	public Interval<Integer> getBorderInterval(int coverage) {
 		return new IntervalImpl<Integer>(getMinBorder(coverage), getMaxBorder(coverage));
 	}
-	
+
 	public double getPercentage() {
 		return percentage;
 	}
@@ -44,7 +44,5 @@ public class PercentageQuatization implements QuantizationFunction {
 	public void setPercentage(double percentage) {
 		this.percentage = percentage;
 	}
-
-
 
 }

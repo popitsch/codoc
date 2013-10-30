@@ -31,6 +31,8 @@ import at.cibiv.codoc.quant.LogarithmicGridQuatization;
 import at.cibiv.codoc.quant.PercentageQuatization;
 import at.cibiv.codoc.quant.QuantizationFunction;
 import at.cibiv.codoc.quant.RegularGridQuatization;
+import at.cibiv.codoc.utils.CodocException;
+import at.cibiv.codoc.utils.PropertyConfiguration;
 import at.cibiv.ngs.tools.bed.BedToolsCoverageIterator;
 import at.cibiv.ngs.tools.bed.SimpleBEDFile;
 import at.cibiv.ngs.tools.lds.GenomicInterval;
@@ -47,11 +49,9 @@ import at.cibiv.ngs.tools.util.Statistics;
 import at.cibiv.ngs.tools.util.StringUtils;
 import at.cibiv.ngs.tools.vcf.SimpleVCFFile;
 import at.cibiv.ngs.tools.vcf.SimpleVCFVariant;
-import bgraph.util.BGraphException;
-import bgraph.util.PropertyConfiguration;
 
 /**
- * A compressor for genomic coverage information.
+ * A compressor for DOC data.
  * 
  * @author niko.popitsch@univie.ac.at
  * 
@@ -236,7 +236,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 					if (f != null)
 						filters.add(f);
 					else
-						warnings.add(new BGraphException("Unable to parse filter string " + t + " - IGNORING"));
+						warnings.add(new CodocException("Unable to parse filter string " + t + " - IGNORING"));
 				}
 
 			}
@@ -497,29 +497,29 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * @param qm
 	 * @param qp
 	 * @return
-	 * @throws BGraphException
+	 * @throws CodocException
 	 */
-	protected static QuantizationFunction instantiateQuantizationFunction(PropertyConfiguration config) throws BGraphException {
+	protected static QuantizationFunction instantiateQuantizationFunction(PropertyConfiguration config) throws CodocException {
 		QUANT_METHOD qm = (QUANT_METHOD) StringUtils.findInEnum(config.getProperty(OPT_QUANT_METHOD), QUANT_METHOD.values());
 		if (qm == null)
-			throw new BGraphException("No valid quantization method provided (" + config.getProperty(OPT_QUANT_METHOD) + "). Set any of "
+			throw new CodocException("No valid quantization method provided (" + config.getProperty(OPT_QUANT_METHOD) + "). Set any of "
 					+ Arrays.toString(QUANT_METHOD.values()));
 
 		switch (qm) {
 		case PERC:
 			if (config.getProperty(OPT_QUANT_PARAM) == null)
-				throw new BGraphException("No valid quantization parameter (percentage) provided. Set a float value.");
+				throw new CodocException("No valid quantization parameter (percentage) provided. Set a float value.");
 			double qp = Double.parseDouble(config.getProperty(OPT_QUANT_PARAM));
 			return new PercentageQuatization(qp);
 		case GRID:
 			if (config.getProperty(OPT_QUANT_PARAM) == null)
-				throw new BGraphException("No valid quantization parameter (grid height)  provided. Set a float value.");
+				throw new CodocException("No valid quantization parameter (grid height)  provided. Set a float value.");
 			qp = Double.parseDouble(config.getProperty(OPT_QUANT_PARAM));
 			return new RegularGridQuatization(qp);
 		case LOG2:
 			return new LogarithmicGridQuatization();
 		}
-		throw new BGraphException("No valid quantization method passed " + qm);
+		throw new CodocException("No valid quantization method passed " + qm);
 	}
 
 	/**
@@ -853,19 +853,21 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			// System.out.println("Finished, now compressing blocks. " +
 			// currentBlockIndex );MemoryUtils.debugMemory();
 
-			// close block to flush buffers.
-			chrData.get(currentBlockIndex).close();
-			posData.get(currentBlockIndex).close();
-			cov1Data.get(currentBlockIndex).close();
-			cov2Data.get(currentBlockIndex).close();
+			if (currentBlockIndex >= 0) {
+				// close block to flush buffers.
+				chrData.get(currentBlockIndex).close();
+				posData.get(currentBlockIndex).close();
+				cov1Data.get(currentBlockIndex).close();
+				cov2Data.get(currentBlockIndex).close();
 
-			// System.out.println("closed.");MemoryUtils.debugMemory();
+				// System.out.println("closed.");MemoryUtils.debugMemory();
 
-			// compress the block
-			chrData.get(currentBlockIndex).compress();
-			posData.get(currentBlockIndex).compress();
-			cov1Data.get(currentBlockIndex).compress();
-			cov2Data.get(currentBlockIndex).compress();
+				// compress the block
+				chrData.get(currentBlockIndex).compress();
+				posData.get(currentBlockIndex).compress();
+				cov1Data.get(currentBlockIndex).compress();
+				cov2Data.get(currentBlockIndex).compress();
+			}
 
 			// System.out.println("Ok.");MemoryUtils.debugMemory();
 
@@ -911,22 +913,22 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			if (!keepWorkDir) {
 				if (header != null)
 					if (!header.deleteFiles())
-						addWarning(new BGraphException("Could not remove header file " + header.getF1()));
+						addWarning(new CodocException("Could not remove header file " + header.getF1()));
 				for (FileDataOutputBlock<?> b : chrData) {
 					if (!b.deleteFiles())
-						addWarning(new BGraphException("Could not remove temporary file(s) of " + b));
+						addWarning(new CodocException("Could not remove temporary file(s) of " + b));
 				}
 				for (FileDataOutputBlock<?> b : posData) {
 					if (!b.deleteFiles())
-						addWarning(new BGraphException("Could not remove temporary file(s) of " + b));
+						addWarning(new CodocException("Could not remove temporary file(s) of " + b));
 				}
 				for (FileDataOutputBlock<?> b : cov1Data) {
 					if (!b.deleteFiles())
-						addWarning(new BGraphException("Could not remove temporary file(s) of " + b));
+						addWarning(new CodocException("Could not remove temporary file(s) of " + b));
 				}
 				for (FileDataOutputBlock<?> b : cov2Data) {
 					if (!b.deleteFiles())
-						addWarning(new BGraphException("Could not remove temporary file(s) of " + b));
+						addWarning(new CodocException("Could not remove temporary file(s) of " + b));
 				}
 
 				// delete temporary directory
@@ -1011,10 +1013,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			} else if (o instanceof OptionGroup) {
 				if (((OptionGroup) o).isRequired())
 					mandatory.addOptionGroup((OptionGroup) o);
-			} 
-		for ( Option o : (Collection<Option>) options.getOptions() )
-			if ( o.isRequired() )
-				mandatory.addOption( o);
+			}
+		for (Option o : (Collection<Option>) options.getOptions())
+			if (o.isRequired())
+				mandatory.addOption(o);
 		PrintWriter pw = new PrintWriter(System.out);
 		HelpFormatter hf = new HelpFormatter();
 		hf.setSyntaxPrefix("");
@@ -1039,7 +1041,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		System.out.println("\t-------------------------------- FILTERS -----------------------------------");
 		System.out.println("\tFilters can be used to restrict the coverage extraction from am SAM/BAM file");
 		System.out.println("\tto reads that match the given filter criteria. Multiple filters are combined");
-		System.out.println("\tby a logical AND. Filters are of the form <FIELD><OPERATOR><VALUE>");
+		System.out.println("\tby a logical AND. Filters are of the form <FIELD><OPERATOR><VALUE>.");
 		System.out.println();
 		System.out.println("\tPossible fields:");
 		System.out.println("\tMAPQ\tthe mapping quality");
@@ -1069,7 +1071,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * @throws IOException
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
-		
+
 		CommandLineParser parser = new PosixParser();
 
 		// create the Options
@@ -1129,7 +1131,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			options.addOption(opt);
 
 			opt = new Option(OPT_DUMP_RAW, false,
-					"Create raw coverage file (<outfile>.rawcoverage). No heading or trailing 0-coverage zones will be included. Output will be 1-based coordinates.");
+					"Create raw coverage file (<outfile>.rawcoverage). No heading or trailing 0-coverage zones will be included. Output will have 1-based coordinates.");
 			opt.setRequired(false);
 			options.addOption(opt);
 

@@ -5,6 +5,11 @@ import java.io.InputStream;
 
 import at.cibiv.ngs.tools.sam.iterator.CharEncoder.SYMBOLS;
 
+/**
+ * A stream that supports the pop() operation returning SYMBOLs
+ * @author niko.popitsch@univie.ac.at
+ *
+ */
 public class SymbolInputStream implements PopableStream<SYMBOLS> {
 
 	SubByteInputStream sin = null;

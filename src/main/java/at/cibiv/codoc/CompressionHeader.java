@@ -8,7 +8,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-
+/**
+ * Header of a CODOC file.
+ * @author niko.popitsch@univie.ac.at
+ *
+ */
 public class CompressionHeader {
 
 	public static final String PREFIX = "#";

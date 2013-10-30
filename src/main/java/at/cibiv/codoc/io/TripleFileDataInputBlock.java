@@ -7,8 +7,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 
-import bgraph.util.FileUtils;
-import bgraph.util.PropertyConfiguration;
+import at.cibiv.codoc.utils.FileUtils;
+import at.cibiv.codoc.utils.PropertyConfiguration;
 
 /**
  * A block of data.

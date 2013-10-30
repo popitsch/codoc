@@ -6,7 +6,7 @@ import java.io.OutputStream;
 import at.cibiv.ngs.tools.util.MathUtil;
 
 /**
- * A mixed output stream.
+ * A push-able output stream that accepts items with differing datatype.
  * 
  * @author niko.popitsch@univie.ac.at
  *

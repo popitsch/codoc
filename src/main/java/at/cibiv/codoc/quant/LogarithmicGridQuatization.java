@@ -1,10 +1,10 @@
 package at.cibiv.codoc.quant;
 
+
 import at.ac.univie.cs.mis.lds.index.itree.Interval;
 import at.ac.univie.cs.mis.lds.index.itree.IntervalImpl;
-
-import bgraph.util.BGraphException;
-import bgraph.util.MathUtils;
+import at.cibiv.codoc.utils.CodocException;
+import at.cibiv.codoc.utils.MathUtils;
 
 /**
  * Quantization based on a log2 grid.
@@ -14,7 +14,7 @@ import bgraph.util.MathUtils;
  */
 public class LogarithmicGridQuatization implements QuantizationFunction {
 
-	public LogarithmicGridQuatization() throws BGraphException {
+	public LogarithmicGridQuatization() throws CodocException {
 	}
 
 	@Override
@@ -36,31 +36,29 @@ public class LogarithmicGridQuatization implements QuantizationFunction {
 			try {
 				upper = (int) MathUtils.pow2(ld + 1);
 				lower = upper >> 1;
-//				System.out.println("[" + lower + "/" + upper + "] "  + ld + "," + coverage);
-			} catch (BGraphException e) {
+			} catch (CodocException e) {
 				e.printStackTrace();
 			}
 
 		}
 		Interval<Integer> borders = new IntervalImpl<Integer>(lower, upper);
-//		System.out.println("[" + lower + "/" + upper + "] "  + borders);
 		return borders;
 	}
 
-	/**
-	 * Debugging.
-	 * 
-	 * @param args
-	 * @throws BGraphException
-	 */
-	public static void main(String[] args) throws BGraphException {
-		LogarithmicGridQuatization q = new LogarithmicGridQuatization();
-		for (int i = 50; i > 0; i--) {
-			Interval<Integer> borders = q.getBorderInterval(i);
-			System.out.println(i + "=>" + borders);
-			if (!borders.contains(i))
-				System.err.println("ERR");
-		}
-	}
+//	/**
+//	 * Debugging.
+//	 * 
+//	 * @param args
+//	 * @throws CodocException
+//	 */
+//	public static void main(String[] args) throws CodocException {
+//		LogarithmicGridQuatization q = new LogarithmicGridQuatization();
+//		for (int i = 50; i > 0; i--) {
+//			Interval<Integer> borders = q.getBorderInterval(i);
+//			System.out.println(i + "=>" + borders);
+//			if (!borders.contains(i))
+//				System.err.println("ERR");
+//		}
+//	}
 
 }

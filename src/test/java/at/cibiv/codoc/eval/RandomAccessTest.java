@@ -6,10 +6,10 @@ import java.util.List;
 import java.util.Random;
 
 import at.cibiv.codoc.CoverageDecompressor;
+import at.cibiv.codoc.utils.PropertyConfiguration;
 import at.cibiv.ngs.tools.util.DebugUtil;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
-import bgraph.util.PropertyConfiguration;
 
 public class RandomAccessTest {
 	

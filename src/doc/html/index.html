@@ -1,107 +1,184 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <title>CODOC</title>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="chrome=1">
+<title>CODOC</title>
 
-    <link rel="stylesheet" href="stylesheets/styles.css">
-    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
-    <link rel="stylesheet" href="stylesheets/custom.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-    <!--[if lt IE 9]>
+<link rel="stylesheet" href="stylesheets/styles.css">
+<link rel="stylesheet" href="stylesheets/pygment_trac.css">
+<link rel="stylesheet" href="stylesheets/custom.css">
+<meta name="viewport"
+	content="width=device-width, initial-scale=1, user-scalable=no">
+<!--[if lt IE 9]>
     <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-  </head>
-  <body>
-    <div class="wrapper">
-      <header>
-        <pre style="font-family:monospace;">
+</head>
+<body>
+	<div class="wrapper">
+		<header>
+			<pre style="font-family: monospace;">
   _________  ___  ____  _____
  / ___/ __ \/ _ \/ __ \/ ___/
 / /__/ /_/ / // / /_/ / /__  
 \___/\____/____/\____/\___/  
                             
         </pre>
-        <p>CODOC is a compressed data format and API for coverage data stemming from sequencing experiments</p>
+			<p>CODOC is a compressed data format and API for coverage data
+				stemming from sequencing experiments</p>
 
-		<p class="view">
-        <ul>
-          <li><a href="https://github.com/popitsch/codoc/zipball/master">Download <strong>ZIP File</strong></a></li>
-          <li><a href="https://github.com/popitsch/codoc/tarball/master">Download <strong>TAR Ball</strong></a></li>
-          <li><a href="https://github.com/popitsch/codoc">View On <strong>GitHub</strong></a></li>
-        </ul>
-        </p>
-        
-        <p class="menu">
-        <a href="#about">About CODOC</a>
-		</p>
-        <p class="menu">
-        <a href="#examples">Usage examples</a>
-		</p>
-		<p class="menu">
-        <a href="#usage">Usage information</a>
-		</p>
-        <p class="menu">
-       	<a href="https://github.com/popitsch/codoc">View on GitHub</a>
-       	</p>
+			<p class="view">
+			<ul>
+				<li><a href="https://github.com/popitsch/codoc/zipball/master">Download
+						<strong>ZIP File</strong>
+				</a></li>
+				<li><a href="https://github.com/popitsch/codoc/tarball/master">Download
+						<strong>TAR Ball</strong>
+				</a></li>
+				<li><a href="https://github.com/popitsch/codoc">View On <strong>GitHub</strong></a></li>
+			</ul>
+			</p>
 
-      </header>
-      <section>
-<a name="about"></a><h3>About</h3>
+			<p class="menu">
+				<a href="#about">About CODOC</a>
+			</p>
+			<p class="menu">
+				<a href="#about">Getting CODOC</a>
+			</p>
+			<p class="menu">
+				<a href="#examples">Usage examples</a>
+			</p>
+			<p class="menu">
+				<a href="#usage">Usage information</a>
+			</p>
+			<p class="menu">
+				<a href="https://github.com/popitsch/codoc">View on GitHub</a>
+			</p>
 
-<p>Lorem ipsum</p>
+		</header>
+		<section>
+			<a name="about"></a>
+			<h3>About</h3>
+
+			<p>CODOC is an open file format and API for the lossless and
+				lossy compression of depth-of-coverage (DOC) signals stemming from
+				high-throughput sequencing (HTS) experiments. DOC data is a
+				one-dimensional signal representing the number of reads covering
+				each reference nucleotide in a HTS data set. DOC is highly-valuable
+				information for interpreting (e.g., RNA-seq), filtering (e.g., SNP
+				analysis) or detecting novel features (e.g., structural variants) in
+				sequencing data sets.</p>
+			<p>
+				<img src="img/CoverageSignal.png" border="0" /> CODOC exploits
+				several characteristics of DOC data stemming from HTS data and uses
+				a non-uniform quantization model that preserves DOC signals in
+				low-coverage regions nearly perfectly while allowing more divergence
+				in highly covered regions.
+			</p>
+			<p>CODOC reduces required file sizes for DOC data up to 3500X
+				when compared to raw representations and about 5-30X when compared
+				to the other methods. The CODOC API supports efficient sequential
+				and random access to compressed data sets.</p>
+			</p>
+			Usage scenarios for CODOC include (see below):
+			<ul>
+				<li>query coverage values at given genomic positions</li>
+				<li>extract genomic regions with a given minimum/maximum
+					coverage</li>
+				<li>filter single-nucleotide variations in cancer/normal pairs</li>
+				<li>linear combinations of coverage files (e.g., subtract one
+					signal from another)</li>
+				<li>cross-correlation of coverage signals</li>
+			</ul>
+			</p>
+
+			<a name="building"></a>
+			<h3>Getting CODOC</h3>
+
+			<p>
+				CODOC source code and <b>releases</b> can be downloaded from <a
+					href="https://github.com/popitsch/codoc" target="_blank">GitHub</a>.
+				CODOC uses <a href="http://maven.apache.org/" target="_blank">maven</a>
+				as build tool. For development we recommend the <a
+					href="http://www.eclipse.org/" target="_blank">Eclipse IDE for
+					Java developers</a> and the <a href="http://www.eclipse.org/m2e/"
+					target="_blank">m2e</a> Maven Integration for Eclipse.
+			</p>
+			<p>
+				The CODOC jars can be built with 
+				<code>bin/build-java.sh &lt;VERSION&gt;</code>
+				(version is, e.g., <em>0.0.1</em>)
+			</p>
 
 
-<a name="examples"></a></a><h3>Usage Examples</h3>
-<p>
-Call the CODOC API w/o parameters to get short usage information (<a href="#usage">see below</a>) for the individual commands:
-<pre><code>
-$ java -jar codoc-<em>0.0.1</em>.jar
-$ java -jar codoc-<em>0.0.1</em>.jar compress
-$ java -jar codoc-<em>0.0.1</em>.jar decompress
-</code></pre>
+			<a name="examples"></a></a>
+			<h3>Usage Examples</h3>
+			<p>
+				Call the CODOC API w/o parameters to get short usage information (<a
+					href="#usage">see below</a>) for the individual commands:
+			<pre>
+				<code>
+$ java -jar bin/codoc-<em>0.0.1</em>.jar
+$ java -jar bin/codoc-<em>0.0.1</em>.jar compress
+$ java -jar bin/codoc-<em>0.0.1</em>.jar decompress
+</code>
+			</pre>
 
-The following command compressed coverage data extracted from a BAM file using a regular grid 
-of height 5 for quantization. Only reads that have the SAM flag for PCR or optical duplicates (1024) unset
-and reads with a mapping quality > 20 are included.
+			The following command compressed coverage data extracted from a BAM
+			file using a regular grid of height 5 for quantization. Only reads
+			that have the SAM flag for PCR or optical duplicates (1024) unset and
+			reads with a mapping quality > 20 are included.
 
-<pre><code>
-$ java -jar codoc-0.0.1.jar compress -bam <em>BAM</em> -qmethod GRID -qparam 5 -filter "FLAGS^^1024" -filter "MAPQ>20" -o <em>BAM</em>.comp
-</code></pre>
+			<pre>
+				<code>
+$ java -jar bin/codoc-0.0.1.jar compress -bam <em>BAM</em> -qmethod GRID -qparam 5 -filter "FLAGS^^1024" -filter "MAPQ>20" -o <em>BAM</em>.comp
+</code>
+			</pre>
 
-The following command prints the header of the compressed file showing the metadata as well
-as the used configuration for compression.
+			The following command prints the header of the compressed file
+			showing the metadata as well as the used configuration for
+			compression.
 
-<pre><code>
-$ java -jar codoc-0.0.1.jar decompress head -covFile <em>BAM</em>.comp
-</code></pre>
+			<pre>
+				<code>
+$ java -jar bin/codoc-0.0.1.jar decompress head -covFile <em>BAM</em>.comp
+</code>
+			</pre>
 
-The following command starts an interactive query session for the compressed 
-file.
+			The following command starts an interactive query session for the
+			compressed file.
 
-<pre><code>
-$ java -jar codoc-0.0.1.jar decompress query -covFile <em>BAM</em>.comp
-</code></pre>
+			<pre>
+				<code>
+$ java -jar bin/codoc-0.0.1.jar decompress query -covFile <em>BAM</em>.comp
+</code>
+			</pre>
 
-The following command extracts all regions from the compressed file that have a coverage
-between MIN and MAX and stores them to a <a href="http://genome.ucsc.edu/FAQ/FAQformat.html#format1" target="_blank">BED</a> file. 
-The given name/description are used for the BED track. 
-<pre><code>
-$ java -jar codoc-0.0.1.jar decompress tobed -covFile <em>BAM</em>.comp -outFile <em>BED</em> -min <em>MIN</em> -max <em>MAX</em> -name <em>NAME</em> -description <em>DESCRIPTION</em>
-</code></pre>
+			The following command extracts all regions from the compressed file
+			that have a coverage between MIN and MAX and stores them to a <a
+				href="http://genome.ucsc.edu/FAQ/FAQformat.html#format1"
+				target="_blank">BED</a> file. The given name/description are used
+			for the BED track.
+			<pre>
+				<code>
+$ java -jar bin/codoc-0.0.1.jar decompress tobed -covFile <em>BAM</em>.comp -outFile <em>BED</em> -min <em>MIN</em> -max <em>MAX</em> -name <em>NAME</em> -description <em>DESCRIPTION</em>
+</code>
+			</pre>
 
 
-NOTE: if you run into OutOfMemory errors, you can increase the available heap space of the 
-java JVM (e.g., to 4 GByte) using the following switch: <pre>java -Xmx4g ...</pre>
+			NOTE: if you run into OutOfMemory errors, you can increase the
+			available heap space of the java JVM (e.g., to 4 GByte) using the
+			following switch:
+			<pre>java -Xmx4g ...</pre>
 
 
-</p>
+			</p>
 
-<a name="usage"></a><h3>Usage</h3>
-<p> 
-Usage of the compressor:
-<pre><code>
+			<a name="usage"></a>
+			<h3>Usage</h3>
+			<p>Usage of the compressor:
+			<pre>
+				<code>
 Usage:  java -jar x.jar compress -bam &lt;arg&gt; | -cov &lt;arg&gt; [-bedFile &lt;arg&gt;] [-blockSize &lt;arg&gt;] [-compressionAlgorithm
        &lt;arg&gt;]  [-createStats] [-dumpRawCoverage] [-filter &lt;arg&gt;] [-keepWorkDir] -o &lt;arg&gt; [-qmethod &lt;arg&gt;] [-qparam
        &lt;arg&gt;] [-scaleCoverage &lt;arg&gt;] [-statsFile &lt;arg&gt;] [-t &lt;arg&gt;] [-v] [-vcf &lt;arg&gt;]
@@ -156,11 +233,13 @@ Params
         Example: (do NOT use reads with mapping quality &lt;= 20, or multiple perfect hits)
         -filter 'MAPQ&gt;20' -filter 'H0=1'
         ----------------------------------------------------------------------------
-</code></pre>
+</code>
+			</pre>
 
 
-Usage of the decompressor HEAD command:
-<pre><code>
+			Usage of the decompressor HEAD command:
+			<pre>
+				<code>
 Usage:    java -jar x.jar decompress HEAD -covFile &lt;arg&gt; [-keepWorkDir] [-tmpDir &lt;arg&gt;] [-v]
 Params:
           -covFile,--cov &lt;arg&gt;  Compressed coverage input file.
@@ -169,10 +248,12 @@ Params:
           -v,--verbose          be verbose.
 
 Prints the header from a compressed coverage file.
-</code></pre>
+</code>
+			</pre>
 
-Usage of the decompressor QUERY command:
-<pre><code>
+			Usage of the decompressor QUERY command:
+			<pre>
+				<code>
 Usage:    java -jar x.jar decompress QUERY [-chrLenFile &lt;arg&gt;] -covFile &lt;arg&gt; [-keepWorkDir] [-tmpDir &lt;arg&gt;] [-v] [-vcfFile &lt;arg&gt;]
 Params:
           -chrLenFile &lt;arg&gt;     Chromosome lengths (file format: chr\tlength\n). Use to get proper padding for zero-coverage regions.
@@ -183,10 +264,12 @@ Params:
           -vcfFile &lt;arg&gt;        VCF file used for the compression (optional).
 
 Starts an interactive query session.
-</code></pre>
+</code>
+			</pre>
 
-Usage of the decompressor TOBED command:
-<pre><code>
+			Usage of the decompressor TOBED command:
+			<pre>
+				<code>
 Usage:    java -jar x.jar decompress TOBED [-additional &lt;arg&gt;] [-chrLenFile &lt;arg&gt;] -covFile &lt;arg&gt; [-description &lt;arg&gt;] [-keepWorkDir] [-max &lt;arg&gt;] [-min &lt;arg&gt;]
        [-name &lt;arg&gt;] -outFile &lt;arg&gt; [-tmpDir &lt;arg&gt;] [-v] [-vcfFile &lt;arg&gt;]
 Params:
@@ -204,10 +287,12 @@ Params:
           -vcfFile &lt;arg&gt;        VCF file used for the compression (optional).
 
 Creates a BED file containing regions that are above/below given coverage thresholds.
-</code></pre>
+</code>
+			</pre>
 
-Usage of the decompressor TOWIG command:
-<pre><code>
+			Usage of the decompressor TOWIG command:
+			<pre>
+				<code>
 Usage:    java -jar x.jar decompress TOWIG [-chrLenFile &lt;arg&gt;] -covFile &lt;arg&gt; [-keepWorkDir] [-tmpDir &lt;arg&gt;] [-v] [-vcfFile &lt;arg&gt;] -wigFile &lt;arg&gt;
 Params:
           -chrLenFile &lt;arg&gt;     Chromosome lengths (file format: chr\tlength\n). Use to get proper padding for zero-coverage regions.
@@ -219,20 +304,24 @@ Params:
           -wigFile &lt;arg&gt;        Output file that will contain the rounded approximated coverage values (optional).
 
 Converts the coverage data to a WIG file.
-</code></pre>
+</code>
+			</pre>
 
 
 
-</p>
+			</p>
 
-</section>
+		</section>
 
-      <footer>
-        <p><small>This project is maintained by <a href="https://github.com/popitsch">niko popitsch</a></small></p>
-        <!--  <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p> -->
-      </footer>
-    </div>
-    <script src="javascripts/scale.fix.js"></script>
-    
-  </body>
+		<footer>
+			<p>
+				<small>This project is maintained by <a
+					href="https://github.com/popitsch">niko popitsch</a></small>
+			</p>
+			<!--  <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p> -->
+		</footer>
+	</div>
+	<script src="javascripts/scale.fix.js"></script>
+
+</body>
 </html>

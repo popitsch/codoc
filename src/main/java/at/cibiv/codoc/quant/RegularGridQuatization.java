@@ -2,8 +2,7 @@ package at.cibiv.codoc.quant;
 
 import at.ac.univie.cs.mis.lds.index.itree.Interval;
 import at.ac.univie.cs.mis.lds.index.itree.IntervalImpl;
-
-import bgraph.util.BGraphException;
+import at.cibiv.codoc.utils.CodocException;
 
 /**
  * Quantization based on a fixed-height grid.
@@ -15,9 +14,9 @@ public class RegularGridQuatization implements QuantizationFunction {
 
 	private double height;
 
-	public RegularGridQuatization(double height) throws BGraphException {
+	public RegularGridQuatization(double height) throws CodocException {
 		if (height < 0)
-			throw new BGraphException("height has to be a positive value");
+			throw new CodocException("height has to be a positive value");
 		this.height = height;
 	}
 
@@ -38,7 +37,7 @@ public class RegularGridQuatization implements QuantizationFunction {
 		if (coverage != 0) {
 			lower = (int) Math.round(Math.floor((double) coverage / height) * height);
 			upper = lower + (int) height;
-			if ( lower == 0 )
+			if (lower == 0)
 				lower = 1;
 		}
 		Interval<Integer> borders = new IntervalImpl<Integer>(lower, upper);
@@ -53,20 +52,20 @@ public class RegularGridQuatization implements QuantizationFunction {
 		this.height = height;
 	}
 
-	/**
-	 * Debugging.
-	 * 
-	 * @param args
-	 * @throws BGraphException
-	 */
-	public static void main(String[] args) throws BGraphException {
-		RegularGridQuatization q = new RegularGridQuatization(5);
-		for (int i = 0; i < 100; i++) {
-			Interval<Integer> borders = q.getBorderInterval(i);
-			System.out.println(i + " " + borders);
-			if (!borders.contains(i))
-				System.err.println("ERR");
-		}
-	}
-	
+//	/**
+//	 * Debugging.
+//	 * 
+//	 * @param args
+//	 * @throws CodocException
+//	 */
+//	public static void main(String[] args) throws CodocException {
+//		RegularGridQuatization q = new RegularGridQuatization(5);
+//		for (int i = 0; i < 100; i++) {
+//			Interval<Integer> borders = q.getBorderInterval(i);
+//			System.out.println(i + " " + borders);
+//			if (!borders.contains(i))
+//				System.err.println("ERR");
+//		}
+//	}
+
 }
