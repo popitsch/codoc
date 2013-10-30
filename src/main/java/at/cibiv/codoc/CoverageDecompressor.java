@@ -1239,8 +1239,6 @@ public class CoverageDecompressor {
 	 * @throws IOException
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
-		
-		args=new String[] {"query", "-cov", "src/test/resources/covcompress/small.compressed" };
 
 		CommandLineParser parser = new PosixParser();
 
