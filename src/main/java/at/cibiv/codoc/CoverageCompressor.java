@@ -614,7 +614,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			Iterator<GenomicInterval> rois = null;
 			if (regionsOfInterest != null) {
 				this.roiFile = new SimpleBEDFile(regionsOfInterest);
-				maxRois = roiFile.getIntervals().size();
+				maxRois = roiFile.getIntervalsList().size();
 			} else {
 				inRoi = true;
 			}
