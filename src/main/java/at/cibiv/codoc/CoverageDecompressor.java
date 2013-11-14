@@ -769,7 +769,7 @@ public class CoverageDecompressor {
 					if (cp2 < 0)
 						throw new RuntimeException("chrom " + p2.getChromosomeOriginal() + " was not found in " + Arrays.toString(chrOrigList.toArray()));
 					for (int x = cp1 + 1; x < cp2; x++) {
-						GenomicInterval giAdditional = new GenomicInterval(chrOrigList.get(x), 0l, Long.MAX_VALUE, "" + blockId);
+						GenomicInterval giAdditional = new GenomicInterval(StringUtils.prefixedChr( chrOrigList.get(x) ), 0l, Long.MAX_VALUE, "" + blockId);
 						giAdditional.setAnnotation("blockid", blockId);
 						blockIndexTree.insert(giAdditional);
 					}
@@ -1240,6 +1240,9 @@ public class CoverageDecompressor {
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
 
+		args = new String[] { "query", "--cov", "/project/valent/Project_valent/Sample_V2/work/V2.ngm-FINAL.bam.codoc", "-v" };
+		
+		
 		CommandLineParser parser = new PosixParser();
 
 		// create the Options
