@@ -9,52 +9,127 @@ package at.cibiv.codoc;
 public class CoverageHit {
 
 	private float interpolatedCoverage;
-	private Integer lowerBoundary;
-	private Integer upperBoundary;
+	private Float lowerBoundary;
+	private Float upperBoundary;
 	private CodeWordInterval interval;
 	private long execTime;
 	private boolean isPadding = false;
+	private float scaleFactor;
 
-	public CoverageHit() {
+	public CoverageHit(float scaleFactor) {
+		this.scaleFactor = scaleFactor;
 	}
 
 	
+	/**
+	 * Rounded, scaled coverage 
+	 * @return
+	 */
 	public int getRoundedCoverage() {
+		return Math.round(interpolatedCoverage * scaleFactor);
+	}
+	
+	/**
+	 * Rounded, unscaled coverage
+	 * @return
+	 */
+	public int getRoundedCoverageRaw() {
 		return Math.round(interpolatedCoverage);
 	}
 	
+	/**
+	 * Interpolated, scaled coverage 
+	 * @return
+	 */
 	public float getInterpolatedCoverage() {
+		return interpolatedCoverage * scaleFactor;
+	}
+	
+	/**
+	 * Interpolated, unscaled coverage 
+	 * @return
+	 */
+	public float getInterpolatedCoverageRaw() {
 		return interpolatedCoverage;
 	}
 
+	/**
+	 * Set the coverag evalue (unscaled!)
+	 * @param interpolatedCoverage
+	 */
 	public void setInterpolatedCoverage(float interpolatedCoverage) {
 		this.interpolatedCoverage = interpolatedCoverage;
 	}
 
-	public int getLowerBoundary() {
+	/**
+	 * Lower error boundary, scaled
+	 * @return
+	 */
+	public Float getLowerBoundary() {
+		if ( lowerBoundary == null )
+			return null;
+		return lowerBoundary * scaleFactor;
+	}
+	
+	/**
+	 * Lower error boundary, unscaled
+	 * @return
+	 */
+	public Float getLowerBoundaryRaw() {
 		return lowerBoundary;
 	}
 
-	public void setLowerBoundary(int lowerBoundary) {
+	/**
+	 * Set lower error boundary, unscaled
+	 */
+	public void setLowerBoundary(Float lowerBoundary) {
 		this.lowerBoundary = lowerBoundary;
 	}
 
-	public int getUpperBoundary() {
+	/**
+	 * Upper error boundary, scaled
+	 * @return
+	 */
+	public Float getUpperBoundary() {
+		if ( upperBoundary == null )
+			return null;
+		return upperBoundary * scaleFactor;
+	}
+
+	/**
+	 * Upper error boundary, unscaled
+	 * @return
+	 */
+	public Float getUpperBoundaryRaw() {
+		if ( upperBoundary == null )
+			return null;
 		return upperBoundary;
 	}
 
-	public void setUpperBoundary(int upperBoundary) {
+	/**
+	 * Set upper error boundary, unscaled
+	 */
+	public void setUpperBoundary(Float upperBoundary) {
 		this.upperBoundary = upperBoundary;
 	}
 
+	/**
+	 * @return Codeword interval
+	 */
 	public CodeWordInterval getInterval() {
 		return interval;
 	}
 
+	/**
+	 * Set the codeword interval
+	 */
 	public void setInterval(CodeWordInterval interval) {
 		this.interval = interval;
 	}
 
+	/**
+	 * @return true, if the hit was defined as fuzzy or false otherwise.
+	 */
 	public boolean isFuzzy() {
 		if ( upperBoundary == null )
 			return false;
@@ -64,6 +139,9 @@ public class CoverageHit {
 		return (! upperBoundary.equals(lowerBoundary));
 	}
 
+	/**
+	 * @return true if this hit was set as stemming from a padding region.
+	 */
 	public boolean isPadding() {
 		return isPadding;
 	}
@@ -90,6 +168,20 @@ public class CoverageHit {
 		this.execTime = execTime;
 	}
 	
+	/**
+	 * The scaling factor.
+	 * @return
+	 */
+	public float getScaleFactor() {
+		return scaleFactor;
+	}
+
+
+	public void setScaleFactor(float scaleFactor) {
+		this.scaleFactor = scaleFactor;
+	}
+
+
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();

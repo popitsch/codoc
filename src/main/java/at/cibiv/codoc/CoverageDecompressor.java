@@ -74,6 +74,7 @@ public class CoverageDecompressor {
 	public static final String OPT_CREATE_STATS = "createStats";
 	public static final String OPT_STATS_FILE = "statsFile";
 	public static final String OPT_CHR_LEN_FILE = "chrLenFile";
+	public static final String OPT_SCALE_FACTOR = "scale" ;
 	public static final String OPT_VERBOSE = "v";
 	public static final String OPT_NO_CACHING = "nocache";
 	public static final String OPT_DUMP_HEADER_AND_EXIT = "dumpHeaderAndExit";
@@ -199,6 +200,11 @@ public class CoverageDecompressor {
 	 * For converting back to original chromosome names.
 	 */
 	Map<String, String> chrNameMap = new HashMap<>();
+	
+	/**
+	 * Scaling factor for the coverage signal.
+	 */
+	private float scaleFactor = 1.0f;
 
 	/**
 	 * Decompresses the passed file using the passed VCF file. The intermediate
@@ -652,6 +658,7 @@ public class CoverageDecompressor {
 		this.workDir = conf.hasProperty(OPT_TMP_DIR) ? new File(conf.getProperty(OPT_TMP_DIR)) : new File(covFile.getParentFile(), "" + Math.random());
 		File chrLenFile = conf.hasProperty(OPT_CHR_LEN_FILE) ? new File(conf.getProperty(OPT_CHR_LEN_FILE)) : null;
 		this.keepWorkDir = conf.getBooleanProperty(OPT_KEEP_WORKDIR, false);
+		this.scaleFactor = Float.parseFloat( conf.getProperty(OPT_SCALE_FACTOR, " 1.0" ) );
 		debug = conf.getBooleanProperty(OPT_VERBOSE, false);
 		this.inMemoryBlockCaching = !conf.getBooleanProperty(OPT_NO_CACHING, false);
 		if (debug)
@@ -846,9 +853,9 @@ public class CoverageDecompressor {
 		CodeWordInterval upstream = paddingUpstreamIntervals.get(pos.getChromosome());
 		if (upstream != null)
 			if (upstream.contains(pos)) {
-				CoverageHit hit = new CoverageHit();
-				hit.setLowerBoundary(0);
-				hit.setUpperBoundary(0);
+				CoverageHit hit = new CoverageHit(scaleFactor);
+				hit.setLowerBoundary(0f);
+				hit.setUpperBoundary(0f);
 				hit.setInterpolatedCoverage(0);
 				hit.setPadding(true);
 				hit.setInterval(upstream);
@@ -857,9 +864,9 @@ public class CoverageDecompressor {
 		CodeWordInterval downstream = paddingDownstreamIntervals.get(pos.getChromosome());
 		if (downstream != null)
 			if (downstream.contains(pos)) {
-				CoverageHit hit = new CoverageHit();
-				hit.setLowerBoundary(0);
-				hit.setUpperBoundary(0);
+				CoverageHit hit = new CoverageHit(scaleFactor);
+				hit.setLowerBoundary(0f);
+				hit.setUpperBoundary(0f);
 				hit.setInterpolatedCoverage(0);
 				hit.setPadding(true);
 				hit.setInterval(downstream);
@@ -916,7 +923,7 @@ public class CoverageDecompressor {
 	 * @return
 	 */
 	protected CoverageHit interpolate(CodeWordInterval iv, long pos1) {
-		CoverageHit hit = new CoverageHit();
+		CoverageHit hit = new CoverageHit(scaleFactor);
 		Integer leftCoverage = iv.getLeftCoverage();
 		Integer rightCoverage = iv.getRightCoverage();
 		float width = iv.getWidth().floatValue();
@@ -926,8 +933,8 @@ public class CoverageDecompressor {
 			float prec = (float) (pos1 - iv.getMin()) / (float) width;
 			hit.setInterpolatedCoverage(leftCoverage + ((rightCoverage - leftCoverage) * prec));
 		}
-		hit.setUpperBoundary(quant.getMaxBorder(leftCoverage));
-		hit.setLowerBoundary(quant.getMinBorder(leftCoverage));
+		hit.setUpperBoundary((float) quant.getMaxBorder(leftCoverage));
+		hit.setLowerBoundary((float) quant.getMinBorder(leftCoverage));
 		hit.setInterval(iv);
 		return hit;
 	}
@@ -1338,6 +1345,10 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
+					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor (default is 1.0).");
+					opt.setRequired(false);
+					options.addOption(opt);
+
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
 					line = parser.parse(options, args);
@@ -1353,6 +1364,7 @@ public class CoverageDecompressor {
 						conf.setProperty(OPT_TMP_DIR, line.getOptionValue(OPT_TMP_DIR));
 					conf.setProperty(OPT_KEEP_WORKDIR, line.hasOption(OPT_KEEP_WORKDIR) + "");
 					conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
+					conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
 
 					try {
 						decompressor = new CoverageDecompressor(conf);
@@ -1414,6 +1426,10 @@ public class CoverageDecompressor {
 
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
+					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor (default is 1.0).");
+					opt.setRequired(false);
+					options.addOption(opt);
+
 					line = parser.parse(options, args);
 
 					conf = CoverageDecompressor.getDefaultConfiguration();
@@ -1426,6 +1442,7 @@ public class CoverageDecompressor {
 						conf.setProperty(OPT_TMP_DIR, line.getOptionValue(OPT_TMP_DIR));
 					conf.setProperty(OPT_KEEP_WORKDIR, line.hasOption(OPT_KEEP_WORKDIR) + "");
 					conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
+					conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
 
 					Integer min = line.hasOption("min") ? new Integer(line.getOptionValue("min")) : null;
 					Integer max = line.hasOption("max") ? new Integer(line.getOptionValue("max")) : null;
@@ -1468,6 +1485,9 @@ public class CoverageDecompressor {
 
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
+					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor (default is 1.0).");
+					opt.setRequired(false);
+					options.addOption(opt);
 					line = parser.parse(options, args);
 
 					conf = CoverageDecompressor.getDefaultConfiguration();
@@ -1480,6 +1500,7 @@ public class CoverageDecompressor {
 						conf.setProperty(OPT_TMP_DIR, line.getOptionValue(OPT_TMP_DIR));
 					conf.setProperty(OPT_KEEP_WORKDIR, line.hasOption(OPT_KEEP_WORKDIR) + "");
 					conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
+					conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
 
 					try {
 						decompressor = new CoverageDecompressor(conf);

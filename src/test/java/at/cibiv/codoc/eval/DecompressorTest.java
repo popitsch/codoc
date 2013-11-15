@@ -168,7 +168,7 @@ public class DecompressorTest {
 
 	@Test
 	public void toBedTest2() throws Throwable {
-		// decompress with roi
+		// prepare data
 		prepare(false);
 		// config
 		PropertyConfiguration config = CoverageDecompressor.getDefaultConfiguration();
@@ -188,5 +188,43 @@ public class DecompressorTest {
 		}
 
 	}
+	
+	@Test
+	public void scalingTest() throws Throwable {
+		// prepare data
+		prepare(false);
+		
+		float scale = 2.1f;
+
+		// query1
+		PropertyConfiguration config1 = CoverageDecompressor.getDefaultConfiguration();
+		config1.setProperty(CoverageDecompressor.OPT_COV_FILE, comp);
+		config1.setProperty(CoverageDecompressor.OPT_VCF_FILE, vcf);
+		config1.setProperty(CoverageDecompressor.OPT_CHR_LEN_FILE, lenFile);
+		CoverageDecompressor decompressor1 = new CoverageDecompressor(config1);
+
+		// query1
+		PropertyConfiguration config2 = CoverageDecompressor.getDefaultConfiguration();
+		config2.setProperty(CoverageDecompressor.OPT_COV_FILE, comp);
+		config2.setProperty(CoverageDecompressor.OPT_VCF_FILE, vcf);
+		config2.setProperty(CoverageDecompressor.OPT_SCALE_FACTOR, scale+"");
+		config2.setProperty(CoverageDecompressor.OPT_CHR_LEN_FILE, lenFile);
+		CoverageDecompressor decompressor2 = new CoverageDecompressor(config2);
+		
+		CompressedCoverageIterator it1 = decompressor1.getCoverageIterator();
+		CompressedCoverageIterator it2 = decompressor2.getCoverageIterator();
+		while (it1.hasNext()) {
+			CoverageHit hit1 = it1.next();
+			CoverageHit hit2 = it2.next();
+
+			Assert.assertEquals(hit1.getInterpolatedCoverage() * scale, hit2.getInterpolatedCoverage());
+			Assert.assertEquals(hit1.getInterpolatedCoverage(), hit2.getInterpolatedCoverageRaw());
+			Assert.assertEquals(hit1.getLowerBoundary() * scale, hit2.getLowerBoundary());
+			Assert.assertEquals(hit1.getUpperBoundary() * scale, hit2.getUpperBoundary());
+			Assert.assertEquals(hit1.getLowerBoundary(), hit2.getLowerBoundaryRaw());
+			Assert.assertEquals(hit1.getUpperBoundary(), hit2.getUpperBoundaryRaw());
+		}
+	}
+
 
 }

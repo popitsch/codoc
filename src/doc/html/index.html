@@ -167,6 +167,12 @@ $ java -jar bin/codoc-0.0.1.jar decompress tobed -covFile <em>BAM</em>.comp -out
 			</pre>
 
 
+		The following command queries a file and scales the results by a linear factor.
+
+		<pre><code>
+$ java -jar codoc-0.0.1.jar decompress query -covFile <em>BAM</em>.comp -scale 2.0
+</code></pre>
+
 			NOTE: if you run into OutOfMemory errors, you can increase the
 			available heap space of the java JVM (e.g., to 4 GByte) using the
 			following switch:
@@ -260,6 +266,7 @@ Params:
           -chrLenFile &lt;arg&gt;     Chromosome lengths (file format: chr\tlength\n). Use to get proper padding for zero-coverage regions.
           -covFile,--cov &lt;arg&gt;  Compressed coverage input file.
           -keepWorkDir          Do not delete the work directory (e.g., for debugging purposes).
+          -scaleCoverage &lt;arg&gt;         Optional parameter for scaling the coverage values. Applicable only for coverage
           -tmpDir,--temp &lt;arg&gt;  Temporary working directory (default is current dir).
           -v,--verbose          be verbose.
           -vcfFile &lt;arg&gt;        VCF file used for the compression (optional).
@@ -279,6 +286,7 @@ Params:
           -covFile,--cov &lt;arg&gt;  Compressed coverage input file.
           -description &lt;arg&gt;    BED description (optional).
           -keepWorkDir          Do not delete the work directory (e.g., for debugging purposes).
+          -scaleCoverage &lt;arg&gt;         Optional parameter for scaling the coverage values. Applicable only for coverage
           -max &lt;arg&gt;            maximum coverage (omit to leave unrestricted).
           -min &lt;arg&gt;            minimum coverage (omit to leave unrestricted).
           -name &lt;arg&gt;           BED track name (optional).
@@ -299,6 +307,7 @@ Params:
           -chrLenFile &lt;arg&gt;     Chromosome lengths (file format: chr\tlength\n). Use to get proper padding for zero-coverage regions.
           -covFile,--cov &lt;arg&gt;  Compressed coverage input file.
           -keepWorkDir          Do not delete the work directory (e.g., for debugging purposes).
+          -scaleCoverage &lt;arg&gt;         Optional parameter for scaling the coverage values. Applicable only for coverage
           -tmpDir,--temp &lt;arg&gt;  Temporary working directory (default is current dir).
           -v,--verbose          be verbose.
           -vcfFile &lt;arg&gt;        VCF file used for the compression (optional).
