@@ -116,7 +116,7 @@ public class EvaluateDataformats {
 			log("WARNING: used existing file " + bgraphEntry1.getFile() + ", no recalculation done!");
 		} else {
 			PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
-			config.setProperty(CoverageCompressor.OPT_BAM_FILE, BAM.getAbsolutePath());
+			config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE, BAM.getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_VCF_FILE, VCF.getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_OUT_FILE, bgraphEntry1.getFile().getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512");
@@ -143,7 +143,7 @@ public class EvaluateDataformats {
 			log("WARNING: used existing file " + bgraphEntry2.getFile() + ", no recalculation done!");
 		} else {
 			PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
-			config.setProperty(CoverageCompressor.OPT_BAM_FILE, BAM.getAbsolutePath());
+			config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE, BAM.getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_VCF_FILE, VCF.getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_OUT_FILE, bgraphEntry2.getFile().getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512");
@@ -170,7 +170,7 @@ public class EvaluateDataformats {
 			log("WARNING: used existing file " + bgraphEntry3.getFile() + ", no recalculation done!");
 		} else {
 			PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
-			config.setProperty(CoverageCompressor.OPT_BAM_FILE, BAM.getAbsolutePath());
+			config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE, BAM.getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_VCF_FILE, VCF.getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_OUT_FILE, bgraphEntry3.getFile().getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512");
@@ -197,7 +197,7 @@ public class EvaluateDataformats {
 			log("WARNING: used existing file " + bgraphEntry4.getFile() + ", no recalculation done!");
 		} else {
 			PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
-			config.setProperty(CoverageCompressor.OPT_BAM_FILE, BAM.getAbsolutePath());
+			config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE, BAM.getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_VCF_FILE, VCF.getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_OUT_FILE, bgraphEntry4.getFile().getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512");
@@ -224,7 +224,7 @@ public class EvaluateDataformats {
 			log("WARNING: used existing file " + bgraphEntry5.getFile() + ", no recalculation done!");
 		} else {
 			PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
-			config.setProperty(CoverageCompressor.OPT_BAM_FILE, BAM.getAbsolutePath());
+			config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE, BAM.getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_VCF_FILE, VCF.getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_OUT_FILE, bgraphEntry5.getFile().getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512");
@@ -250,7 +250,7 @@ public class EvaluateDataformats {
 			log("WARNING: used existing file " + bgraphEntry6.getFile() + ", no recalculation done!");
 		} else {
 			PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
-			config.setProperty(CoverageCompressor.OPT_BAM_FILE, BAM.getAbsolutePath());
+			config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE, BAM.getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_VCF_FILE, VCF.getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_OUT_FILE, bgraphEntry6.getFile().getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512");
@@ -432,7 +432,7 @@ public class EvaluateDataformats {
 						PropertyConfiguration conf = CoverageDecompressor.getDefaultConfiguration();
 						conf.setProperty(CoverageDecompressor.OPT_COV_FILE, e.getFile().getAbsolutePath());
 						conf.setProperty(CoverageDecompressor.OPT_VCF_FILE, VCF.getAbsolutePath());
-						conf.setProperty(CoverageDecompressor.OPT_WIG_FILE, wigFile.getAbsolutePath());
+						conf.setProperty(CoverageDecompressor.OPT_OUT_FILE, wigFile.getAbsolutePath());
 						conf.setProperty(CoverageDecompressor.OPT_VERBOSE, "true");
 						decomp = new CoverageDecompressor(conf);
 						e.setDecompressor(decomp);

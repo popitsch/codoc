@@ -4,6 +4,9 @@ import java.io.File;
 import java.io.PrintStream;
 import java.security.InvalidParameterException;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.SortedSet;
 
 import org.apache.commons.cli.CommandLine;
@@ -13,11 +16,18 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
 
+import at.ac.univie.cs.mis.lds.index.itree.ITree;
+import at.ac.univie.cs.mis.lds.index.itree.Interval;
 import at.cibiv.codoc.CoverageCompressor.QUANT_METHOD;
 import at.cibiv.codoc.io.AbstractDataBlock.BLOCK_COMPRESSION_METHOD;
 import at.cibiv.codoc.utils.CodocException;
 import at.cibiv.codoc.utils.FileUtils;
 import at.cibiv.codoc.utils.PropertyConfiguration;
+import at.cibiv.ngs.tools.bed.SimpleBEDFile;
+import at.cibiv.ngs.tools.exon.ExonChromosomeTree;
+import at.cibiv.ngs.tools.exon.ExonInterval;
+import at.cibiv.ngs.tools.exon.Gene;
+import at.cibiv.ngs.tools.exon.RefSeqDb;
 import at.cibiv.ngs.tools.lds.GenomicITree;
 import at.cibiv.ngs.tools.lds.GenomicInterval;
 import at.cibiv.ngs.tools.util.GenomicPosition;
@@ -30,7 +40,7 @@ import at.cibiv.ngs.tools.vcf.SimpleVCFVariant.ZYGOSITY;
  * Various DOC tools.
  * 
  * @author niko.popitsch@univie.ac.at
- *
+ * 
  */
 public class CoverageTools {
 
@@ -158,6 +168,7 @@ public class CoverageTools {
 
 	/**
 	 * Linear combination of coverage signals.
+	 * 
 	 * @param cov1File
 	 * @param cov1VcfFile
 	 * @param cov2File
@@ -265,6 +276,7 @@ public class CoverageTools {
 
 	/**
 	 * Cross-correlation of coverage signals.
+	 * 
 	 * @param cov1File
 	 * @param cov1VcfFile
 	 * @param cov2File
@@ -341,6 +353,214 @@ public class CoverageTools {
 	}
 
 	/**
+	 * Calculates the base-coverage per feature in a passed BED file. The output
+	 * will be sorted by genomic coordinates.
+	 * 
+	 * @param covFile
+	 * @param covVcfFile
+	 * @param bedFile
+	 * @param covOut
+	 * @throws Throwable
+	 */
+	public static void calculateCoveragePerBedFeature(File covFile, File covVcfFile, File bedFile, PrintStream covOut) throws Throwable {
+		CoverageDecompressor cov = null;
+
+		try {
+			if (debug)
+				System.out.println("Load " + covFile);
+			cov = CoverageDecompressor.loadFromFile(covFile, covVcfFile);
+			SimpleBEDFile bf = new SimpleBEDFile(bedFile);
+			covOut.println("chr\tmin\tmax\tname\twidth\tcov\tavg.cov");
+
+			for (GenomicInterval gi : bf.getIntervalsList()) {
+				CompressedCoverageIterator it = cov.getCoverageIterator(gi.getLeftPosition());
+				GenomicPosition endPos = gi.getRightPosition();
+				float covSum = 0f;
+				double width = gi.getWidth(); // inclusive width!
+				while (it.hasNext()) {
+					CoverageHit h = it.next();
+					if (h == null)
+						break;
+					if (it.getGenomicPosition().compareTo(endPos) >= 0)
+						break;
+					float c = h.getInterpolatedCoverage();
+					covSum += c;
+				}
+				covOut.format("%s\t%d\t%d\t%s\t%.0f\t%.0f\t%.1f%n", gi.getOriginalChrom(), gi.getMin(), gi.getMax(), gi.getId(), width, covSum,
+						(covSum / width));
+			}
+		} finally {
+			if (cov != null)
+				cov.close();
+		}
+		if (debug)
+			System.out.println("Finished.");
+
+	}
+
+	/**
+	 * Calculates the base-coverage per feature in a passed BED file. The output
+	 * will be sorted by genomic coordinates.
+	 * 
+	 * @param covFile
+	 * @param covVcfFile
+	 * @param bedFile
+	 * @param covOut
+	 * @throws Throwable
+	 */
+	public static void calculateCoveragePerUCSCFeature(File covFile, File covVcfFile, File ucscFlatFile, PrintStream covOut) throws Throwable {
+		CoverageDecompressor cov = null;
+
+		try {
+			if (debug)
+				System.out.println("Load " + covFile);
+
+			RefSeqDb db = new RefSeqDb(ucscFlatFile);
+			Map<Gene, Float> geneCoverageMap = new HashMap<Gene, Float>();
+			Map<Gene, Float> genePosUnmappedMap = new HashMap<Gene, Float>();
+			for (Gene gene : db.getGenesSorted()) {
+				for (ExonInterval ex : gene.getExonsSorted())
+					ex.setAnnotation("gene", gene);
+			}
+
+			cov = CoverageDecompressor.loadFromFile(covFile, covVcfFile);
+			cov.debug = false;
+			System.out.println(Arrays.toString(cov.getChromosomes().toArray()));
+
+			covOut.println("min/max are gene positions; cov, width, avg.cov is calc only over exons.");
+			covOut.println("#chr\tmin\tmax\tname\tstrand\twidth\tcov\tavg.cov\tperc.uncov");
+
+			Map<String, ITree<Long>> trees = db.buildItrees();
+			CompressedCoverageIterator it = cov.getCoverageIterator();
+			while (it.hasNext()) {
+				CoverageHit h = it.next();
+				float coverage = (h == null) ? 0f : h.getInterpolatedCoverage();
+				GenomicPosition pos = it.getGenomicPosition();
+				if (pos == null) {
+					break;
+				}
+				ExonChromosomeTree tree = (ExonChromosomeTree) trees.get(pos.getChromosomeOriginal());
+				if (tree == null) {
+					 System.err.println("chromosome not found: " +
+					 pos.getChromosomeOriginal());
+					continue;
+				}
+				List<Interval<Long>> res = tree.query(pos.get0Position());
+				for (Interval<Long> ex : res) {
+					Gene g = (Gene) ex.getAnnotation("gene");
+					Float geneCov = geneCoverageMap.get(g);
+					if (geneCov == null)
+						geneCov = 0f;
+					geneCov += coverage;
+					geneCoverageMap.put(g, geneCov);
+
+					if (geneCov == 0f) {
+						Float posUnmapped = genePosUnmappedMap.get(g);
+						if (posUnmapped == null)
+							posUnmapped = 0f;
+						posUnmapped++;
+						geneCoverageMap.put(g, geneCov);
+					}
+				}
+			}
+
+			for (Gene gene : db.getGenesSorted()) {
+				Float geneCov = geneCoverageMap.get(gene);
+				Float posUnmapped = genePosUnmappedMap.get(gene);
+				covOut.print(toStr(gene.getChromosome()) + "\t");
+				covOut.print(toStr(gene.getMin()) + "\t");
+				covOut.print(toStr(gene.getMax()) + "\t");
+				covOut.print(toStr(gene.getName()) + "\t");
+				covOut.print(toStr(gene.getStrand()) + "\t");
+				covOut.print(toFloat(gene.getWidth(), 0) + "\t");
+				covOut.print(toFloat(geneCov, 0) + "\t");
+				if (geneCov == null)
+					covOut.print("n/a\t");
+				else
+					covOut.print(toFloat((gene.getWidth() == null ? 0f : (geneCov / gene.getWidth())), 1) + "\t");
+				covOut.print(toFloat((posUnmapped == null ? 0f : (posUnmapped / gene.getWidth())), 1) + "\t");
+				covOut.println();
+			}
+
+			// int c = 0;
+			// for (Gene gene : db.getGenesSorted()) {
+			// if (gene.getChromosome() == null)
+			// continue;
+			//
+			// float covSum = 0f;
+			// float width = 0f;
+			// float posUncov = 0;
+			//
+			// for (ExonInterval e : gene.getExonsSorted()) {
+			//
+			//
+			// GenomicPosition left = new GenomicPosition(e.getChromosomeOrig(),
+			// e.getMin());
+			// GenomicPosition right = new
+			// GenomicPosition(e.getChromosomeOrig(), e.getMax());
+			//
+			// CompressedCoverageIterator it = cov.getCoverageIterator(left);
+			//
+			// width += (e.getMax() - e.getMin());
+			//
+			// while (it.hasNext()) {
+			// CoverageHit h = it.next();
+			//
+			// if ( it.getGenomicPosition() == null ) {
+			// break;
+			// }
+			// if (it.getGenomicPosition().compareTo(right) >= 0)
+			// break;
+			//
+			// float coverage = (h==null)?0f:h.getInterpolatedCoverage();
+			// if ( coverage == 0f )
+			// posUncov+=1f;
+			// covSum += coverage;
+			//
+			// // if ( covSum > 0 ) {
+			// // System.out.println("EXON " + left + "/" + right );
+			// // System.out.println("pos: " + it.getGenomicPosition() );
+			// // System.out.println("COVERAGE " + covSum);
+			// // System.exit(1);
+			// // }
+			// if ( ++c % 10000 == 0 ) System.out.print(".");
+			// if ( ++c % 1000000 == 0 ) System.out.print(".");
+			//
+			// }
+			//
+			//
+			// }
+			//
+			// covOut.format("%s\t%d\t%d\t%s\t%s\t%.0f\t%.0f\t%.1f\t%.1f%n",
+			// gene.getChromosome(), gene.getMin(), gene.getMax(),
+			// gene.getName(), gene.getStrand(),
+			// width, covSum, (covSum / width), (posUncov/width));
+			//
+			//
+			// }
+
+		} finally {
+			if (cov != null)
+				cov.close();
+		}
+		if (debug)
+			System.out.println("Finished.");
+
+	}
+
+	private static String toStr(Object o) {
+		if (o == null)
+			return "n/a";
+		return o + "";
+	}
+
+	private static String toFloat(Float f, int comma) {
+		if (f == null)
+			return "n/a";
+		return String.format("%." + comma + "f", f);
+	}
+
+	/**
 	 * Print usage information.
 	 * 
 	 * @param options
@@ -355,6 +575,8 @@ public class CoverageTools {
 					.println("Command:\tcancerNormalFilter\tExtract all variants that occur exclusively in the tumor sample (with sufficient coverage in the normal) and the ones that changed their genotype from HET to HOM.");
 			System.out.println("Command:\tcombineCoverageFiles\tCombine the coverage values from two coverage iterators.");
 			System.out.println("Command:\tcorrelateCoverageFiles\tCalculate the cross-correlation of two coverage signals.");
+			System.out.println("Command:\tcalculateCoveragePerBedFeature\tCalculates the base-coverage per feature in a passed BED file.");
+			System.out.println("Command:\tcalculateCoveragePerUCSCFeature\tCalculates the base-coverage per feature in a UCSC database");
 			System.out.println();
 		} else {
 
@@ -378,23 +600,49 @@ public class CoverageTools {
 	 */
 	public static void main(String[] args) throws Throwable {
 
-//		String v1doc = "/project/valent/Project_valent/Sample_V1/work/V1.bt2-FINAL.bam.codoc";
-//		String v2doc = "/project/valent/Project_valent/Sample_V2/work/V2.bt2-FINAL.bam.codoc";
-//		String v3doc = "/project/valent/Project_valent/Sample_V3/work/V3.bt2-FINAL.bam.codoc";
-//		String v4doc = "/project/valent/Project_valent/Sample_V4/work/V4.bt2-FINAL.bam.codoc";
-//
-//		String v1var = "/project/valent/Project_valent/Sample_V1/work/V1_varunion_FINAL.vcf";
-//		String v2var = "/project/valent/Project_valent/Sample_V1/work/V1_varunion_FINAL.vcf";
-//		String v3var = "/project/valent/Project_valent/Sample_V1/work/V1_varunion_FINAL.vcf";
-//		String v4var = "/project/valent/Project_valent/Sample_V1/work/V1_varunion_FINAL.vcf";
-//
-//		String v2minv1var = "/project/valent/Project_valent/results/V2-minus-V1-tumoronly.vcf";
-//		String v2minv1varControl = "/project/valent/Project_valent/results/V2-minus-V1-normalalso.vcf";
-//		String v3minv1var = "/project/valent/Project_valent/results/V3-minus-V1-tumoronly.vcf";
-//		String v3minv1varControl = "/project/valent/Project_valent/results/V3-minus-V1-normalalso.vcf";
-//
-//		args = new String[] { "cancerNormalFilter", "-covT", v2doc, "-vcfT", v2var, "-covN", v1doc, "-vcfN", v1var, "-minCoverage", "5", "-tumorOnly",
-//				v2minv1var, "-normalAlso", v2minv1varControl };
+//		args = new String[] { "calculateCoveragePerUCSCFeature", "-cov", "/project/valent/Project_valent/Sample_V1/work/V1.ngm-FINAL.bam.codoc", "-ucscDb",
+//				"/project/ngs-work/meta/annotations/exons/hg19/refseq/UCSC-RefSeq-genes-exons-20130809-properchroms.txt", "-o",
+//				"/project/valent/Project_valent/results/V1.ngm-FINAL.bam.codoc.covPerGene.csv" };
+
+		// args = new String[] { "calculateCoveragePerUCSCFeature",
+		// "-cov", "src/test/resources/covcompress/small.compressed",
+		// "-ucscDb",
+		// "/project/ngs-work/meta/annotations/exons/hg19/refseq/UCSC-RefSeq-genes-exons-20130809-properchroms.txt",
+		// "-o",
+		// "/project/valent/Project_valent/results/V1.ngm-FINAL.bam.codoc.covPerGene.csv"
+		// };
+		//
+		// String v1doc =
+		// "/project/valent/Project_valent/Sample_V1/work/V1.bt2-FINAL.bam.codoc";
+		// String v2doc =
+		// "/project/valent/Project_valent/Sample_V2/work/V2.bt2-FINAL.bam.codoc";
+		// String v3doc =
+		// "/project/valent/Project_valent/Sample_V3/work/V3.bt2-FINAL.bam.codoc";
+		// String v4doc =
+		// "/project/valent/Project_valent/Sample_V4/work/V4.bt2-FINAL.bam.codoc";
+		//
+		// String v1var =
+		// "/project/valent/Project_valent/Sample_V1/work/V1_varunion_FINAL.vcf";
+		// String v2var =
+		// "/project/valent/Project_valent/Sample_V1/work/V1_varunion_FINAL.vcf";
+		// String v3var =
+		// "/project/valent/Project_valent/Sample_V1/work/V1_varunion_FINAL.vcf";
+		// String v4var =
+		// "/project/valent/Project_valent/Sample_V1/work/V1_varunion_FINAL.vcf";
+		//
+		// String v2minv1var =
+		// "/project/valent/Project_valent/results/V2-minus-V1-tumoronly.vcf";
+		// String v2minv1varControl =
+		// "/project/valent/Project_valent/results/V2-minus-V1-normalalso.vcf";
+		// String v3minv1var =
+		// "/project/valent/Project_valent/results/V3-minus-V1-tumoronly.vcf";
+		// String v3minv1varControl =
+		// "/project/valent/Project_valent/results/V3-minus-V1-normalalso.vcf";
+		//
+		// args = new String[] { "cancerNormalFilter", "-covT", v2doc, "-vcfT",
+		// v2var, "-covN", v1doc, "-vcfN", v1var, "-minCoverage", "5",
+		// "-tumorOnly",
+		// v2minv1var, "-normalAlso", v2minv1varControl };
 
 		// create the command line parser
 		CommandLineParser parser = new PosixParser();
@@ -405,7 +653,7 @@ public class CoverageTools {
 		String subcommand = null;
 
 		try {
-			// parse the command line arguments
+			// parse the command line argumecalculateAttributeHistogramnts
 			CommandLine line = parser.parse(options, args, true);
 
 			// validate that block-size has been set
@@ -415,7 +663,87 @@ public class CoverageTools {
 
 			subcommand = line.getArgs()[0];
 
-			if (subcommand.equalsIgnoreCase("cancerNormalFilter")) {
+			if (subcommand.equalsIgnoreCase("calculateCoveragePerUCSCFeature")) {
+				options = new Options();
+
+				Option opt = new Option("cov", true, "Coverage.");
+				opt.setRequired(true);
+				options.addOption(opt);
+
+				opt = new Option("vcf", true, "Coverage variants (VCF).");
+				opt.setRequired(false);
+				options.addOption(opt);
+
+				opt = new Option("ucscDb", true, "UCSC database file. Download from UCSC using the 'all fields from selected table' option.");
+				opt.setRequired(true);
+				options.addOption(opt);
+
+				opt = new Option("o", true, "Output.");
+				opt.setRequired(true);
+				options.addOption(opt);
+
+				options.addOption("v", "verbose", false, "be verbose.");
+
+				line = parser.parse(options, args);
+				if (line.hasOption("v"))
+					debug = true;
+				else
+					debug = false;
+
+				PrintStream out = System.out;
+				if (!line.getOptionValue("o").equals("-"))
+					out = new PrintStream(line.getOptionValue("o"));
+
+				File covFile = new File(line.getOptionValue("cov"));
+				File vcfFile = line.hasOption("vcf") ? new File(line.getOptionValue("vcf")) : null;
+				File ucscDbFile = new File(line.getOptionValue("ucscDb"));
+
+				calculateCoveragePerUCSCFeature(covFile, vcfFile, ucscDbFile, out);
+
+				if (!line.getOptionValue("o").equals("-"))
+					out.close();
+				System.exit(0);
+			} else if (subcommand.equalsIgnoreCase("calculateCoveragePerBedFeature")) {
+				options = new Options();
+
+				Option opt = new Option("cov", true, "Coverage.");
+				opt.setRequired(true);
+				options.addOption(opt);
+
+				opt = new Option("vcf", true, "Coverage variants (VCF).");
+				opt.setRequired(false);
+				options.addOption(opt);
+
+				opt = new Option("bed", true, "BED file.");
+				opt.setRequired(true);
+				options.addOption(opt);
+
+				opt = new Option("o", true, "Output.");
+				opt.setRequired(true);
+				options.addOption(opt);
+
+				options.addOption("v", "verbose", false, "be verbose.");
+
+				line = parser.parse(options, args);
+				if (line.hasOption("v"))
+					debug = true;
+				else
+					debug = false;
+
+				PrintStream out = System.out;
+				if (!line.getOptionValue("o").equals("-"))
+					out = new PrintStream(line.getOptionValue("o"));
+
+				File covFile = new File(line.getOptionValue("cov"));
+				File vcfFile = line.hasOption("vcf") ? new File(line.getOptionValue("vcf")) : null;
+				File bedFile = new File(line.getOptionValue("bed"));
+
+				calculateCoveragePerBedFeature(covFile, vcfFile, bedFile, out);
+
+				if (!line.getOptionValue("o").equals("-"))
+					out.close();
+				System.exit(0);
+			} else if (subcommand.equalsIgnoreCase("cancerNormalFilter")) {
 				options = new Options();
 
 				Option opt = new Option("covT", true, "Tumor coverage.");
@@ -451,7 +779,9 @@ public class CoverageTools {
 				options.addOption(opt);
 
 				options.addOption("v", "verbose", false, "be verbose.");
-
+				opt = new Option("o", true, "Output.");
+				opt.setRequired(true);
+				options.addOption(opt);
 				line = parser.parse(options, args);
 				if (line.hasOption("v"))
 					debug = true;

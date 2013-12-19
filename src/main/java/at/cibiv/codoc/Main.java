@@ -27,7 +27,7 @@ public class Main {
 	 * @param options
 	 */
 	private static void usage(Options options) {
-		System.out.println("Welcome to NGC " + VERSION);
+		System.out.println("Welcome to CODOC " + VERSION);
 		System.out.println();
 		System.out.println("Usage:\t\tjava -jar x.jar <command> [options]:\t");
 		System.out.println("\t\t" + CoverageCompressor.CMD + "\t" + CoverageCompressor.CMD_INFO);

@@ -67,7 +67,7 @@ public class CompressedCoverageIterator implements CoverageIterator<CoverageHit>
 	 */
 	public CompressedCoverageIterator(CoverageDecompressor decomp, GenomicPosition firstPos) throws Throwable {
 		this.decomp = decomp;
-		blockIdx = 0;
+		blockIdx = decomp.getCurrentBlockIdx();
 		// NOTE: we have to load a block here to get the padding intervals loaded!
 		decomp.loadBlock(blockIdx);
 		CoverageHit h = decomp.query(firstPos);
@@ -117,11 +117,11 @@ public class CompressedCoverageIterator implements CoverageIterator<CoverageHit>
 		this.currentCoverage = decomp.interpolate(current, pos1);
 
 		// was the chrom changed?
-		if (!current.getChr().equals(currentchr)) {
+		if (!current.getOriginalChrom().equals(currentchr)) {
 			// System.out.println("NEW " + current.getChr() );
 			for (ChromosomeIteratorListener l : listeners)
 				try {
-					l.notifyChangedChromosome(current.getChr());
+					l.notifyChangedChromosome(current.getOriginalChrom());
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -129,11 +129,11 @@ public class CompressedCoverageIterator implements CoverageIterator<CoverageHit>
 		} else
 			wasChangedChrom = false;
 
-		currentchr = current.getChr();
+		currentchr = current.getOriginalChrom();
 		currentpos = pos1;
 		pos1++;
 		if (pos1 > current.getMax()) {
-			if ((current.getNext() != null) && (!current.getNext().getChr().equals(current.getChr())))
+			if ((current.getNext() != null) && (!current.getNext().getOriginalChrom().equals(current.getOriginalChrom())))
 				pos1 = current.getNext().getMin();
 			current = current.getNext();
 			if (current == null) {
@@ -184,6 +184,8 @@ public class CompressedCoverageIterator implements CoverageIterator<CoverageHit>
 
 	@Override
 	public GenomicPosition getGenomicPosition() {
+		if ( currentchr == null ) return null;
+		if ( currentpos == null ) return null;
 		return new GenomicPosition(currentchr, currentpos, COORD_TYPE.ONEBASED);
 	}
 

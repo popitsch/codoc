@@ -5,7 +5,7 @@ if [ $# -lt 1 ]; then
   head pom.xml
   exit 1
 fi
-
+export MAVEN_OPTS=-Xss2m
 mvn $2 clean assembly:assembly -DskipTests=true -Denv=dev
 cp target/codoc-$1-jar-with-dependencies.jar bin/codoc-$1.jar
 cp target/codoc-$1-tests.jar bin/codoc-$1-tests.jar

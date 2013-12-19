@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import net.sf.samtools.SAMFileReader.ValidationStringency;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
@@ -40,8 +42,8 @@ import at.cibiv.ngs.tools.sam.iterator.AbstractRead;
 import at.cibiv.ngs.tools.sam.iterator.AttributeFilter;
 import at.cibiv.ngs.tools.sam.iterator.ChromosomeIteratorListener;
 import at.cibiv.ngs.tools.sam.iterator.CoverageIterator;
+import at.cibiv.ngs.tools.sam.iterator.FastBamCoverageIterator;
 import at.cibiv.ngs.tools.sam.iterator.ParseException;
-import at.cibiv.ngs.tools.sam.iterator.SAMBaseProfileIterator;
 import at.cibiv.ngs.tools.util.FileUtils;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
@@ -49,6 +51,7 @@ import at.cibiv.ngs.tools.util.Statistics;
 import at.cibiv.ngs.tools.util.StringUtils;
 import at.cibiv.ngs.tools.vcf.SimpleVCFFile;
 import at.cibiv.ngs.tools.vcf.SimpleVCFVariant;
+import at.cibiv.ngs.tools.wig.WigIterator;
 
 /**
  * A compressor for DOC data.
@@ -98,7 +101,6 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	public static final String OPT_CREATE_STATS = "createStats";
 	public static final String OPT_STATS_FILE = "statsFile";
 	public static final String OPT_DUMP_RAW = "dumpRawCoverage";
-	public static final String OPT_BAM_FILE = "bamFile";
 	public static final String OPT_COVERAGE_FILE = "covFile";
 	public static final String OPT_OUT_FILE = "outFile";
 	public static final String OPT_VCF_FILE = "vcfFile";
@@ -224,7 +226,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 		CoverageIterator<?> it = null;
 
-		if (config.getProperty(OPT_BAM_FILE) != null) {
+		File coverageFile = new File(config.getProperty(OPT_COVERAGE_FILE));
+		String ext = coverageFile.getName().lastIndexOf('.') > 0 ? coverageFile.getName().substring(coverageFile.getName().lastIndexOf('.')) : "";
+
+		if (ext.equalsIgnoreCase(".bam") || ext.equalsIgnoreCase(".sam")) {
 
 			// get BAM filters
 			ArrayList<AttributeFilter> filters = null;
@@ -241,12 +246,17 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 			}
 			// Iterator pointing to the current pileup.
-			File sortedSamFile = new File(config.getProperty(OPT_BAM_FILE));
 			if (debug)
-				System.out.println("Extracting and compressing coverage from " + sortedSamFile);
-			it = new SAMBaseProfileIterator(sortedSamFile, filters);
+				System.out.println("Extracting and compressing coverage from SAM/BAM file: " + coverageFile);
+			it = new FastBamCoverageIterator(coverageFile, filters, false, false, ValidationStringency.LENIENT);
+
+		} else if (ext.equalsIgnoreCase(".wig")) {
+			if (debug)
+				System.out.println("Extracting and compressing coverage from WIG file: " + coverageFile);
+			it = new WigIterator(coverageFile);
 		} else {
-			File coverageFile = new File(config.getProperty(OPT_COVERAGE_FILE));
+			if (debug)
+				System.out.println("Extracting and compressing coverage from coverage file: " + coverageFile);
 			float scaleFactor = 1.0f;
 			if (config.hasProperty(OPT_SCALE_COVERAGE))
 				scaleFactor = Float.parseFloat(config.getProperty(OPT_SCALE_COVERAGE));
@@ -334,6 +344,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			cov2Data.get(currentBlockIndex).configure(config);
 
 			// update index
+			if (coverageIterator.getGenomicPosition() == null) {
+				// this happens if there was not single codeword written!
+				throw new IOException("Empty coverage profile");
+			}
 			blockBorders.add(coverageIterator.getGenomicPosition());
 
 			// System.out.println("BLOCK BORDER: " +
@@ -662,13 +676,14 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				boolean isExternalCoverage = false; // this will be an
 													// estimated, not a "known",
 													// external coverage.
-				// System.out.println("=> " + chr + ":" + pos1 + " = " +
-				// coverage);
+//				 System.out.println("=> " + chr + ":" + pos1 + " = " +
+//				 coverage);
 
 				// ..................................................................
 				// Chromosome change. (i.e., chr is the new chrom already)
 				// ..................................................................
 				if (chromWasChanged) {
+					
 					// finish chrom!
 					if (roiFile == null)
 						writeCodeword(lastChr, lastPos1 + 1, lastCoverage, 0, "last1");
@@ -812,6 +827,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			// ..................................................................
 			// Finished
 			// ..................................................................
+			if (statistics.get("codewords") == null) {
+				System.out.println("CODOC wrote no single codeword, maybe input is empty or contains only unmapped/filtered reads?");
+				return;
+			}
 
 			// write last codeword (only if not ROI).
 			if (roiFile == null)
@@ -835,7 +854,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				else
 					tmp += "," + co;
 			}
-			config.setProperty(OPT_CHR_LIST, tmp);
+			if (tmp != null)
+				config.setProperty(OPT_CHR_LIST, tmp);
 
 			if (debug)
 				System.out.println("block borders: " + config.getProperty(OPT_BLOCK_BORDERS));
@@ -845,6 +865,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			statistics.set("speed [pos/ms]", ((double) c / t));
 
 		} finally {
+
+			// quit immediately if no codewords were written
+			if (statistics.get("codewords") == null)
+				return;
 
 			// garbage collect
 			System.gc();
@@ -954,7 +978,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	public static boolean compress(File sortedBam, File vcfFile, File outFile, boolean verbose, String... flags) {
 
 		PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
-		config.setProperty(CoverageCompressor.OPT_BAM_FILE, sortedBam.getAbsolutePath());
+		config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE, sortedBam.getAbsolutePath());
 		config.setProperty(CoverageCompressor.OPT_VCF_FILE, vcfFile.getAbsolutePath());
 		config.setProperty(CoverageCompressor.OPT_OUT_FILE, outFile.getAbsolutePath());
 		config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512");
@@ -1072,6 +1096,13 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
 
+//		 args = new String[] { "-cov",
+//		 "src/test/resources/covcompress/small.bam",
+//		 "-o",
+//		 "src/test/resources/covcompress/small.compressed",
+//		 "-v" };
+
+
 		CommandLineParser parser = new PosixParser();
 
 		// create the Options
@@ -1084,20 +1115,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 			options = new Options();
 
-			OptionGroup inputGroup = new OptionGroup();
-			inputGroup.setRequired(true);
-
-			Option opt = new Option("bam", true, "Input BAM file (using this will exclude the -cov parameter)");
-			opt.setLongOpt(OPT_BAM_FILE);
-			opt.setRequired(true);
-			inputGroup.addOption(opt);
-
-			opt = new Option("cov", true, "Input coverage file (using this will exclude the -bam parameter)");
+			Option opt = new Option("cov", true, "Input coverage file. Supported file types are SAM, BAM, WIG and bedtools coverage files.");
 			opt.setLongOpt(OPT_COVERAGE_FILE);
 			opt.setRequired(true);
-			inputGroup.addOption(opt);
-
-			options.addOptionGroup(inputGroup);
+			options.addOption(opt);
 
 			opt = new Option("vcf", true, "Input VCF file (optional)");
 			opt.setLongOpt(OPT_VCF_FILE);
@@ -1196,10 +1217,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 			// create configuration
 			PropertyConfiguration conf = CoverageCompressor.getDefaultConfiguration(compressionMethod);
-			if (line.hasOption(OPT_BAM_FILE))
-				conf.setProperty(OPT_BAM_FILE, line.getOptionValue(OPT_BAM_FILE));
-			if (line.hasOption(OPT_COVERAGE_FILE))
-				conf.setProperty(OPT_COVERAGE_FILE, line.getOptionValue(OPT_COVERAGE_FILE));
+			conf.setProperty(OPT_COVERAGE_FILE, line.getOptionValue(OPT_COVERAGE_FILE));
 			conf.setProperty(OPT_OUT_FILE, line.getOptionValue("o"));
 			if (line.hasOption("t"))
 				conf.setProperty(OPT_TMP_DIR, line.getOptionValue("t"));

@@ -32,7 +32,7 @@ public class DecompressorTest {
 	public void prepare(boolean useRoi) throws Throwable {
 		// compress file
 		PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
-		config.setProperty(CoverageCompressor.OPT_BAM_FILE, bam);
+		config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE, bam);
 		config.setProperty(CoverageCompressor.OPT_VCF_FILE, vcf);
 		config.setProperty(CoverageCompressor.OPT_OUT_FILE, comp);
 		config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512");
@@ -68,6 +68,9 @@ public class DecompressorTest {
 		Assert.assertEquals(1f, decompressor.query(new GenomicPosition("20", 60093, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("20", 60094, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 
+		Assert.assertEquals(1f, decompressor.query(new GenomicPosition("21", 60028, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60029, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		// check deletion!
 		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60015, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 
 		// check VCF knot points
@@ -108,11 +111,11 @@ public class DecompressorTest {
 		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("20", 60081, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 
 		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60014, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		// check deletion
 		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60015, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 		Assert.assertEquals(1f, decompressor.query(new GenomicPosition("21", 60017, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60018, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 
-		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60015, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 
 		decompressor.close();
 

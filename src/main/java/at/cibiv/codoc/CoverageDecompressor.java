@@ -44,7 +44,7 @@ import at.cibiv.ngs.tools.wig.WigOutputStream;
  * A decompressor for DOC data.
  * 
  * @author niko.popitsch@univie.ac.at
- *
+ * 
  */
 public class CoverageDecompressor {
 
@@ -65,16 +65,15 @@ public class CoverageDecompressor {
 	 */
 
 	public static final String OPT_KEEP_WORKDIR = "keepWorkDir";
-	public static final String OPT_COV_FILE = "covFile";
-	public static final String OPT_OUT_FILE = "outFile";
-	public static final String OPT_VCF_FILE = "vcfFile";
+	public static final String OPT_COV_FILE = "cov";
+	public static final String OPT_OUT_FILE = "o";
+	public static final String OPT_VCF_FILE = "vcf";
 	public static final String OPT_TMP_DIR = "tmpDir";
-	public static final String OPT_WIG_FILE = "wigFile";
 	public static final String OPT_RAWCOV_FILE = "rawcoverage";
 	public static final String OPT_CREATE_STATS = "createStats";
-	public static final String OPT_STATS_FILE = "statsFile";
-	public static final String OPT_CHR_LEN_FILE = "chrLenFile";
-	public static final String OPT_SCALE_FACTOR = "scale" ;
+	public static final String OPT_STATS_FILE = "stats";
+	public static final String OPT_CHR_LEN_FILE = "chrLen";
+	public static final String OPT_SCALE_FACTOR = "scale";
 	public static final String OPT_VERBOSE = "v";
 	public static final String OPT_NO_CACHING = "nocache";
 	public static final String OPT_DUMP_HEADER_AND_EXIT = "dumpHeaderAndExit";
@@ -200,7 +199,7 @@ public class CoverageDecompressor {
 	 * For converting back to original chromosome names.
 	 */
 	Map<String, String> chrNameMap = new HashMap<>();
-	
+
 	/**
 	 * Scaling factor for the coverage signal.
 	 */
@@ -319,7 +318,8 @@ public class CoverageDecompressor {
 		if (inMemoryBlockCaching)
 			if (currentBlockIdx == idx)
 				return;
-		// System.out.println("LOAD BLOCK " + idx);
+		if (debug)
+			System.out.println("LOAD BLOCK " + idx);
 
 		this.itree = new CodeWordIntervalTree("intervals");
 		this.currentBlockIdx = idx;
@@ -385,12 +385,14 @@ public class CoverageDecompressor {
 				// emit left padding interval for current chrom
 				if ((pos1 >= 1) && (cov1 == 0)) {
 					CodeWordInterval padLeft = new CodeWordInterval(StringUtils.prefixedChr(chr), 1l, pos1, chr + "-pad-left", COORD_TYPE.ONEBASED);
+					padLeft.setOriginalChrom(chr);
 					paddingUpstreamIntervals.put(padLeft.getChr(), padLeft);
 					// System.out.println("PAD LEFT " + padLeft);
 				} else if (cov1 != 0) {
 					CodeWordInterval gi = new CodeWordInterval(StringUtils.prefixedChr(chr), 1l, pos1, "CHROM1");
 					gi.setLeftCoverage(cov1);
 					gi.setRightCoverage(cov1);
+					gi.setOriginalChrom(chr);
 					// System.out.println(pos1 + "VAR " + gi);
 					// store interval
 					if (this.firstIntervalInBlock == null)
@@ -412,6 +414,7 @@ public class CoverageDecompressor {
 				if (chromLengths.get(StringUtils.prefixedChr(lastchr)) != null) {
 					CodeWordInterval padRight = new CodeWordInterval(StringUtils.prefixedChr(lastchr), lastpos1 + 1, chromLengths.get(StringUtils
 							.prefixedChr(lastchr)), lastchr + "-pad-right", COORD_TYPE.ONEBASED);
+					padRight.setOriginalChrom(lastchr);
 					paddingDownstreamIntervals.put(padRight.getChr(), padRight);
 					// System.out.println("PAD RIGHT " + padRight);
 				}
@@ -435,6 +438,7 @@ public class CoverageDecompressor {
 					CodeWordInterval gi = new CodeWordInterval(StringUtils.prefixedChr(chr), lastpos1 + 1, varPos, "VAR");
 					gi.setLeftCoverage(lastcov2);
 					gi.setRightCoverage(varCov);
+					gi.setOriginalChrom(chr);
 					// System.out.println(pos1 + "VAR " + gi);
 					// store interval
 					if (this.firstIntervalInBlock == null)
@@ -489,6 +493,8 @@ public class CoverageDecompressor {
 				CodeWordInterval gi = new CodeWordInterval(StringUtils.prefixedChr(chr), lastpos1 + 1, pos1, "int");
 				gi.setLeftCoverage(lastcov2);
 				gi.setRightCoverage(cov1);
+				gi.setOriginalChrom(chr);
+
 				// System.out.println(pos1 + "INT " + gi);
 
 				// store interval
@@ -527,6 +533,8 @@ public class CoverageDecompressor {
 			if (lastpos1 < chromLengths.get(StringUtils.prefixedChr(lastchr))) {
 				CodeWordInterval padRight = new CodeWordInterval(StringUtils.prefixedChr(lastchr), lastpos1 + 1, chromLengths.get(StringUtils
 						.prefixedChr(lastchr)), lastchr + "-pad-right", COORD_TYPE.ONEBASED);
+				padRight.setOriginalChrom(lastchr);
+
 				paddingDownstreamIntervals.put(padRight.getChr(), padRight);
 				// System.out.println("PAD RIGHT " + padRight);
 			}
@@ -574,6 +582,10 @@ public class CoverageDecompressor {
 			}
 		}
 
+	}
+
+	public int getCurrentBlockIdx() {
+		return currentBlockIdx;
 	}
 
 	/**
@@ -658,7 +670,7 @@ public class CoverageDecompressor {
 		this.workDir = conf.hasProperty(OPT_TMP_DIR) ? new File(conf.getProperty(OPT_TMP_DIR)) : new File(covFile.getParentFile(), "" + Math.random());
 		File chrLenFile = conf.hasProperty(OPT_CHR_LEN_FILE) ? new File(conf.getProperty(OPT_CHR_LEN_FILE)) : null;
 		this.keepWorkDir = conf.getBooleanProperty(OPT_KEEP_WORKDIR, false);
-		this.scaleFactor = Float.parseFloat( conf.getProperty(OPT_SCALE_FACTOR, " 1.0" ) );
+		this.scaleFactor = Float.parseFloat(conf.getProperty(OPT_SCALE_FACTOR, " 1.0"));
 		debug = conf.getBooleanProperty(OPT_VERBOSE, false);
 		this.inMemoryBlockCaching = !conf.getBooleanProperty(OPT_NO_CACHING, false);
 		if (debug)
@@ -772,11 +784,11 @@ public class CoverageDecompressor {
 					int cp1 = chrOrigList.indexOf(p1.getChromosomeOriginal());
 					int cp2 = chrOrigList.indexOf(p2.getChromosomeOriginal());
 					if (cp1 < 0)
-						throw new RuntimeException("chrom " + p1.getChromosomeOriginal() + " was not found in " + Arrays.toString(chrOrigList.toArray()));
+						throw new RuntimeException("chrom [" + p1.getChromosomeOriginal() + "] was not found in " + Arrays.toString(chrOrigList.toArray()));
 					if (cp2 < 0)
 						throw new RuntimeException("chrom " + p2.getChromosomeOriginal() + " was not found in " + Arrays.toString(chrOrigList.toArray()));
 					for (int x = cp1 + 1; x < cp2; x++) {
-						GenomicInterval giAdditional = new GenomicInterval(StringUtils.prefixedChr( chrOrigList.get(x) ), 0l, Long.MAX_VALUE, "" + blockId);
+						GenomicInterval giAdditional = new GenomicInterval(StringUtils.prefixedChr(chrOrigList.get(x)), 0l, Long.MAX_VALUE, "" + blockId);
 						giAdditional.setAnnotation("blockid", blockId);
 						blockIndexTree.insert(giAdditional);
 					}
@@ -893,6 +905,9 @@ public class CoverageDecompressor {
 		}
 		GenomicInterval gi = blocks.iterator().next();
 
+		if (debug)
+			System.out.println("query " + pos + " => load block " + gi + " / " + gi.getAnnotation("blockid"));
+
 		loadBlock((Integer) gi.getAnnotation("blockid"));
 
 		Set<CodeWordInterval> res = itree.query1based(pos);
@@ -977,16 +992,20 @@ public class CoverageDecompressor {
 						System.out.println("cov:\t" + hit.getInterpolatedCoverage());
 
 					System.out.println("\tinfo:\t" + hit);
-//					System.out.println("isFuzzy: " + hit.isFuzzy());
-//					System.out.println("isPadding: " + hit.isPadding());
-//					// System.out.println("prev:" +
-//					// hit.getInterval().getAnnotation("prev"));
-//					// System.out.println("next:" +
-//					// hit.getInterval().getAnnotation("next"));
-//					System.out.println("prev:" + hit.getInterval().getPrev());
-//					System.out.println("next:" + hit.getInterval().getNext());
-//					System.out.println("lc: " + hit.getInterval().getLeftCoverage());
-//					System.out.println("rc: " + hit.getInterval().getRightCoverage());
+					// System.out.println("isFuzzy: " + hit.isFuzzy());
+					// System.out.println("isPadding: " + hit.isPadding());
+					// // System.out.println("prev:" +
+					// // hit.getInterval().getAnnotation("prev"));
+					// // System.out.println("next:" +
+					// // hit.getInterval().getAnnotation("next"));
+					// System.out.println("prev:" +
+					// hit.getInterval().getPrev());
+					// System.out.println("next:" +
+					// hit.getInterval().getNext());
+					// System.out.println("lc: " +
+					// hit.getInterval().getLeftCoverage());
+					// System.out.println("rc: " +
+					// hit.getInterval().getRightCoverage());
 					System.out.println("\ttime:\t" + (hit.getExecTime() / 1000) + "micros.");
 				}
 
@@ -1042,6 +1061,7 @@ public class CoverageDecompressor {
 					// end interval due to chrom change
 					GenomicInterval gi = new GenomicInterval(startPos.getChromosomeOriginal(), startPos.get0Position(), lastPos.get0Position(), "region"
 							+ (rc++));
+					gi.setOriginalChrom(startPos.getChromosomeOriginal());
 					ret.insert(gi);
 					if (inCorridor)
 						startPos = pos;
@@ -1050,6 +1070,7 @@ public class CoverageDecompressor {
 				} else if (!inCorridor) {
 					// end interval as corridor was left
 					GenomicInterval gi = new GenomicInterval(pos.getChromosomeOriginal(), startPos.get0Position(), lastPos.get0Position(), "region" + (rc++));
+					gi.setOriginalChrom(pos.getChromosomeOriginal());
 					ret.insert(gi);
 					startPos = null;
 				}
@@ -1059,6 +1080,7 @@ public class CoverageDecompressor {
 		if (startPos != null) {
 			// end last interval
 			GenomicInterval gi = new GenomicInterval(lastPos.getChromosomeOriginal(), startPos.get0Position(), lastPos.get0Position(), "region" + (rc++));
+			gi.setOriginalChrom(lastPos.getChromosomeOriginal());
 			ret.insert(gi);
 
 		}
@@ -1247,9 +1269,11 @@ public class CoverageDecompressor {
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
 
-		args = new String[] { "query", "--cov", "/project/valent/Project_valent/Sample_V2/work/V2.ngm-FINAL.bam.codoc", "-v" };
-		
-		
+		// args = new String[] { "tobed", "--cov",
+		// "/project/oesi/genomicAmbiguity/droso/droso_r5_partial-reads-100bp-step5.bam.data.properChrom.wig.codoc",
+		// "-outFile", "/project/oesi/genomicAmbiguity/droso/test.bed",
+		// "-v" };
+
 		CommandLineParser parser = new PosixParser();
 
 		// create the Options
@@ -1282,12 +1306,11 @@ public class CoverageDecompressor {
 					options = new Options();
 
 					Option opt = new Option(OPT_COV_FILE, true, "Compressed coverage input file.");
-					opt.setLongOpt("cov");
+					opt.setLongOpt("covFile");
 					opt.setRequired(true);
 					options.addOption(opt);
 
 					opt = new Option(OPT_TMP_DIR, true, "Temporary working directory (default is current dir).");
-					opt.setLongOpt("temp");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1319,20 +1342,23 @@ public class CoverageDecompressor {
 					options = new Options();
 
 					opt = new Option(OPT_COV_FILE, true, "Compressed coverage input file.");
-					opt.setLongOpt("cov");
+					opt.setLongOpt("covFile");
 					opt.setRequired(true);
 					options.addOption(opt);
 
 					opt = new Option(OPT_VCF_FILE, true, "VCF file used for the compression (optional).");
+					opt.setLongOpt("vcfFile");
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_WIG_FILE, true, "Output file that will contain the rounded approximated coverage values (optional).");
+					opt = new Option(OPT_OUT_FILE, true, "Output file that will contain the rounded approximated coverage values (optional).");
+					opt.setLongOpt("outFile");
 					opt.setRequired(true);
 					options.addOption(opt);
 
 					opt = new Option(OPT_CHR_LEN_FILE, true,
 							"Chromosome lengths (file format: chr\\tlength\\n). Use to get proper padding for zero-coverage regions.");
+					opt.setLongOpt("chrLenFile");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1346,6 +1372,7 @@ public class CoverageDecompressor {
 					options.addOption(opt);
 
 					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor (default is 1.0).");
+					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1364,11 +1391,12 @@ public class CoverageDecompressor {
 						conf.setProperty(OPT_TMP_DIR, line.getOptionValue(OPT_TMP_DIR));
 					conf.setProperty(OPT_KEEP_WORKDIR, line.hasOption(OPT_KEEP_WORKDIR) + "");
 					conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
-					conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
+					if (line.hasOption(OPT_SCALE_FACTOR))
+						conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
 
 					try {
 						decompressor = new CoverageDecompressor(conf);
-						decompressor.toWIG(line.getOptionValue(OPT_WIG_FILE));
+						decompressor.toWIG(line.getOptionValue(OPT_OUT_FILE));
 					} finally {
 						decompressor.close();
 					}
@@ -1378,20 +1406,23 @@ public class CoverageDecompressor {
 					options = new Options();
 
 					opt = new Option(OPT_COV_FILE, true, "Compressed coverage input file.");
-					opt.setLongOpt("cov");
+					opt.setLongOpt("covFile");
 					opt.setRequired(true);
 					options.addOption(opt);
 
 					opt = new Option(OPT_VCF_FILE, true, "VCF file used for the compression (optional).");
+					opt.setLongOpt("vcfFile");
 					opt.setRequired(false);
 					options.addOption(opt);
 
 					opt = new Option(OPT_OUT_FILE, true, "Output file that will contain the BED intervals.");
+					opt.setLongOpt("outFile");
 					opt.setRequired(true);
 					options.addOption(opt);
 
 					opt = new Option(OPT_CHR_LEN_FILE, true,
 							"Chromosome lengths (file format: chr\\tlength\\n). Use to get proper padding for zero-coverage regions.");
+					opt.setLongOpt("chrLenFile");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1427,6 +1458,7 @@ public class CoverageDecompressor {
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
 					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor (default is 1.0).");
+					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1442,7 +1474,8 @@ public class CoverageDecompressor {
 						conf.setProperty(OPT_TMP_DIR, line.getOptionValue(OPT_TMP_DIR));
 					conf.setProperty(OPT_KEEP_WORKDIR, line.hasOption(OPT_KEEP_WORKDIR) + "");
 					conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
-					conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
+					if (line.hasOption(OPT_SCALE_FACTOR))
+						conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
 
 					Integer min = line.hasOption("min") ? new Integer(line.getOptionValue("min")) : null;
 					Integer max = line.hasOption("max") ? new Integer(line.getOptionValue("max")) : null;
@@ -1461,16 +1494,18 @@ public class CoverageDecompressor {
 					options = new Options();
 
 					opt = new Option(OPT_COV_FILE, true, "Compressed coverage input file.");
-					opt.setLongOpt("cov");
+					opt.setLongOpt("covFile");
 					opt.setRequired(true);
 					options.addOption(opt);
 
 					opt = new Option(OPT_CHR_LEN_FILE, true,
 							"Chromosome lengths (file format: chr\\tlength\\n). Use to get proper padding for zero-coverage regions.");
+					opt.setLongOpt("chrLenFile");
 					opt.setRequired(false);
 					options.addOption(opt);
 
 					opt = new Option(OPT_VCF_FILE, true, "VCF file used for the compression (optional).");
+					opt.setLongOpt("vcfFile");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1486,6 +1521,7 @@ public class CoverageDecompressor {
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
 					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor (default is 1.0).");
+					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);
 					line = parser.parse(options, args);
@@ -1500,7 +1536,8 @@ public class CoverageDecompressor {
 						conf.setProperty(OPT_TMP_DIR, line.getOptionValue(OPT_TMP_DIR));
 					conf.setProperty(OPT_KEEP_WORKDIR, line.hasOption(OPT_KEEP_WORKDIR) + "");
 					conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
-					conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
+					if (line.hasOption(OPT_SCALE_FACTOR))
+						conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
 
 					try {
 						decompressor = new CoverageDecompressor(conf);
