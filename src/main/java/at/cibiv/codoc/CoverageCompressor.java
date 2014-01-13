@@ -494,7 +494,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		sb.append(createConfigString(STANDARD_STREAM.CHR, "type=rle", "datatype=string", "lengthtype=integer", "debug=false", "compression=" + compression));
 
 		// pos
-		sb.append(createConfigString(STANDARD_STREAM.POS, "type=golomb", "k=2", "datatype=integer", "debug=false", "compression=" + compression));
+		sb.append(createConfigString(STANDARD_STREAM.POS, "type=standard", "datatype=integer", "lengthtype=byte", "debug=false", "compression=" + compression));
 
 		// cov1
 		sb.append(createConfigString(STANDARD_STREAM.COV1, "type=standard", "datatype=integer", "lengthtype=byte", "debug=false", "compression=" + compression));
@@ -966,6 +966,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				PrintStream statsOut = new PrintStream(statsFile);
 				statsOut.println(statistics);
 				statsOut.println(config);
+				statsOut.close();
 			}
 		}
 	}

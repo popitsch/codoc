@@ -25,6 +25,8 @@ public class FileDataInputBlock<T> extends AbstractDataBlock {
 		A, i, f, Z, H, B
 	}
 
+	final int BUF_SIZE = 1024 * 1024 * 10;
+
 	File f1 = null;
 	InputStream fin1 = null;
 	PopableStream<T> stream = null;
@@ -75,7 +77,6 @@ public class FileDataInputBlock<T> extends AbstractDataBlock {
 	 * @throws IOException
 	 */
 	public boolean decompress() throws IOException {
-		final int BUF_SIZE = 1024 * 1024 * 100;
 		if ((f1 != null) && (f1.exists())) {
 			File tmp = null;
 			switch (compressionMethod) {

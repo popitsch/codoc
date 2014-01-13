@@ -38,6 +38,7 @@ public class DecompressorTest {
 		config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512");
 		config.setProperty(CoverageCompressor.OPT_QUANT_METHOD, QUANT_METHOD.PERC.name());
 		config.setProperty(CoverageCompressor.OPT_QUANT_PARAM, "0.2");
+		config.setProperty(CoverageCompressor.OPT_CREATE_STATS, "true");
 		if (useRoi)
 			config.setProperty(CoverageCompressor.OPT_BED_FILE, roiFile);
 
@@ -156,12 +157,11 @@ public class DecompressorTest {
 		config.setProperty(CoverageDecompressor.OPT_CHR_LEN_FILE, lenFile);
 		CoverageDecompressor decompressor = new CoverageDecompressor(config);
 		GenomicITree tree = decompressor.toBED(null, 1, null, "test", "test", "test");
-		tree.dump();
+		//tree.dump();
 		CompressedCoverageIterator it = decompressor.getCoverageIterator();
 		while (it.hasNext()) {
 			CoverageHit hitIterator = it.next();
 			SortedSet<? extends GenomicInterval> res = tree.query(it.getGenomicPosition());
-			// System.out.println(it.getPosition() + "/" + res);
 			Assert.assertNotNull(res);
 			if (hitIterator.getRoundedCoverage() > 0)
 				Assert.assertTrue(res.size() > 0);
@@ -180,7 +180,7 @@ public class DecompressorTest {
 		config.setProperty(CoverageDecompressor.OPT_CHR_LEN_FILE, lenFile);
 		CoverageDecompressor decompressor = new CoverageDecompressor(config);
 		GenomicITree tree = decompressor.toBED(null, null, 0, "test", "test", "test");
-		tree.dump();
+//		tree.dump();
 		CompressedCoverageIterator it = decompressor.getCoverageIterator();
 		while (it.hasNext()) {
 			CoverageHit hitIterator = it.next();
