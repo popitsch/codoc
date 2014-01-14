@@ -676,14 +676,16 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				boolean isExternalCoverage = false; // this will be an
 													// estimated, not a "known",
 													// external coverage.
-//				 System.out.println("=> " + chr + ":" + pos1 + " = " +
-//				 coverage);
+													// System.out.println("=> "
+													// + chr + ":" + pos1 +
+													// " = " +
+				// coverage);
 
 				// ..................................................................
 				// Chromosome change. (i.e., chr is the new chrom already)
 				// ..................................................................
 				if (chromWasChanged) {
-					
+
 					// finish chrom!
 					if (roiFile == null)
 						writeCodeword(lastChr, lastPos1 + 1, lastCoverage, 0, "last1");
@@ -1071,6 +1073,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		System.out.println("\tPossible fields:");
 		System.out.println("\tMAPQ\tthe mapping quality");
 		System.out.println("\tFLAGS\tthe read flags");
+		System.out.println("\tSTRAND\tthe read strand (+/-)");
+		System.out.println("\tFOPSTRAND\tthe first-of-pair read strand (+/-)");		
 		System.out.println("\tOther names will be mapped directly to the optional field name in the SAM file.");
 		System.out.println("\tUse e.g., NM for the 'number of mismatches' field. Reads that do not have a field");
 		System.out.println("\tset will be included. @see http://samtools.sourceforge.net/SAMv1.pdf");
@@ -1097,12 +1101,11 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
 
-//		 args = new String[] { "-cov",
-//		 "src/test/resources/covcompress/small.bam",
-//		 "-o",
-//		 "src/test/resources/covcompress/small.compressed",
-//		 "-v" };
-
+		// args = new String[] { "-cov",
+		// "src/test/resources/covcompress/small.bam",
+		// "-o",
+		// "src/test/resources/covcompress/small.compressed",
+		// "-v" };
 
 		CommandLineParser parser = new PosixParser();
 
@@ -1182,9 +1185,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 			// example: filter reads that were marked as PCR dupl or failed QC:
 			// -filter FLAGS^^1024 -filter "FLAGS^^512
-			Option filter = new Option("filter", true, "Filter used reads by SAM attribute (applicable only in combination with -bam, not -cov). "
+			Option filter = new Option("filter", true, 
+					"Filter used reads by SAM attribute (applicable only in combination with SAM/BAM files). "
 					+ "Multiple filters can be provided that will be combined by a logical AND. Note that filters have "
-					+ "no effect on reads that have no value for the according attribute. Examples: 'X0>9', 'X1=ABC', "
+					+ "no effect on reads that have no value for the according attribute. Examples: 'X0>9', 'X1=ABC', 'STRAND=+'"
 					+ "'FLAGS^^512', 'none',... [default: -filter FLAGS^^1024 -filter FLAGS^^512]." + "See below for more help on filters.");
 			filter.setRequired(false);
 			options.addOption(filter);

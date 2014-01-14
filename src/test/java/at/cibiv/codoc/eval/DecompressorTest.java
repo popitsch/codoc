@@ -162,6 +162,7 @@ public class DecompressorTest {
 		while (it.hasNext()) {
 			CoverageHit hitIterator = it.next();
 			SortedSet<? extends GenomicInterval> res = tree.query(it.getGenomicPosition());
+			//System.out.println(it.getGenomicPosition().toString1based() + "/" + hitIterator.getRoundedCoverage());
 			Assert.assertNotNull(res);
 			if (hitIterator.getRoundedCoverage() > 0)
 				Assert.assertTrue(res.size() > 0);
@@ -185,7 +186,7 @@ public class DecompressorTest {
 		while (it.hasNext()) {
 			CoverageHit hitIterator = it.next();
 			SortedSet<? extends GenomicInterval> res = tree.query(it.getGenomicPosition());
-			// System.out.println(it.getPosition() + "/" + res);
+//			System.out.println(it.getGenomicPosition() + "/" + res);
 			if (hitIterator.getRoundedCoverage() > 0)
 				Assert.assertTrue(res == null || res.size() == 0);
 		}
@@ -227,6 +228,106 @@ public class DecompressorTest {
 			Assert.assertEquals(hit1.getLowerBoundary(), hit2.getLowerBoundaryRaw());
 			Assert.assertEquals(hit1.getUpperBoundary(), hit2.getUpperBoundaryRaw());
 		}
+	}
+
+	
+	@Test
+	public void queryTestStrandParam() throws Throwable {
+
+		// compress special
+		PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
+		config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE, bam);
+		config.setProperty(CoverageCompressor.OPT_VCF_FILE, vcf);
+		config.setProperty(CoverageCompressor.OPT_OUT_FILE, comp);
+		config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512;STRAND=+");
+		config.setProperty(CoverageCompressor.OPT_QUANT_METHOD, QUANT_METHOD.PERC.name());
+		config.setProperty(CoverageCompressor.OPT_QUANT_PARAM, "0");
+		config.setProperty(CoverageCompressor.OPT_CREATE_STATS, "true");
+		new CoverageCompressor(config);
+		
+		// query
+		config = CoverageDecompressor.getDefaultConfiguration();
+		config.setProperty(CoverageDecompressor.OPT_COV_FILE, comp);
+		config.setProperty(CoverageDecompressor.OPT_VCF_FILE, vcf);
+		config.setProperty(CoverageDecompressor.OPT_CHR_LEN_FILE, lenFile);
+		CoverageDecompressor decompressor = new CoverageDecompressor(config);
+
+		// check chrom ranges - outside null should be returned
+		Assert.assertNull(decompressor.query(new GenomicPosition("20", 0, COORD_TYPE.ONEBASED)));
+		Assert.assertNull(decompressor.query(new GenomicPosition("20", 63025521, COORD_TYPE.ONEBASED)));
+		
+		// check alignment borders
+		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("20", 59991, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(1f, decompressor.query(new GenomicPosition("20", 59999, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(27f, decompressor.query(new GenomicPosition("20", 60000, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(24f, decompressor.query(new GenomicPosition("20", 60027, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(1f, decompressor.query(new GenomicPosition("20", 60092, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("20", 60093, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+
+		Assert.assertEquals(1f, decompressor.query(new GenomicPosition("21", 60028, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60029, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		// check deletion!
+		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60015, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+
+		// check VCF knot points
+		SimpleVCFFile vcfFile = new SimpleVCFFile(new File(vcf));
+		for (SimpleVCFVariant v : vcfFile.getVariants()) {
+			//System.out.println("CHECK " + v + "\n(coverage: " + v.estimateCoverage() + ")");
+			if (v.estimateCoverage() != null)
+				Assert.assertEquals((float) v.estimateCoverage(),
+						decompressor.query(new GenomicPosition(v.getChromosome(), v.getPosition(), COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		}
+
+		decompressor.close();
+
+	}
+
+	@Test
+	public void queryTestFOPStrandParam() throws Throwable {
+
+		// compress special
+		PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
+		config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE, bam);
+		config.setProperty(CoverageCompressor.OPT_VCF_FILE, vcf);
+		config.setProperty(CoverageCompressor.OPT_OUT_FILE, comp);
+		config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512;FOPSTRAND=-");
+		config.setProperty(CoverageCompressor.OPT_QUANT_METHOD, QUANT_METHOD.PERC.name());
+		config.setProperty(CoverageCompressor.OPT_QUANT_PARAM, "0");
+		config.setProperty(CoverageCompressor.OPT_CREATE_STATS, "true");
+		new CoverageCompressor(config);
+		
+		// query
+		config = CoverageDecompressor.getDefaultConfiguration();
+		config.setProperty(CoverageDecompressor.OPT_COV_FILE, comp);
+		config.setProperty(CoverageDecompressor.OPT_VCF_FILE, vcf);
+		config.setProperty(CoverageDecompressor.OPT_CHR_LEN_FILE, lenFile);
+		CoverageDecompressor decompressor = new CoverageDecompressor(config);
+
+		// check chrom ranges - outside null should be returned
+		Assert.assertNull(decompressor.query(new GenomicPosition("20", 0, COORD_TYPE.ONEBASED)));
+		Assert.assertNull(decompressor.query(new GenomicPosition("20", 63025521, COORD_TYPE.ONEBASED)));
+		
+		// check alignment borders
+		Assert.assertEquals(1f, decompressor.query(new GenomicPosition("20", 59991, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(3f, decompressor.query(new GenomicPosition("20", 59999, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(15f, decompressor.query(new GenomicPosition("20", 60000, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(12f, decompressor.query(new GenomicPosition("20", 60027, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(2f, decompressor.query(new GenomicPosition("20", 60092, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(1f, decompressor.query(new GenomicPosition("20", 60093, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+
+		Assert.assertNull( decompressor.query(new GenomicPosition("21", 60028, COORD_TYPE.ONEBASED)));
+
+		// check VCF knot points
+		SimpleVCFFile vcfFile = new SimpleVCFFile(new File(vcf));
+		for (SimpleVCFVariant v : vcfFile.getVariants()) {
+			//System.out.println("CHECK " + v + "\n(coverage: " + v.estimateCoverage() + ")");
+			if (v.estimateCoverage() != null)
+				Assert.assertEquals((float) v.estimateCoverage(),
+						decompressor.query(new GenomicPosition(v.getChromosome(), v.getPosition(), COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		}
+
+		decompressor.close();
+
 	}
 
 

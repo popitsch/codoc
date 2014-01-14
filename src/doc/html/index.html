@@ -136,6 +136,15 @@ $ java -jar bin/codoc-0.0.1.jar compress -bam <em>BAM</em> -qmethod GRID -qparam
 </code>
 			</pre>
 
+			The following command compressed coverage data extracted from all minus-strand reads in
+			a BAM file losslessly. Only reads with a mapping quality > 20 are included.
+
+			<pre>
+				<code>
+$ java -jar bin/codoc-0.0.1.jar compress -bam <em>BAM</em> -qparam 0 -filter "STRAND=-" -filter "MAPQ>20" -o <em>BAM</em>.comp
+</code>
+			</pre>
+
 			The following command prints the header of the compressed file
 			showing the metadata as well as the used configuration for
 			compression.

@@ -1236,12 +1236,15 @@ public class CoverageDecompressor {
 		if (additional == null)
 			additional = "";
 		GenomicITree regionTree = regionsByCoverage(minCoverage, maxCoverage);
+//		regionTree.dump();
+		
 		if (bedOut != null) {
 			bedOut.println("track name=" + name + " description=\""
 					+ description + "\" " + additional);
-			for (GenomicInterval gi : regionTree.getIntervals())
+			for (GenomicInterval gi : regionTree.getIntervals()) {
 				bedOut.println(gi.getChr() + "\t" + (gi.getMin()) + "\t"
-						+ (gi.getMax()) + "\t" + gi.getUri());
+						+ (gi.getMax()+1) + "\t" + gi.getUri());
+			}
 			bedOut.close();
 		}
 		regionTree.buildTree();
@@ -1392,10 +1395,15 @@ public class CoverageDecompressor {
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
 
-		// args = new String[] { "tobed", "--cov",
-		// "/project/oesi/genomicAmbiguity/droso/droso_r5_partial-reads-100bp-step5.bam.data.properChrom.wig.codoc",
-		// "-outFile", "/project/oesi/genomicAmbiguity/droso/test.bed",
-		// "-v" };
+		
+		
+//		 args = new String[] { "tobed", "-cov",
+//		 "/scratch/projects/codoc/src/test/resources/covcompress/small.compressed",
+//		 "-vcf",
+//		 "/scratch/projects/codoc/src/test/resources/covcompress/small.vcf",
+//		 "-min", "1", 
+//		 "-outFile", "/scratch/projects/codoc/src/test/resources/covcompress/test.codoc.bed",
+//		 "-v" };
 
 		CommandLineParser parser = new PosixParser();
 
