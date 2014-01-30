@@ -163,7 +163,7 @@ public class CoverageTools {
 	}
 
 	public static enum OPERATOR {
-		ADD, SUBTRACT, DIFF, MIN, MAX
+		ADD, SUBTRACT, DIFF, MIN, MAX, AVG
 	};
 
 	/**
@@ -219,6 +219,9 @@ public class CoverageTools {
 				case MAX:
 					co = Math.max(c1, c2);
 					break;
+				case AVG:
+					co = ( c1 + c2 ) / 2;
+					break;
 				default:
 					throw new InvalidParameterException("Unknown operator " + op);
 				}
@@ -256,6 +259,9 @@ public class CoverageTools {
 					break;
 				case MAX:
 					System.out.println("Calculated maximum for " + count + " values");
+					break;
+				case AVG:
+					System.out.println("Calculated average for " + count + " values");
 					break;
 				}
 
@@ -359,10 +365,10 @@ public class CoverageTools {
 	 * @param covFile
 	 * @param covVcfFile
 	 * @param bedFile
-	 * @param covOut
+	 * @param out
 	 * @throws Throwable
 	 */
-	public static void calculateCoveragePerBedFeature(File covFile, File covVcfFile, File bedFile, PrintStream covOut) throws Throwable {
+	public static float calculateCoveragePerBedFeature(File covFile, File covVcfFile, File bedFile, PrintStream out) throws Throwable {
 		CoverageDecompressor cov = null;
 
 		try {
@@ -370,12 +376,18 @@ public class CoverageTools {
 				System.out.println("Load " + covFile);
 			cov = CoverageDecompressor.loadFromFile(covFile, covVcfFile);
 			SimpleBEDFile bf = new SimpleBEDFile(bedFile);
-			covOut.println("chr\tmin\tmax\tname\twidth\tcov\tavg.cov");
 
+			if (out != null) {
+				out.println("# BED file: \t" + bedFile);
+				out.println("# Score file: \t" + covFile);
+				out.println("#chr\tmin\tmax\tname\twidth\tcov\tavg.score");
+			}
+
+			float scoreAvgAll = 0f, scoreCountAll = 0f;
 			for (GenomicInterval gi : bf.getIntervalsList()) {
 				CompressedCoverageIterator it = cov.getCoverageIterator(gi.getLeftPosition());
 				GenomicPosition endPos = gi.getRightPosition();
-				float covSum = 0f;
+				float scoreSum = 0f;
 				double width = gi.getWidth(); // inclusive width!
 				while (it.hasNext()) {
 					CoverageHit h = it.next();
@@ -384,17 +396,24 @@ public class CoverageTools {
 					if (it.getGenomicPosition().compareTo(endPos) >= 0)
 						break;
 					float c = h.getInterpolatedCoverage();
-					covSum += c;
+					scoreSum += c;
 				}
-				covOut.format("%s\t%d\t%d\t%s\t%.0f\t%.0f\t%.1f%n", gi.getOriginalChrom(), gi.getMin(), gi.getMax(), gi.getId(), width, covSum,
-						(covSum / width));
+				if (out != null)
+					out.format("%s\t%d\t%d\t%s\t%.0f\t%.0f\t%.1f%n", gi.getOriginalChrom(), gi.getMin(), gi.getMax(), gi.getId(), width, scoreSum,
+							(scoreSum / width));
+				scoreAvgAll += (scoreSum / width);
+				scoreCountAll++;
 			}
+			float averageScore = scoreAvgAll / scoreCountAll;
+			if (out != null)
+				out.println("# Overall average score: " + averageScore);
+			if (debug)
+				System.out.println("Finished.");
+			return averageScore;
 		} finally {
 			if (cov != null)
 				cov.close();
 		}
-		if (debug)
-			System.out.println("Finished.");
 
 	}
 
@@ -424,7 +443,7 @@ public class CoverageTools {
 			}
 
 			cov = CoverageDecompressor.loadFromFile(covFile, covVcfFile);
-			cov.debug = false;
+			CoverageTools.debug = false;
 			System.out.println(Arrays.toString(cov.getChromosomes().toArray()));
 
 			covOut.println("min/max are gene positions; cov, width, avg.cov is calc only over exons.");
@@ -441,8 +460,7 @@ public class CoverageTools {
 				}
 				ExonChromosomeTree tree = (ExonChromosomeTree) trees.get(pos.getChromosomeOriginal());
 				if (tree == null) {
-					 System.err.println("chromosome not found: " +
-					 pos.getChromosomeOriginal());
+					System.err.println("chromosome not found: " + pos.getChromosomeOriginal());
 					continue;
 				}
 				List<Interval<Long>> res = tree.query(pos.get0Position());
@@ -600,9 +618,13 @@ public class CoverageTools {
 	 */
 	public static void main(String[] args) throws Throwable {
 
-//		args = new String[] { "calculateCoveragePerUCSCFeature", "-cov", "/project/valent/Project_valent/Sample_V1/work/V1.ngm-FINAL.bam.codoc", "-ucscDb",
-//				"/project/ngs-work/meta/annotations/exons/hg19/refseq/UCSC-RefSeq-genes-exons-20130809-properchroms.txt", "-o",
-//				"/project/valent/Project_valent/results/V1.ngm-FINAL.bam.codoc.covPerGene.csv" };
+		// args = new String[] { "calculateCoveragePerUCSCFeature", "-cov",
+		// "/project/valent/Project_valent/Sample_V1/work/V1.ngm-FINAL.bam.codoc",
+		// "-ucscDb",
+		// "/project/ngs-work/meta/annotations/exons/hg19/refseq/UCSC-RefSeq-genes-exons-20130809-properchroms.txt",
+		// "-o",
+		// "/project/valent/Project_valent/results/V1.ngm-FINAL.bam.codoc.covPerGene.csv"
+		// };
 
 		// args = new String[] { "calculateCoveragePerUCSCFeature",
 		// "-cov", "src/test/resources/covcompress/small.compressed",

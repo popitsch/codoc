@@ -253,7 +253,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		} else if (ext.equalsIgnoreCase(".wig")) {
 			if (debug)
 				System.out.println("Extracting and compressing coverage from WIG file: " + coverageFile);
-			it = new WigIterator(coverageFile);
+			float scaleFactor = 1.0f;
+			if (config.hasProperty(OPT_SCALE_COVERAGE))
+				scaleFactor = Float.parseFloat(config.getProperty(OPT_SCALE_COVERAGE));
+			it = new WigIterator(coverageFile, scaleFactor);
 		} else {
 			if (debug)
 				System.out.println("Extracting and compressing coverage from coverage file: " + coverageFile);
@@ -1074,7 +1077,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		System.out.println("\tMAPQ\tthe mapping quality");
 		System.out.println("\tFLAGS\tthe read flags");
 		System.out.println("\tSTRAND\tthe read strand (+/-)");
-		System.out.println("\tFOPSTRAND\tthe first-of-pair read strand (+/-)");		
+		System.out.println("\tFOPSTRAND\tthe first-of-pair read strand (+/-)");
 		System.out.println("\tOther names will be mapped directly to the optional field name in the SAM file.");
 		System.out.println("\tUse e.g., NM for the 'number of mismatches' field. Reads that do not have a field");
 		System.out.println("\tset will be included. @see http://samtools.sourceforge.net/SAMv1.pdf");
@@ -1185,8 +1188,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 			// example: filter reads that were marked as PCR dupl or failed QC:
 			// -filter FLAGS^^1024 -filter "FLAGS^^512
-			Option filter = new Option("filter", true, 
-					"Filter used reads by SAM attribute (applicable only in combination with SAM/BAM files). "
+			Option filter = new Option("filter", true, "Filter used reads by SAM attribute (applicable only in combination with SAM/BAM files). "
 					+ "Multiple filters can be provided that will be combined by a logical AND. Note that filters have "
 					+ "no effect on reads that have no value for the according attribute. Examples: 'X0>9', 'X1=ABC', 'STRAND=+'"
 					+ "'FLAGS^^512', 'none',... [default: -filter FLAGS^^1024 -filter FLAGS^^512]." + "See below for more help on filters.");
