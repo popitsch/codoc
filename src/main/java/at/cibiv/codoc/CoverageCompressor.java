@@ -120,13 +120,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	/**
 	 * # of codewords per block.
 	 */
-	public static double DEFAULT_BLOCKSIZE = 1000000;
-
-	/**
-	 * <<<<<<< HEAD ======= if set to true, the golomb-encoding parameters are
-	 * estimated from the data
-	 */
-	public final static boolean estimateGolombK = true;
+	public static int DEFAULT_BLOCKSIZE = 100000;
 
 	/**
 	 * >>>>>>> branch 'master' of https://github.com/popitsch/codoc.git number
@@ -692,8 +686,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		boolean dumpRawCoverage = config
 				.getBooleanProperty(OPT_DUMP_RAW, false);
 		debug = config.getBooleanProperty(OPT_VERBOSE, false);
-		this.blockSize = config.hasProperty(OPT_BLOCKSIZE) ? Double
-				.parseDouble(OPT_BLOCKSIZE) : DEFAULT_BLOCKSIZE;
+		this.blockSize = config.getIntProperty(OPT_BLOCKSIZE, DEFAULT_BLOCKSIZE );
 		if (blockSize <= 1) // safety
 			throw new RuntimeException("Minimum Block size is 1!");
 
@@ -1262,9 +1255,9 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
 
-		// args = new String[] { "-cov",
-		// "src/test/resources/covcompress/small.bam", "-o",
-		// "src/test/resources/covcompress/small.compressed", "-v" };
+//		 args = new String[] { "-cov",
+//		 "src/test/resources/covcompress/small.bam", "-o",
+//		 "src/test/resources/covcompress/small.compressed", "-v", "-blockSize", "10" };
 
 		CommandLineParser parser = new PosixParser();
 
