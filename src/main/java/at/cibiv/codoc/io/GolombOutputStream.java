@@ -249,6 +249,8 @@ public class GolombOutputStream<T> extends OutputStream implements PushableStrea
 	 */
 	public static void main(String[] args) throws IOException {
 
+		System.out.println(GolombOutputStream.calcK(0));
+		
 		// System.out.println(GolombOutputStream.calcK(11.70f));
 
 		// long t = System.currentTimeMillis();
