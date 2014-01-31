@@ -123,8 +123,15 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	public static double DEFAULT_BLOCKSIZE = 1000000;
 
 	/**
-	 * number of reads/positions that are taken into account for the estimation
-	 * of the golomb-encoding parameter estimation
+	 * <<<<<<< HEAD ======= if set to true, the golomb-encoding parameters are
+	 * estimated from the data
+	 */
+	public final static boolean estimateGolombK = true;
+
+	/**
+	 * >>>>>>> branch 'master' of https://github.com/popitsch/codoc.git number
+	 * of reads/positions that are taken into account for the estimation of the
+	 * golomb-encoding parameter estimation
 	 */
 	public final static int GOLOMB_MU_ESTIMATE_SAMPLE_SIZE = 10000;
 
@@ -301,6 +308,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				float mu = SamplingTools.calcStartPosDiffMuFromWig(
 						coverageFile, scaleFactor,
 						GOLOMB_MU_ESTIMATE_SAMPLE_SIZE);
+
 				int k = GolombOutputStream.calcK(mu);
 				addMessage("Estimated Golomb param k as " + k + " from mu "
 						+ mu);
@@ -1446,6 +1454,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			if (line.hasOption(OPT_MANUAL_GOLOMB_K))
 				conf.setProperty(OPT_MANUAL_GOLOMB_K,
 						line.getOptionValue(OPT_MANUAL_GOLOMB_K));
+
 			conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
 
 			CoverageCompressor compressor = new CoverageCompressor(conf);
