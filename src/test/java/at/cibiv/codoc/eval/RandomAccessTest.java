@@ -79,6 +79,8 @@ public class RandomAccessTest {
 		}
 		DebugUtil.addPerformanceMarker("query", "query2");
 		DebugUtil.printPerformanceMarker("query");		
+		
+		decomp.close();
 	}
 
 }
