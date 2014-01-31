@@ -29,12 +29,14 @@ import at.cibiv.codoc.io.AbstractDataBlock.BLOCK_COMPRESSION_METHOD;
 import at.cibiv.codoc.io.CompressedFile;
 import at.cibiv.codoc.io.FileDataOutputBlock;
 import at.cibiv.codoc.io.FileHeader;
+import at.cibiv.codoc.io.GolombOutputStream;
 import at.cibiv.codoc.quant.LogarithmicGridQuatization;
 import at.cibiv.codoc.quant.PercentageQuatization;
 import at.cibiv.codoc.quant.QuantizationFunction;
 import at.cibiv.codoc.quant.RegularGridQuatization;
 import at.cibiv.codoc.utils.CodocException;
 import at.cibiv.codoc.utils.PropertyConfiguration;
+import at.cibiv.codoc.utils.SamplingTools;
 import at.cibiv.ngs.tools.bed.BedToolsCoverageIterator;
 import at.cibiv.ngs.tools.bed.SimpleBEDFile;
 import at.cibiv.ngs.tools.lds.GenomicInterval;
@@ -69,7 +71,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	public static final String CMD = "compress";
 	public static final String CMD_INFO = "Extracts and compressed coverage data from a SAM/BAM file.";
 
-	public static final SimpleDateFormat sdf = new SimpleDateFormat("yyyy.MM.dd G 'at' HH:mm:ss z");
+	public static final SimpleDateFormat sdf = new SimpleDateFormat(
+			"yyyy.MM.dd G 'at' HH:mm:ss z");
 
 	/**
 	 * The compression method used for envelope-compression. Note that each
@@ -108,13 +111,22 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	public static final String OPT_BAM_FILTER = "bamFilter";
 	public static final String OPT_TMP_DIR = "tmpDir";
 	public static final String OPT_SCALE_COVERAGE = "scaleCoverage";
+	public static final String OPT_MANUAL_GOLOMB_K = "manualGolombK";
 	public static final String OPT_VERBOSE = "v";
 
 	public static final String OPT_BLOCK_BORDERS = "blockBorders";
 	public static final String OPT_CHR_LIST = "originalChromosomes";
 
-	public static double DEFAULT_BLOCKSIZE = 1000000; // # of codewords per
-														// block.
+	/**
+	 * # of codewords per block.
+	 */
+	public static double DEFAULT_BLOCKSIZE = 1000000;
+
+	/**
+	 * number of reads/positions that are taken into account for the estimation
+	 * of the golomb-encoding parameter estimation
+	 */
+	public final static int GOLOMB_MU_ESTIMATE_SAMPLE_SIZE = 10000;
 
 	/**
 	 * The quantization function.
@@ -227,7 +239,9 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		CoverageIterator<?> it = null;
 
 		File coverageFile = new File(config.getProperty(OPT_COVERAGE_FILE));
-		String ext = coverageFile.getName().lastIndexOf('.') > 0 ? coverageFile.getName().substring(coverageFile.getName().lastIndexOf('.')) : "";
+		String ext = coverageFile.getName().lastIndexOf('.') > 0 ? coverageFile
+				.getName().substring(coverageFile.getName().lastIndexOf('.'))
+				: "";
 
 		if (ext.equalsIgnoreCase(".bam") || ext.equalsIgnoreCase(".sam")) {
 
@@ -241,29 +255,85 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 					if (f != null)
 						filters.add(f);
 					else
-						warnings.add(new CodocException("Unable to parse filter string " + t + " - IGNORING"));
+						warnings.add(new CodocException(
+								"Unable to parse filter string " + t
+										+ " - IGNORING"));
 				}
 
 			}
+
+			if (config.hasProperty(OPT_MANUAL_GOLOMB_K)) {
+				config.setProperty(STANDARD_STREAM.POS + "-k",
+						config.getProperty(OPT_MANUAL_GOLOMB_K));
+			} else {
+				// estimate golomb parameter from the first 10000 reads
+				float mu = SamplingTools.calcStartPosDiffMuFromSam(
+						coverageFile, GOLOMB_MU_ESTIMATE_SAMPLE_SIZE);
+				int k = GolombOutputStream.calcK(mu);
+				addMessage("Estimated Golomb param k as " + k + " from mu "
+						+ mu);
+				config.setProperty(STANDARD_STREAM.POS + "-k", k + "");
+			}
+
 			// Iterator pointing to the current pileup.
 			if (debug)
-				System.out.println("Extracting and compressing coverage from SAM/BAM file: " + coverageFile);
-			it = new FastBamCoverageIterator(coverageFile, filters, false, false, ValidationStringency.LENIENT);
+				System.out
+						.println("Extracting and compressing coverage from SAM/BAM file: "
+								+ coverageFile);
+			it = new FastBamCoverageIterator(coverageFile, filters, false,
+					false, ValidationStringency.LENIENT);
 
 		} else if (ext.equalsIgnoreCase(".wig")) {
 			if (debug)
-				System.out.println("Extracting and compressing coverage from WIG file: " + coverageFile);
+				System.out
+						.println("Extracting and compressing coverage from WIG file: "
+								+ coverageFile);
 			float scaleFactor = 1.0f;
 			if (config.hasProperty(OPT_SCALE_COVERAGE))
-				scaleFactor = Float.parseFloat(config.getProperty(OPT_SCALE_COVERAGE));
+				scaleFactor = Float.parseFloat(config
+						.getProperty(OPT_SCALE_COVERAGE));
+
+			if (config.hasProperty(OPT_MANUAL_GOLOMB_K)) {
+				config.setProperty(STANDARD_STREAM.POS + "-k",
+						config.getProperty(OPT_MANUAL_GOLOMB_K));
+			} else {
+				// estimate golomb parameter from the first 10000 reads
+				float mu = SamplingTools.calcStartPosDiffMuFromWig(
+						coverageFile, scaleFactor,
+						GOLOMB_MU_ESTIMATE_SAMPLE_SIZE);
+				int k = GolombOutputStream.calcK(mu);
+				addMessage("Estimated Golomb param k as " + k + " from mu "
+						+ mu);
+				config.setProperty(STANDARD_STREAM.POS + "-k", k + "");
+			}
+
 			it = new WigIterator(coverageFile, scaleFactor);
 		} else {
 			if (debug)
-				System.out.println("Extracting and compressing coverage from coverage file: " + coverageFile);
+				System.out
+						.println("Extracting and compressing coverage from coverage file: "
+								+ coverageFile);
 			float scaleFactor = 1.0f;
 			if (config.hasProperty(OPT_SCALE_COVERAGE))
-				scaleFactor = Float.parseFloat(config.getProperty(OPT_SCALE_COVERAGE));
-			it = new BedToolsCoverageIterator(coverageFile, COORD_TYPE.ONEBASED, scaleFactor);
+				scaleFactor = Float.parseFloat(config
+						.getProperty(OPT_SCALE_COVERAGE));
+
+			if (config.hasProperty(OPT_MANUAL_GOLOMB_K)) {
+				config.setProperty(STANDARD_STREAM.POS + "-k",
+						config.getProperty(OPT_MANUAL_GOLOMB_K));
+			} else {
+				// estimate golomb parameter from the first 10000 reads
+				float mu = SamplingTools.calcStartPosDiffMuFromBedToolsCov(
+						coverageFile, scaleFactor,
+						GOLOMB_MU_ESTIMATE_SAMPLE_SIZE);
+				int k = GolombOutputStream.calcK(mu);
+				addMessage("Estimated Golomb param k as " + k + " from mu "
+						+ mu);
+				config.setProperty(STANDARD_STREAM.POS + "-k", k + "");
+			}
+
+			it = new BedToolsCoverageIterator(coverageFile,
+					COORD_TYPE.ONEBASED, scaleFactor);
 		}
 
 		it.addListener(this);
@@ -280,7 +350,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * @throws IOException
 	 * @throws ParseException
 	 */
-	public CoverageCompressor(CoverageIterator<?> it, PropertyConfiguration config) throws Throwable {
+	public CoverageCompressor(CoverageIterator<?> it,
+			PropertyConfiguration config) throws Throwable {
 		this.config = config;
 		it.addListener(this);
 		compress(it);
@@ -296,14 +367,20 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * @throws IOException
 	 * @throws ParseException
 	 */
-	public CoverageCompressor(CoverageIterator<?> it, File vcfFile, File outFile) throws Throwable {
+	public CoverageCompressor(CoverageIterator<?> it, File vcfFile, File outFile)
+			throws Throwable {
 		it.addListener(this);
-		PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
+		PropertyConfiguration config = CoverageCompressor
+				.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
 		if (vcfFile != null)
-			config.setProperty(CoverageCompressor.OPT_VCF_FILE, vcfFile.getAbsolutePath());
-		config.setProperty(CoverageCompressor.OPT_OUT_FILE, outFile.getAbsolutePath());
-		config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512");
-		config.setProperty(CoverageCompressor.OPT_QUANT_METHOD, QUANT_METHOD.PERC.name());
+			config.setProperty(CoverageCompressor.OPT_VCF_FILE,
+					vcfFile.getAbsolutePath());
+		config.setProperty(CoverageCompressor.OPT_OUT_FILE,
+				outFile.getAbsolutePath());
+		config.setProperty(CoverageCompressor.OPT_BAM_FILTER,
+				"FLAGS^^1024;FLAGS^^512");
+		config.setProperty(CoverageCompressor.OPT_QUANT_METHOD,
+				QUANT_METHOD.PERC.name());
 		config.setProperty(CoverageCompressor.OPT_QUANT_PARAM, "0.2");
 		this.config = config;
 
@@ -334,10 +411,18 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				// currentBlockIndex);MemoryUtils.debugMemory();
 			}
 
-			chrData.add(new FileDataOutputBlock<String>(STANDARD_STREAM.CHR.name(), FileUtils.createTempFile(workDir, STANDARD_STREAM.CHR.name() + "_")));
-			posData.add(new FileDataOutputBlock<Integer>(STANDARD_STREAM.POS.name(), FileUtils.createTempFile(workDir, STANDARD_STREAM.POS.name() + "_")));
-			cov1Data.add(new FileDataOutputBlock<Integer>(STANDARD_STREAM.COV1.name(), FileUtils.createTempFile(workDir, STANDARD_STREAM.COV1.name() + "_")));
-			cov2Data.add(new FileDataOutputBlock<Integer>(STANDARD_STREAM.COV2.name(), FileUtils.createTempFile(workDir, STANDARD_STREAM.COV2.name() + "_")));
+			chrData.add(new FileDataOutputBlock<String>(STANDARD_STREAM.CHR
+					.name(), FileUtils.createTempFile(workDir,
+					STANDARD_STREAM.CHR.name() + "_")));
+			posData.add(new FileDataOutputBlock<Integer>(STANDARD_STREAM.POS
+					.name(), FileUtils.createTempFile(workDir,
+					STANDARD_STREAM.POS.name() + "_")));
+			cov1Data.add(new FileDataOutputBlock<Integer>(STANDARD_STREAM.COV1
+					.name(), FileUtils.createTempFile(workDir,
+					STANDARD_STREAM.COV1.name() + "_")));
+			cov2Data.add(new FileDataOutputBlock<Integer>(STANDARD_STREAM.COV2
+					.name(), FileUtils.createTempFile(workDir,
+					STANDARD_STREAM.COV2.name() + "_")));
 
 			currentBlockIndex = chrData.size() - 1;
 			// configure
@@ -372,7 +457,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * @return
 	 * @throws IOException
 	 */
-	protected boolean writeCodeword(String chr, Long pos1, int lc, int cov, String type) throws IOException {
+	protected boolean writeCodeword(String chr, Long pos1, int lc, int cov,
+			String type) throws IOException {
 
 		// create first data blocks
 		if (chrData.size() == 0) {
@@ -456,7 +542,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * @param namevaluepairs
 	 * @return
 	 */
-	protected static String createConfigString(STANDARD_STREAM id, String... namevaluepairs) {
+	protected static String createConfigString(STANDARD_STREAM id,
+			String... namevaluepairs) {
 		return createConfigString(id.name(), namevaluepairs);
 	}
 
@@ -467,7 +554,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * @param namevaluepairs
 	 * @return
 	 */
-	protected static String createConfigString(String id, String... namevaluepairs) {
+	protected static String createConfigString(String id,
+			String... namevaluepairs) {
 		StringBuilder sb = new StringBuilder();
 		for (String nv : namevaluepairs)
 			sb.append(id + "-" + nv + "\n");
@@ -484,7 +572,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * @return
 	 * @throws IOException
 	 */
-	public static PropertyConfiguration getDefaultConfiguration(BLOCK_COMPRESSION_METHOD compression) {
+	public static PropertyConfiguration getDefaultConfiguration(
+			BLOCK_COMPRESSION_METHOD compression) {
 		StringBuffer sb = new StringBuffer();
 
 		// set default compression algorithm
@@ -494,16 +583,23 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		sb.append("created=" + sdf.format(new Date()) + "\n");
 
 		// chr
-		sb.append(createConfigString(STANDARD_STREAM.CHR, "type=rle", "datatype=string", "lengthtype=integer", "debug=false", "compression=" + compression));
+		sb.append(createConfigString(STANDARD_STREAM.CHR, "type=rle",
+				"datatype=string", "lengthtype=integer", "debug=false",
+				"compression=" + compression));
 
 		// pos
-		sb.append(createConfigString(STANDARD_STREAM.POS, "type=standard", "datatype=integer", "lengthtype=byte", "debug=false", "compression=" + compression));
+		sb.append(createConfigString(STANDARD_STREAM.POS, "type=golomb", "k=2",
+				"datatype=integer", "debug=false", "compression=" + compression));
 
 		// cov1
-		sb.append(createConfigString(STANDARD_STREAM.COV1, "type=standard", "datatype=integer", "lengthtype=byte", "debug=false", "compression=" + compression));
+		sb.append(createConfigString(STANDARD_STREAM.COV1, "type=standard",
+				"datatype=integer", "lengthtype=byte", "debug=false",
+				"compression=" + compression));
 
 		// cov2
-		sb.append(createConfigString(STANDARD_STREAM.COV2, "type=standard", "datatype=integer", "lengthtype=byte", "debug=false", "compression=" + compression));
+		sb.append(createConfigString(STANDARD_STREAM.COV2, "type=standard",
+				"datatype=integer", "lengthtype=byte", "debug=false",
+				"compression=" + compression));
 
 		return PropertyConfiguration.fromString(sb.toString());
 	}
@@ -516,21 +612,26 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * @return
 	 * @throws CodocException
 	 */
-	protected static QuantizationFunction instantiateQuantizationFunction(PropertyConfiguration config) throws CodocException {
-		QUANT_METHOD qm = (QUANT_METHOD) StringUtils.findInEnum(config.getProperty(OPT_QUANT_METHOD), QUANT_METHOD.values());
+	protected static QuantizationFunction instantiateQuantizationFunction(
+			PropertyConfiguration config) throws CodocException {
+		QUANT_METHOD qm = (QUANT_METHOD) StringUtils.findInEnum(
+				config.getProperty(OPT_QUANT_METHOD), QUANT_METHOD.values());
 		if (qm == null)
-			throw new CodocException("No valid quantization method provided (" + config.getProperty(OPT_QUANT_METHOD) + "). Set any of "
+			throw new CodocException("No valid quantization method provided ("
+					+ config.getProperty(OPT_QUANT_METHOD) + "). Set any of "
 					+ Arrays.toString(QUANT_METHOD.values()));
 
 		switch (qm) {
 		case PERC:
 			if (config.getProperty(OPT_QUANT_PARAM) == null)
-				throw new CodocException("No valid quantization parameter (percentage) provided. Set a float value.");
+				throw new CodocException(
+						"No valid quantization parameter (percentage) provided. Set a float value.");
 			double qp = Double.parseDouble(config.getProperty(OPT_QUANT_PARAM));
 			return new PercentageQuatization(qp);
 		case GRID:
 			if (config.getProperty(OPT_QUANT_PARAM) == null)
-				throw new CodocException("No valid quantization parameter (grid height)  provided. Set a float value.");
+				throw new CodocException(
+						"No valid quantization parameter (grid height)  provided. Set a float value.");
 			qp = Double.parseDouble(config.getProperty(OPT_QUANT_PARAM));
 			return new RegularGridQuatization(qp);
 		case LOG2:
@@ -546,7 +647,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * @param pos1
 	 * @return
 	 */
-	private SimpleVCFVariant positionRightAfter(Iterator<SimpleVCFVariant> it, Long pos1) {
+	private SimpleVCFVariant positionRightAfter(Iterator<SimpleVCFVariant> it,
+			Long pos1) {
 		if (!it.hasNext())
 			return null;
 		SimpleVCFVariant ret = it.next();
@@ -570,15 +672,20 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * @param config
 	 * @throws Throwable
 	 */
-	protected void compress(CoverageIterator<?> coverageIterator) throws Throwable {
+	protected void compress(CoverageIterator<?> coverageIterator)
+			throws Throwable {
 
 		this.coverageIterator = coverageIterator;
 		long startTime = System.currentTimeMillis();
-		boolean keepWorkDir = config.getBooleanProperty(OPT_KEEP_WORKDIR, false);
-		boolean createStats = config.getBooleanProperty(OPT_CREATE_STATS, false);
-		boolean dumpRawCoverage = config.getBooleanProperty(OPT_DUMP_RAW, false);
+		boolean keepWorkDir = config
+				.getBooleanProperty(OPT_KEEP_WORKDIR, false);
+		boolean createStats = config
+				.getBooleanProperty(OPT_CREATE_STATS, false);
+		boolean dumpRawCoverage = config
+				.getBooleanProperty(OPT_DUMP_RAW, false);
 		debug = config.getBooleanProperty(OPT_VERBOSE, false);
-		this.blockSize = config.hasProperty(OPT_BLOCKSIZE) ? Double.parseDouble(OPT_BLOCKSIZE) : DEFAULT_BLOCKSIZE;
+		this.blockSize = config.hasProperty(OPT_BLOCKSIZE) ? Double
+				.parseDouble(OPT_BLOCKSIZE) : DEFAULT_BLOCKSIZE;
 		if (blockSize <= 1) // safety
 			throw new RuntimeException("Minimum Block size is 1!");
 
@@ -587,19 +694,26 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 		// prepare working files
 		File outFile = new File(config.getProperty(OPT_OUT_FILE));
-		File vcfFile = config.hasProperty(OPT_VCF_FILE) ? new File(config.getProperty(OPT_VCF_FILE)) : null;
-		File regionsOfInterest = config.hasProperty(OPT_BED_FILE) ? new File(config.getProperty(OPT_BED_FILE)) : null;
-		this.workDir = config.hasProperty(OPT_TMP_DIR) ? new File(config.getProperty(OPT_TMP_DIR)) : new File(outFile.getParentFile(), "" + Math.random());
+		File vcfFile = config.hasProperty(OPT_VCF_FILE) ? new File(
+				config.getProperty(OPT_VCF_FILE)) : null;
+		File regionsOfInterest = config.hasProperty(OPT_BED_FILE) ? new File(
+				config.getProperty(OPT_BED_FILE)) : null;
+		this.workDir = config.hasProperty(OPT_TMP_DIR) ? new File(
+				config.getProperty(OPT_TMP_DIR)) : new File(
+				outFile.getParentFile(), "" + Math.random());
 		if (!workDir.exists()) {
 			if (!workDir.mkdirs())
-				throw new IOException("Could not create temporary directory " + workDir);
+				throw new IOException("Could not create temporary directory "
+						+ workDir);
 		}
 		File rawCoverageFile = null;
 		if (dumpRawCoverage)
-			rawCoverageFile = new File(outFile.getAbsolutePath() + ".rawcoverage");
+			rawCoverageFile = new File(outFile.getAbsolutePath()
+					+ ".rawcoverage");
 		File statsFile = null;
 		if (createStats) {
-			statsFile = new File(config.getProperty(OPT_STATS_FILE, outFile.getAbsolutePath() + ".stats"));
+			statsFile = new File(config.getProperty(OPT_STATS_FILE,
+					outFile.getAbsolutePath() + ".stats"));
 		}
 
 		currentBlockIndex = -1;
@@ -616,7 +730,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			// Init VCF data
 			SimpleVCFVariant currentVariant = null;
 			Iterator<SimpleVCFVariant> variants = null;
-			SimpleVCFFile vcf = (vcfFile != null) ? new SimpleVCFFile(vcfFile) : null;
+			SimpleVCFFile vcf = (vcfFile != null) ? new SimpleVCFFile(vcfFile)
+					: null;
 
 			// print raw coverage?
 			PrintStream rawCoverage = null;
@@ -691,13 +806,16 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 					// finish chrom!
 					if (roiFile == null)
-						writeCodeword(lastChr, lastPos1 + 1, lastCoverage, 0, "last1");
+						writeCodeword(lastChr, lastPos1 + 1, lastCoverage, 0,
+								"last1");
 					String prefixedChr = StringUtils.prefixedChr(chr);
 
 					// load ROIs
 					if (roiFile != null) {
 						if (roiFile.getIntervalsPerChrom().get(prefixedChr) != null) {
-							SortedSet<GenomicInterval> tmp = new TreeSet<GenomicInterval>(roiFile.getIntervalsPerChrom().get(prefixedChr));
+							SortedSet<GenomicInterval> tmp = new TreeSet<GenomicInterval>(
+									roiFile.getIntervalsPerChrom().get(
+											prefixedChr));
 							rois = tmp.iterator();
 						} else
 							skipChrom = true;
@@ -705,9 +823,11 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 					// load VCF data
 					if (vcf != null) {
-						List<SimpleVCFVariant> vars = vcf.getVariants(prefixedChr);
+						List<SimpleVCFVariant> vars = vcf
+								.getVariants(prefixedChr);
 						if ((vars != null) && (vars.size() > 0)) {
-							SortedSet<SimpleVCFVariant> tmp = new TreeSet<SimpleVCFVariant>(vars);
+							SortedSet<SimpleVCFVariant> tmp = new TreeSet<SimpleVCFVariant>(
+									vars);
 							variants = tmp.iterator();
 							currentVariant = positionRightAfter(variants, pos1);
 						}
@@ -743,7 +863,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 						inRoi = currentRoi.contains(pos1 - 1);
 						if (!inRoi) {
 							// LEFT ROI
-							writeCodeword(lastChr, lastPos1, lastCoverage, coverage, "left roi");
+							writeCodeword(lastChr, lastPos1, lastCoverage,
+									coverage, "left roi");
 							currentRoi = null;
 							maxRois--;
 							if (maxRois <= 0)
@@ -806,13 +927,15 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 				if (coverage < minBorder) {
 					// write code
-					writeCodeword(chr, pos1, lastCoverage, coverage, "min border " + minBorder);
+					writeCodeword(chr, pos1, lastCoverage, coverage,
+							"min border " + minBorder);
 					minBorder = quant.getMinBorder(coverage);
 					maxBorder = quant.getMaxBorder(coverage);
 					statistics.inc("left-lower-border");
 				} else if (coverage > maxBorder) {
 					// store point right after error-interval is left
-					writeCodeword(chr, pos1, lastCoverage, coverage, "max border " + maxBorder);
+					writeCodeword(chr, pos1, lastCoverage, coverage,
+							"max border " + maxBorder);
 					minBorder = quant.getMinBorder(coverage);
 					maxBorder = quant.getMaxBorder(coverage);
 					statistics.inc("left-upper-border");
@@ -833,7 +956,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			// Finished
 			// ..................................................................
 			if (statistics.get("codewords") == null) {
-				System.out.println("CODOC wrote no single codeword, maybe input is empty or contains only unmapped/filtered reads?");
+				System.out
+						.println("CODOC wrote no single codeword, maybe input is empty or contains only unmapped/filtered reads?");
 				return;
 			}
 
@@ -863,7 +987,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				config.setProperty(OPT_CHR_LIST, tmp);
 
 			if (debug)
-				System.out.println("block borders: " + config.getProperty(OPT_BLOCK_BORDERS));
+				System.out.println("block borders: "
+						+ config.getProperty(OPT_BLOCK_BORDERS));
 			double t = (System.currentTimeMillis() - startTime);
 			statistics.set("time [ms]", t);
 			statistics.set("sampled positions", (double) c);
@@ -923,7 +1048,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			statistics.set("encodedCov2", val);
 
 			// create Header
-			FileHeader header = new FileHeader(FileUtils.createTempFile(workDir, "header_"));
+			FileHeader header = new FileHeader(FileUtils.createTempFile(
+					workDir, "header_"));
 			header.setConfiguration(config);
 			for (FileDataOutputBlock<?> b : chrData)
 				header.addBlock(b);
@@ -942,27 +1068,34 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			if (!keepWorkDir) {
 				if (header != null)
 					if (!header.deleteFiles())
-						addWarning(new CodocException("Could not remove header file " + header.getF1()));
+						addWarning(new CodocException(
+								"Could not remove header file "
+										+ header.getF1()));
 				for (FileDataOutputBlock<?> b : chrData) {
 					if (!b.deleteFiles())
-						addWarning(new CodocException("Could not remove temporary file(s) of " + b));
+						addWarning(new CodocException(
+								"Could not remove temporary file(s) of " + b));
 				}
 				for (FileDataOutputBlock<?> b : posData) {
 					if (!b.deleteFiles())
-						addWarning(new CodocException("Could not remove temporary file(s) of " + b));
+						addWarning(new CodocException(
+								"Could not remove temporary file(s) of " + b));
 				}
 				for (FileDataOutputBlock<?> b : cov1Data) {
 					if (!b.deleteFiles())
-						addWarning(new CodocException("Could not remove temporary file(s) of " + b));
+						addWarning(new CodocException(
+								"Could not remove temporary file(s) of " + b));
 				}
 				for (FileDataOutputBlock<?> b : cov2Data) {
 					if (!b.deleteFiles())
-						addWarning(new CodocException("Could not remove temporary file(s) of " + b));
+						addWarning(new CodocException(
+								"Could not remove temporary file(s) of " + b));
 				}
 
 				// delete temporary directory
 				if (!workDir.delete())
-					addMessage("Could not remove temporary directory " + workDir);
+					addMessage("Could not remove temporary directory "
+							+ workDir);
 			}
 
 			// stats
@@ -981,14 +1114,21 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * 
 	 * filter: FLAGS^^1024;FLAGS^^51 qmethod: perc qparam: 0.2
 	 */
-	public static boolean compress(File sortedBam, File vcfFile, File outFile, boolean verbose, String... flags) {
+	public static boolean compress(File sortedBam, File vcfFile, File outFile,
+			boolean verbose, String... flags) {
 
-		PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
-		config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE, sortedBam.getAbsolutePath());
-		config.setProperty(CoverageCompressor.OPT_VCF_FILE, vcfFile.getAbsolutePath());
-		config.setProperty(CoverageCompressor.OPT_OUT_FILE, outFile.getAbsolutePath());
-		config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512");
-		config.setProperty(CoverageCompressor.OPT_QUANT_METHOD, QUANT_METHOD.PERC.name());
+		PropertyConfiguration config = CoverageCompressor
+				.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
+		config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE,
+				sortedBam.getAbsolutePath());
+		config.setProperty(CoverageCompressor.OPT_VCF_FILE,
+				vcfFile.getAbsolutePath());
+		config.setProperty(CoverageCompressor.OPT_OUT_FILE,
+				outFile.getAbsolutePath());
+		config.setProperty(CoverageCompressor.OPT_BAM_FILTER,
+				"FLAGS^^1024;FLAGS^^512");
+		config.setProperty(CoverageCompressor.OPT_QUANT_METHOD,
+				QUANT_METHOD.PERC.name());
 		config.setProperty(CoverageCompressor.OPT_QUANT_PARAM, "0.2");
 
 		for (String f : flags)
@@ -1068,29 +1208,39 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		// hf.printOptions(pw, width, options, leftPad, descPad)
 
 		System.out.println();
-		System.out.println("\t-------------------------------- FILTERS -----------------------------------");
-		System.out.println("\tFilters can be used to restrict the coverage extraction from am SAM/BAM file");
-		System.out.println("\tto reads that match the given filter criteria. Multiple filters are combined");
-		System.out.println("\tby a logical AND. Filters are of the form <FIELD><OPERATOR><VALUE>.");
+		System.out
+				.println("\t-------------------------------- FILTERS -----------------------------------");
+		System.out
+				.println("\tFilters can be used to restrict the coverage extraction from am SAM/BAM file");
+		System.out
+				.println("\tto reads that match the given filter criteria. Multiple filters are combined");
+		System.out
+				.println("\tby a logical AND. Filters are of the form <FIELD><OPERATOR><VALUE>.");
 		System.out.println();
 		System.out.println("\tPossible fields:");
 		System.out.println("\tMAPQ\tthe mapping quality");
 		System.out.println("\tFLAGS\tthe read flags");
 		System.out.println("\tSTRAND\tthe read strand (+/-)");
 		System.out.println("\tFOPSTRAND\tthe first-of-pair read strand (+/-)");
-		System.out.println("\tOther names will be mapped directly to the optional field name in the SAM file.");
-		System.out.println("\tUse e.g., NM for the 'number of mismatches' field. Reads that do not have a field");
-		System.out.println("\tset will be included. @see http://samtools.sourceforge.net/SAMv1.pdf");
+		System.out
+				.println("\tOther names will be mapped directly to the optional field name in the SAM file.");
+		System.out
+				.println("\tUse e.g., NM for the 'number of mismatches' field. Reads that do not have a field");
+		System.out
+				.println("\tset will be included. @see http://samtools.sourceforge.net/SAMv1.pdf");
 		System.out.println();
 		System.out.println("\tPossible operators:");
 		System.out.println("\t<, <=, =, >, >=, ^^ (flag unset), && (flag set)");
 		System.out.println();
-		System.out.println("\tExample: (do NOT use reads with mapping quality <= 20, or multiple perfect hits)");
+		System.out
+				.println("\tExample: (do NOT use reads with mapping quality <= 20, or multiple perfect hits)");
 		System.out.println("\t-filter 'MAPQ>20' -filter 'H0=1'");
-		System.out.println("\t----------------------------------------------------------------------------");
+		System.out
+				.println("\t----------------------------------------------------------------------------");
 
 		System.out.println();
-		System.out.println("\tCODOC " + (Main.VERSION == null ? "" : Main.VERSION) + " (c) 2013");
+		System.out.println("\tCODOC "
+				+ (Main.VERSION == null ? "" : Main.VERSION) + " (c) 2013");
 
 		if (e != null)
 			System.out.println("\nError: " + e);
@@ -1105,10 +1255,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	public static void main(String[] args) throws IOException, ParseException {
 
 		// args = new String[] { "-cov",
-		// "src/test/resources/covcompress/small.bam",
-		// "-o",
-		// "src/test/resources/covcompress/small.compressed",
-		// "-v" };
+		// "src/test/resources/covcompress/small.bam", "-o",
+		// "src/test/resources/covcompress/small.compressed", "-v" };
 
 		CommandLineParser parser = new PosixParser();
 
@@ -1122,7 +1270,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 			options = new Options();
 
-			Option opt = new Option("cov", true, "Input coverage file. Supported file types are SAM, BAM, WIG and bedtools coverage files.");
+			Option opt = new Option(
+					"cov",
+					true,
+					"Input coverage file. Supported file types are SAM, BAM, WIG and bedtools coverage files.");
 			opt.setLongOpt(OPT_COVERAGE_FILE);
 			opt.setRequired(true);
 			options.addOption(opt);
@@ -1132,7 +1283,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			opt.setRequired(false);
 			options.addOption(opt);
 
-			opt = new Option(OPT_BED_FILE, true, "Input BED file containing regions of interest (optional). The file will be interpreted 0-based!");
+			opt = new Option(
+					OPT_BED_FILE,
+					true,
+					"Input BED file containing regions of interest (optional). The file will be interpreted 0-based!");
 			opt.setRequired(false);
 			options.addOption(opt);
 
@@ -1141,57 +1295,84 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			opt.setRequired(true);
 			options.addOption(opt);
 
-			opt = new Option("t", true, "Temporary working directory (default is current dir)");
+			opt = new Option("t", true,
+					"Temporary working directory (default is current dir)");
 			opt.setLongOpt("temp");
 			opt.setRequired(false);
 			options.addOption(opt);
 
-			opt = new Option(OPT_KEEP_WORKDIR, false, "Do not delete the work directory (e.g., for debugging purposes)");
+			opt = new Option(OPT_KEEP_WORKDIR, false,
+					"Do not delete the work directory (e.g., for debugging purposes)");
 			opt.setRequired(false);
 			options.addOption(opt);
 
-			opt = new Option(OPT_CREATE_STATS, false, "Create a statistics file (default: false)");
+			opt = new Option(OPT_CREATE_STATS, false,
+					"Create a statistics file (default: false)");
 			opt.setRequired(false);
 			options.addOption(opt);
 
-			opt = new Option(OPT_STATS_FILE, true, "Statistics file name (default: <outfile>.stats)");
+			opt = new Option(OPT_STATS_FILE, true,
+					"Statistics file name (default: <outfile>.stats)");
 			opt.setRequired(false);
 			options.addOption(opt);
 
-			opt = new Option(OPT_DUMP_RAW, false,
+			opt = new Option(
+					OPT_DUMP_RAW,
+					false,
 					"Create raw coverage file (<outfile>.rawcoverage). No heading or trailing 0-coverage zones will be included. Output will have 1-based coordinates.");
 			opt.setRequired(false);
 			options.addOption(opt);
 
-			opt = new Option(OPT_QUANT_METHOD, true, "Quantization method (PERC, GRID, LOG2); default: PERC");
+			opt = new Option(OPT_QUANT_METHOD, true,
+					"Quantization method (PERC, GRID, LOG2); default: PERC");
 			opt.setRequired(false);
 			options.addOption(opt);
 
-			opt = new Option(OPT_QUANT_PARAM, true, "Quantization parameter (default: 0.2)");
+			opt = new Option(OPT_QUANT_PARAM, true,
+					"Quantization parameter (default: 0.2)");
 			opt.setRequired(false);
 			options.addOption(opt);
 
-			opt = new Option(OPT_BLOCKSIZE, true, "Number of codewords per data block (default: " + DEFAULT_BLOCKSIZE + ")");
+			opt = new Option(OPT_BLOCKSIZE, true,
+					"Number of codewords per data block (default: "
+							+ DEFAULT_BLOCKSIZE + ")");
 			opt.setRequired(false);
 			options.addOption(opt);
 
-			opt = new Option(OPT_SCALE_COVERAGE, true,
+			opt = new Option(
+					OPT_SCALE_COVERAGE,
+					true,
 					"Optional parameter for scaling the coverage values. Applicable only for coverage file input (not for BAM files). (default: none)");
 			opt.setRequired(false);
 			options.addOption(opt);
 
-			Option opt_compalgo = new Option(OPT_COMPRESSION_ALGORITHM, true, "Used envelope compression algorithm "
-					+ Arrays.toString(FileDataOutputBlock.BLOCK_COMPRESSION_METHOD.values()) + ". Default method is "
-					+ FileDataOutputBlock.DEFAULT_COMPRESSION_METHOD);
+			opt = new Option(
+					OPT_MANUAL_GOLOMB_K,
+					true,
+					"Optional parameter for manual determination of the Golomb-encoding k parameter (if unset, it will be estimated from the data). (default: none)");
+			opt.setRequired(false);
+			options.addOption(opt);
+
+			Option opt_compalgo = new Option(
+					OPT_COMPRESSION_ALGORITHM,
+					true,
+					"Used envelope compression algorithm "
+							+ Arrays.toString(FileDataOutputBlock.BLOCK_COMPRESSION_METHOD
+									.values()) + ". Default method is "
+							+ FileDataOutputBlock.DEFAULT_COMPRESSION_METHOD);
 			opt_compalgo.setRequired(false);
 			options.addOption(opt_compalgo);
 
 			// example: filter reads that were marked as PCR dupl or failed QC:
 			// -filter FLAGS^^1024 -filter "FLAGS^^512
-			Option filter = new Option("filter", true, "Filter used reads by SAM attribute (applicable only in combination with SAM/BAM files). "
-					+ "Multiple filters can be provided that will be combined by a logical AND. Note that filters have "
-					+ "no effect on reads that have no value for the according attribute. Examples: 'X0>9', 'X1=ABC', 'STRAND=+'"
-					+ "'FLAGS^^512', 'none',... [default: -filter FLAGS^^1024 -filter FLAGS^^512]." + "See below for more help on filters.");
+			Option filter = new Option(
+					"filter",
+					true,
+					"Filter used reads by SAM attribute (applicable only in combination with SAM/BAM files). "
+							+ "Multiple filters can be provided that will be combined by a logical AND. Note that filters have "
+							+ "no effect on reads that have no value for the according attribute. Examples: 'X0>9', 'X1=ABC', 'STRAND=+'"
+							+ "'FLAGS^^512', 'none',... [default: -filter FLAGS^^1024 -filter FLAGS^^512]."
+							+ "See below for more help on filters.");
 			filter.setRequired(false);
 			options.addOption(filter);
 
@@ -1204,7 +1385,9 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			line = parser.parse(options, args);
 
 			// determine envelope compression algorithm
-			BLOCK_COMPRESSION_METHOD compressionMethod = FileDataOutputBlock.compFromString(line.getOptionValue(OPT_COMPRESSION_ALGORITHM));
+			BLOCK_COMPRESSION_METHOD compressionMethod = FileDataOutputBlock
+					.compFromString(line
+							.getOptionValue(OPT_COMPRESSION_ALGORITHM));
 			if (line.hasOption(OPT_BEST_COMPRESSION))
 				compressionMethod = BLOCK_COMPRESSION_METHOD.BZIP2;
 
@@ -1223,28 +1406,46 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			}
 
 			// create configuration
-			PropertyConfiguration conf = CoverageCompressor.getDefaultConfiguration(compressionMethod);
-			conf.setProperty(OPT_COVERAGE_FILE, line.getOptionValue(OPT_COVERAGE_FILE));
+			PropertyConfiguration conf = CoverageCompressor
+					.getDefaultConfiguration(compressionMethod);
+			conf.setProperty(OPT_COVERAGE_FILE,
+					line.getOptionValue(OPT_COVERAGE_FILE));
 			conf.setProperty(OPT_OUT_FILE, line.getOptionValue("o"));
 			if (line.hasOption("t"))
 				conf.setProperty(OPT_TMP_DIR, line.getOptionValue("t"));
 			if (line.hasOption("vcf"))
 				conf.setProperty(OPT_VCF_FILE, line.getOptionValue("vcf"));
 			if (line.hasOption(OPT_BED_FILE))
-				conf.setProperty(OPT_BED_FILE, line.getOptionValue(OPT_BED_FILE));
+				conf.setProperty(OPT_BED_FILE,
+						line.getOptionValue(OPT_BED_FILE));
 			if (filters != null)
 				conf.setProperty(OPT_BAM_FILTER, filters);
 			if (line.hasOption(OPT_STATS_FILE))
-				conf.setProperty(OPT_STATS_FILE, line.getOptionValue(OPT_STATS_FILE));
+				conf.setProperty(OPT_STATS_FILE,
+						line.getOptionValue(OPT_STATS_FILE));
 			if (line.hasOption(OPT_BLOCKSIZE))
-				conf.setProperty(OPT_BLOCKSIZE, line.getOptionValue(OPT_BLOCKSIZE));
-			conf.setProperty(OPT_KEEP_WORKDIR, line.hasOption(OPT_KEEP_WORKDIR) + "");
-			conf.setProperty(OPT_CREATE_STATS, line.hasOption(OPT_CREATE_STATS) + "");
+				conf.setProperty(OPT_BLOCKSIZE,
+						line.getOptionValue(OPT_BLOCKSIZE));
+			conf.setProperty(OPT_KEEP_WORKDIR, line.hasOption(OPT_KEEP_WORKDIR)
+					+ "");
+			conf.setProperty(OPT_CREATE_STATS, line.hasOption(OPT_CREATE_STATS)
+					+ "");
 			conf.setProperty(OPT_DUMP_RAW, line.hasOption(OPT_DUMP_RAW) + "");
-			conf.setProperty(OPT_QUANT_METHOD, line.hasOption(OPT_QUANT_METHOD) ? line.getOptionValue(OPT_QUANT_METHOD) : QUANT_METHOD.PERC.name());
-			conf.setProperty(OPT_QUANT_PARAM, line.hasOption(OPT_QUANT_PARAM) ? line.getOptionValue(OPT_QUANT_PARAM) : "0.2");
+			conf.setProperty(
+					OPT_QUANT_METHOD,
+					line.hasOption(OPT_QUANT_METHOD) ? line
+							.getOptionValue(OPT_QUANT_METHOD)
+							: QUANT_METHOD.PERC.name());
+			conf.setProperty(
+					OPT_QUANT_PARAM,
+					line.hasOption(OPT_QUANT_PARAM) ? line
+							.getOptionValue(OPT_QUANT_PARAM) : "0.2");
 			if (line.hasOption(OPT_SCALE_COVERAGE))
-				conf.setProperty(OPT_SCALE_COVERAGE, line.getOptionValue(OPT_SCALE_COVERAGE));
+				conf.setProperty(OPT_SCALE_COVERAGE,
+						line.getOptionValue(OPT_SCALE_COVERAGE));
+			if (line.hasOption(OPT_MANUAL_GOLOMB_K))
+				conf.setProperty(OPT_MANUAL_GOLOMB_K,
+						line.getOptionValue(OPT_MANUAL_GOLOMB_K));
 			conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
 
 			CoverageCompressor compressor = new CoverageCompressor(conf);
