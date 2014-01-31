@@ -123,7 +123,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	public static int DEFAULT_BLOCKSIZE = 100000;
 
 	/**
-	 * >>>>>>> branch 'master' of https://github.com/popitsch/codoc.git number
+	 * number
 	 * of reads/positions that are taken into account for the estimation of the
 	 * golomb-encoding parameter estimation
 	 */
