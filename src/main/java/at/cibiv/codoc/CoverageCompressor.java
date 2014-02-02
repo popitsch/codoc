@@ -123,9 +123,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	public static int DEFAULT_BLOCKSIZE = 100000;
 
 	/**
-	 * number
-	 * of reads/positions that are taken into account for the estimation of the
-	 * golomb-encoding parameter estimation
+	 * number of reads/positions that are taken into account for the estimation
+	 * of the golomb-encoding parameter estimation
 	 */
 	public final static int GOLOMB_MU_ESTIMATE_SAMPLE_SIZE = 10000;
 
@@ -686,7 +685,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		boolean dumpRawCoverage = config
 				.getBooleanProperty(OPT_DUMP_RAW, false);
 		debug = config.getBooleanProperty(OPT_VERBOSE, false);
-		this.blockSize = config.getIntProperty(OPT_BLOCKSIZE, DEFAULT_BLOCKSIZE );
+		this.blockSize = config
+				.getIntProperty(OPT_BLOCKSIZE, DEFAULT_BLOCKSIZE);
 		if (blockSize <= 1) // safety
 			throw new RuntimeException("Minimum Block size is 1!");
 
@@ -1255,9 +1255,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
 
-//		 args = new String[] { "-cov",
-//		 "src/test/resources/covcompress/small.bam", "-o",
-//		 "src/test/resources/covcompress/small.compressed", "-v", "-blockSize", "10" };
+		// args = new String[] { "-cov",
+		// "src/test/resources/covcompress/small.bam", "-o",
+		// "src/test/resources/covcompress/small.compressed", "-v",
+		// "-blockSize", "10" };
 
 		CommandLineParser parser = new PosixParser();
 
@@ -1363,6 +1364,13 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 							+ FileDataOutputBlock.DEFAULT_COMPRESSION_METHOD);
 			opt_compalgo.setRequired(false);
 			options.addOption(opt_compalgo);
+
+			Option opt_best = new Option(
+					OPT_BEST_COMPRESSION,
+					false,
+					"Used best (bzip2) compression method. Compression/decompression times might be slighly slower with this method.");
+			opt_best.setRequired(false);
+			options.addOption(opt_best);
 
 			// example: filter reads that were marked as PCR dupl or failed QC:
 			// -filter FLAGS^^1024 -filter "FLAGS^^512
