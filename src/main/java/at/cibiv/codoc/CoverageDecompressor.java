@@ -1193,6 +1193,17 @@ public class CoverageDecompressor {
 	}
 
 	/**
+	 * 
+	 * @return the prefixed chromosome names
+	 */
+	public List<String> getPrefixedChromosomes() {
+		List<String> ret = new ArrayList<String>();
+		for (String c : chrOrigList)
+			ret.add(StringUtils.prefixedChr(c));
+		return ret;
+	}
+
+	/**
 	 * @param chr
 	 * @return the estimated length of the passed chromosome
 	 */

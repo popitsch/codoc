@@ -3,6 +3,7 @@ package at.cibiv.codoc;
 import java.io.File;
 import java.io.PrintStream;
 import java.security.InvalidParameterException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -220,7 +221,7 @@ public class CoverageTools {
 					co = Math.max(c1, c2);
 					break;
 				case AVG:
-					co = ( c1 + c2 ) / 2;
+					co = (c1 + c2) / 2;
 					break;
 				default:
 					throw new InvalidParameterException("Unknown operator " + op);
@@ -368,43 +369,72 @@ public class CoverageTools {
 	 * @param out
 	 * @throws Throwable
 	 */
-	public static float calculateCoveragePerBedFeature(File covFile, File covVcfFile, File bedFile, PrintStream out) throws Throwable {
+	public static double calculateCoveragePerBedFeature(List<File> covFiles, File covVcfFile, File bedFile, PrintStream out) throws Throwable {
 		CoverageDecompressor cov = null;
 
 		try {
-			if (debug)
-				System.out.println("Load " + covFile);
-			cov = CoverageDecompressor.loadFromFile(covFile, covVcfFile);
+
+			double scoreAvgAll = 0f, scoreCountAll = 0f;
 			SimpleBEDFile bf = new SimpleBEDFile(bedFile);
+			Map<String, Double> absCov = new HashMap<String, Double>();
+			Map<String, Double> avgCov = new HashMap<String, Double>();
+
+			for (File covFile : covFiles) {
+
+				if (debug)
+					System.out.println("Load " + covFile);
+				cov = CoverageDecompressor.loadFromFile(covFile, covVcfFile);
+
+				for (GenomicInterval gi : bf.getIntervalsList()) {
+					System.out.println("INTERVAL " + gi + " FILE " + covFile + " " + gi.getLeftPosition());
+					CompressedCoverageIterator it = cov.getCoverageIterator(gi.getLeftPosition());
+					if (!cov.getPrefixedChromosomes().contains(StringUtils.prefixedChr(gi.getChr())))
+						System.err.println("IGNORED INTERVAL: chromosome " + gi.getChr() + " is not contained/covered in " + covFile + ": "
+								+ Arrays.toString(cov.getChromosomes().toArray()));
+					GenomicPosition endPos = gi.getRightPosition();
+					double scoreSum = 0f;
+					double width = gi.getWidth(); // inclusive width!
+					while (it.hasNext()) {
+						CoverageHit h = it.next();
+						if (h == null)
+							break;
+						if (it.getGenomicPosition().compareTo(endPos) >= 0)
+							break;
+						double c = h.getInterpolatedCoverage();
+						scoreSum += c;
+					}
+
+					absCov.put(gi.toString() + covFile.getAbsolutePath(), scoreSum);
+					avgCov.put(gi.toString() + covFile.getAbsolutePath(), (scoreSum / width));
+
+					scoreAvgAll += (scoreSum / width);
+					scoreCountAll++;
+				}
+
+			}
 
 			if (out != null) {
 				out.println("# BED file: \t" + bedFile);
-				out.println("# Score file: \t" + covFile);
-				out.println("#chr\tmin\tmax\tname\twidth\tcov\tavg.score");
+				out.println("# Score files: \t" + Arrays.toString(covFiles.toArray()));
+				out.print("#chr\tmin\tmax\tname\twidth");
+				for (File covFile : covFiles)
+					out.print("\tabs.cov (" + covFile.getName() + ")\tavg.cov (" + covFile.getName() + ")");
+				out.println();
+
+				for (GenomicInterval gi : bf.getIntervalsList()) {
+
+					out.format("%s\t%d\t%d\t%s\t%.0f", gi.getOriginalChrom(), gi.getMin(), gi.getMax(), gi.getId(), gi.getWidth());
+
+					for (File covFile : covFiles) {
+						out.format("\t%.0f\t%.1f", absCov.get(gi.toString() + covFile.getAbsolutePath()), avgCov.get(gi.toString() + covFile.getAbsolutePath()));
+					}
+
+					out.println();
+
+				}
 			}
 
-			float scoreAvgAll = 0f, scoreCountAll = 0f;
-			for (GenomicInterval gi : bf.getIntervalsList()) {
-				CompressedCoverageIterator it = cov.getCoverageIterator(gi.getLeftPosition());
-				GenomicPosition endPos = gi.getRightPosition();
-				float scoreSum = 0f;
-				double width = gi.getWidth(); // inclusive width!
-				while (it.hasNext()) {
-					CoverageHit h = it.next();
-					if (h == null)
-						break;
-					if (it.getGenomicPosition().compareTo(endPos) >= 0)
-						break;
-					float c = h.getInterpolatedCoverage();
-					scoreSum += c;
-				}
-				if (out != null)
-					out.format("%s\t%d\t%d\t%s\t%.0f\t%.0f\t%.1f%n", gi.getOriginalChrom(), gi.getMin(), gi.getMax(), gi.getId(), width, scoreSum,
-							(scoreSum / width));
-				scoreAvgAll += (scoreSum / width);
-				scoreCountAll++;
-			}
-			float averageScore = scoreAvgAll / scoreCountAll;
+			double averageScore = scoreAvgAll / scoreCountAll;
 			if (out != null)
 				out.println("# Overall average score: " + averageScore);
 			if (debug)
@@ -618,53 +648,14 @@ public class CoverageTools {
 	 */
 	public static void main(String[] args) throws Throwable {
 
-		// args = new String[] { "calculateCoveragePerUCSCFeature", "-cov",
-		// "/project/valent/Project_valent/Sample_V1/work/V1.ngm-FINAL.bam.codoc",
-		// "-ucscDb",
-		// "/project/ngs-work/meta/annotations/exons/hg19/refseq/UCSC-RefSeq-genes-exons-20130809-properchroms.txt",
-		// "-o",
-		// "/project/valent/Project_valent/results/V1.ngm-FINAL.bam.codoc.covPerGene.csv"
-		// };
-
-		// args = new String[] { "calculateCoveragePerUCSCFeature",
-		// "-cov", "src/test/resources/covcompress/small.compressed",
-		// "-ucscDb",
-		// "/project/ngs-work/meta/annotations/exons/hg19/refseq/UCSC-RefSeq-genes-exons-20130809-properchroms.txt",
-		// "-o",
-		// "/project/valent/Project_valent/results/V1.ngm-FINAL.bam.codoc.covPerGene.csv"
-		// };
-		//
-		// String v1doc =
-		// "/project/valent/Project_valent/Sample_V1/work/V1.bt2-FINAL.bam.codoc";
-		// String v2doc =
-		// "/project/valent/Project_valent/Sample_V2/work/V2.bt2-FINAL.bam.codoc";
-		// String v3doc =
-		// "/project/valent/Project_valent/Sample_V3/work/V3.bt2-FINAL.bam.codoc";
-		// String v4doc =
-		// "/project/valent/Project_valent/Sample_V4/work/V4.bt2-FINAL.bam.codoc";
-		//
-		// String v1var =
-		// "/project/valent/Project_valent/Sample_V1/work/V1_varunion_FINAL.vcf";
-		// String v2var =
-		// "/project/valent/Project_valent/Sample_V1/work/V1_varunion_FINAL.vcf";
-		// String v3var =
-		// "/project/valent/Project_valent/Sample_V1/work/V1_varunion_FINAL.vcf";
-		// String v4var =
-		// "/project/valent/Project_valent/Sample_V1/work/V1_varunion_FINAL.vcf";
-		//
-		// String v2minv1var =
-		// "/project/valent/Project_valent/results/V2-minus-V1-tumoronly.vcf";
-		// String v2minv1varControl =
-		// "/project/valent/Project_valent/results/V2-minus-V1-normalalso.vcf";
-		// String v3minv1var =
-		// "/project/valent/Project_valent/results/V3-minus-V1-tumoronly.vcf";
-		// String v3minv1varControl =
-		// "/project/valent/Project_valent/results/V3-minus-V1-normalalso.vcf";
-		//
-		// args = new String[] { "cancerNormalFilter", "-covT", v2doc, "-vcfT",
-		// v2var, "-covN", v1doc, "-vcfN", v1var, "-minCoverage", "5",
-		// "-tumorOnly",
-		// v2minv1var, "-normalAlso", v2minv1varControl };
+//		args = new String[] { "calculateCoveragePerBedFeature",
+//
+//		"-cov", "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D21ANACXX_8_20130322B_20130325_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
+//		"-cov", "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D2295ACXX_6_20130409B_20130412_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
+//		"-cov", "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D2295ACXX_7_20130409B_20130412_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
+//		"-cov", "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D2295ACXX_8_20130409B_20130412_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
+//
+//		"-o", "/project/oesi/borrelia/reads-ngm/run1se50/coverage/delme.csv", "-bed", "/project/oesi/borrelia/reads-ngm/run1se50/coverage/delme.bed" };
 
 		// create the command line parser
 		CommandLineParser parser = new PosixParser();
@@ -756,11 +747,14 @@ public class CoverageTools {
 				if (!line.getOptionValue("o").equals("-"))
 					out = new PrintStream(line.getOptionValue("o"));
 
-				File covFile = new File(line.getOptionValue("cov"));
+				List<File> covFiles = new ArrayList<File>();
+				for (String f : line.getOptionValues("cov"))
+					covFiles.add(new File(f));
+
 				File vcfFile = line.hasOption("vcf") ? new File(line.getOptionValue("vcf")) : null;
 				File bedFile = new File(line.getOptionValue("bed"));
 
-				calculateCoveragePerBedFeature(covFile, vcfFile, bedFile, out);
+				calculateCoveragePerBedFeature(covFiles, vcfFile, bedFile, out);
 
 				if (!line.getOptionValue("o").equals("-"))
 					out.close();
