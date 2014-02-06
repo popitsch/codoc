@@ -16,7 +16,14 @@ library(cwhmisc)
 #PREFIX="/project/oesi/bgraph/compression-eval/data/sakai_pgm_400bp/sakai_pgm_400bp.bam.";
 #PREFIX="/project/oesi/bgraph/compression-eval/data/xie_UCSC_Genome/xie_UCSC_Genome-sorted.bam.";
 #PREFIX="/project/oesi/bgraph/compression-eval/data/geuvadis_UCSC_Genome/geuvadis_UCSC_Genome-sorted.bam.";
-PREFIX="/project/oesi/bgraph/compression-eval/data/NA12878/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped-FILTERED.bam.";
+#PREFIX="/project/oesi/bgraph/compression-eval/data/NA12878/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped-FILTERED.bam.";
+
+#PREFIX="c:/data/codoc-eval/RESULTS-BZIP2/sakai_mis_2x250pb-both-trimmed/sakai_mis_2x250pb-both-trimmed.bam.";
+#PREFIX="c:/data/codoc-eval/RESULTS-BZIP2/sakai_mis_2x150pb-both-trimmed/sakai_mis_2x150pb-both-trimmed.bam.";
+PREFIX="c:/data/codoc-eval/RESULTS-BZIP2/sakai_pgm_400bp/sakai_pgm_400bp.bam.";
+#PREFIX="c:/data/codoc-eval/RESULTS-BZIP2/xie_UCSC_Genome/xie_UCSC_Genome-sorted.bam.";
+#PREFIX="c:/data/codoc-eval/RESULTS-BZIP2/geuvadis_UCSC_Genome/geuvadis_UCSC_Genome-sorted.bam.";
+#PREFIX="c:/data/codoc-eval/RESULTS-BZIP2/NA12878/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped-FILTERED.bam.";
 
 fileGraphOutput=paste(PREFIX,"diffPerBin.pdf",sep='')
 filename=substring(PREFIX, substring.location(PREFIX, "/")$last[length(substring.location(PREFIX, "/")$last)]+1)
@@ -212,7 +219,7 @@ g1=ggplot( data, aes(sizes, avediffs, label=labels, color=cols)) +
 		theme(legend.position = "none")
 
 for ( i in 1:length(sizes) )
-	g1=g1+annotate("text", x = (sizes[i] + 1000), y = (avediffs[i]+0.5), label = labels[i], size=labelfontsize)
+	g1=g1+annotate("text", x = (sizes[i] + 1000), y = (avediffs[i]+1.0), label = labels[i], size=labelfontsize)
 
 # Prepare the output files
 pdf(fileGraphOutput, width=13,height=12)

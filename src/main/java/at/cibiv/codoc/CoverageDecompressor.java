@@ -588,6 +588,10 @@ public class CoverageDecompressor {
 		return currentBlockIdx;
 	}
 
+	public GenomicITree getBlockIndexTree() {
+		return blockIndexTree;
+	}
+
 	/**
 	 * Positions the iterator to the variant right after the passed position
 	 * 
@@ -777,6 +781,7 @@ public class CoverageDecompressor {
 				if (!p1.getChromosome().equals(p2.getChromosome())) {
 					// create interval from p1 to end of chrom
 					GenomicInterval gi1 = new GenomicInterval(p1.getChromosome(), p1.get1Position(), Long.MAX_VALUE, "" + blockId);
+					gi1.setOriginalChrom(p1.getChromosomeOriginal());
 					gi1.setAnnotation("blockid", blockId);
 					blockIndexTree.insert(gi1);
 
@@ -790,15 +795,18 @@ public class CoverageDecompressor {
 					for (int x = cp1 + 1; x < cp2; x++) {
 						GenomicInterval giAdditional = new GenomicInterval(StringUtils.prefixedChr(chrOrigList.get(x)), 0l, Long.MAX_VALUE, "" + blockId);
 						giAdditional.setAnnotation("blockid", blockId);
+						giAdditional.setOriginalChrom(chrOrigList.get(x));
 						blockIndexTree.insert(giAdditional);
 					}
 					// create interval from start of chrom to p2
 					GenomicInterval gi2 = new GenomicInterval(p2.getChromosome(), 0l, p2.get1Position(), "" + blockId);
 					gi2.setAnnotation("blockid", blockId);
+					gi2.setOriginalChrom(p2.getChromosomeOriginal());
 					blockIndexTree.insert(gi2);
 				} else {
 					GenomicInterval gi1 = new GenomicInterval(p1.getChromosome(), p1.get1Position(), p2.get1Position(), "" + blockId);
 					gi1.setAnnotation("blockid", blockId);
+					gi1.setOriginalChrom(p1.getChromosomeOriginal());
 					blockIndexTree.insert(gi1);
 				}
 				leftBorders.put(blockId, p1);
