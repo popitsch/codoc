@@ -43,7 +43,7 @@
 				<a href="#about">About CODOC</a>
 			</p>
 			<p class="menu">
-				<a href="#about">Getting CODOC</a>
+				<a href="#building">Getting CODOC</a>
 			</p>
 			<p class="menu">
 				<a href="#examples">Usage examples</a>
@@ -76,18 +76,19 @@
 				in highly covered regions.
 			</p>
 			<p>CODOC reduces required file sizes for DOC data up to 3500X
-				when compared to raw representations and about 5-30X when compared
+				when compared to raw representations and about 4-32X when compared
 				to the other methods. The CODOC API supports efficient sequential
 				and random access to compressed data sets.</p>
 			</p>
-			Usage scenarios for CODOC include (see below):
+			Some usage scenarios for CODOC:
 			<ul>
+				<li>extract strand-specific coverage signal (export as WIG file)</li>
 				<li>query coverage values at given genomic positions</li>
 				<li>extract genomic regions with a given minimum/maximum
 					coverage</li>
 				<li>filter single-nucleotide variations in cancer/normal pairs</li>
-				<li>linear combinations of coverage files (e.g., subtract one
-					signal from another)</li>
+				<li>pairwise combinations of coverage files (e.g., subtract one
+					signal from another, calculate minimum signal, etc.)</li>
 				<li>cross-correlation of coverage signals</li>
 				<li>compression of DOC data (e.g, for archiving or transmission). Note that successive compression/decompression of DOC data with CODOC can be used for intentional data quantization.</li>
 			</ul>
@@ -122,6 +123,7 @@
 $ java -jar bin/codoc-<em>0.0.1</em>.jar
 $ java -jar bin/codoc-<em>0.0.1</em>.jar compress
 $ java -jar bin/codoc-<em>0.0.1</em>.jar decompress
+$ java -jar bin/codoc-<em>0.0.1</em>.jar tools
 </code>
 			</pre>
 
@@ -194,61 +196,58 @@ $ java -jar codoc-0.0.1.jar decompress query -covFile <em>BAM</em>.comp -scale 2
 			<h3>Usage</h3>
 			<p>Usage of the compressor:
 			<pre>
-				<code>
-Usage:  java -jar x.jar compress -bam &lt;arg&gt; | -cov &lt;arg&gt; [-bedFile &lt;arg&gt;] [-blockSize &lt;arg&gt;] [-compressionAlgorithm
-       &lt;arg&gt;]  [-createStats] [-dumpRawCoverage] [-filter &lt;arg&gt;] [-keepWorkDir] -o &lt;arg&gt; [-qmethod &lt;arg&gt;] [-qparam
-       &lt;arg&gt;] [-scaleCoverage &lt;arg&gt;] [-statsFile &lt;arg&gt;] [-t &lt;arg&gt;] [-v] [-vcf &lt;arg&gt;]
+<code>
+Usage:  java -jar x.jar compress [-bedFile &lt;arg&gt;] [-best] [-blockSize &lt;arg&gt;] [-compressionAlgorithm &lt;arg&gt;] -cov &lt;arg&gt;
+       [-createStats] [-dumpRawCoverage] [-filter &lt;arg&gt;] [-keepWorkDir] [-manualGolombK &lt;arg&gt;] -o &lt;arg&gt; [-qmethod &lt;arg&gt;]
+       [-qparam &lt;arg&gt;] [-scaleCoverage &lt;arg&gt;] [-statsFile &lt;arg&gt;] [-t &lt;arg&gt;] [-v] [-vcf &lt;arg&gt;]
 
 Mandatory Params
-        -bam,--bamFile &lt;arg&gt;  Input BAM file (using this will exclude the -cov parameter)
-        -cov,--covFile &lt;arg&gt;  Input coverage file (using this will exclude the -bam parameter)
-        -o,--out &lt;arg&gt;        Output file
+        -cov,--covFile &lt;arg&gt;  	Input coverage file. Supported file types are SAM, BAM, WIG and bedtools coverage files.
+        -o,--out &lt;arg&gt;        	Output file
 
 Params
-        -bam,--bamFile &lt;arg&gt;         Input BAM file (using this will exclude the -cov parameter)
-        -bedFile &lt;arg&gt;               Input BED file containing regions of interest (optional). The file will be
-                                     interpreted 0-based!
-        -blockSize &lt;arg&gt;             Number of codewords per data block (default: 1000000.0)
-        -compressionAlgorithm &lt;arg&gt;  Used envelope compression algorithm [NONE, GZIP, BZIP2]. Default method is GZIP
-        -cov,--covFile &lt;arg&gt;         Input coverage file (using this will exclude the -bam parameter)
-        -createStats                 Create a statistics file (default: false)
-        -dumpRawCoverage             Create raw coverage file (&lt;outfile&gt;.rawcoverage). No heading or trailing 0-coverage
-                                     zones will be included. Output will be 1-based coordinates.
-        -filter &lt;arg&gt;                Filter used reads by SAM attribute (applicable only in combination with -bam, not
-                                     -cov). Multiple filters can be provided that will be combined by a logical AND.
-                                     Note that filters have no effect on reads that have no value for the according
-                                     attribute. Examples: 'X0&gt;9', 'X1=ABC', 'FLAGS^^512', 'none',... [default: -filter
-                                     FLAGS^^1024 -filter FLAGS^^512].See below for more help on filters.
-        -keepWorkDir                 Do not delete the work directory (e.g., for debugging purposes)
-        -o,--out &lt;arg&gt;               Output file
-        -qmethod &lt;arg&gt;               Quantization method (PERC, GRID, LOG2); default: PERC
-        -qparam &lt;arg&gt;                Quantization parameter (default: 0.2)
-        -scaleCoverage &lt;arg&gt;         Optional parameter for scaling the coverage values. Applicable only for coverage
-                                     file input (not for BAM files). (default: none)
-        -statsFile &lt;arg&gt;             Statistics file name (default: &lt;outfile&gt;.stats)
-        -t,--temp &lt;arg&gt;              Temporary working directory (default is current dir)
-        -v,--verbose                 be verbose
-        -vcf,--vcfFile &lt;arg&gt;         Input VCF file (optional)
+        -bedFile &lt;arg&gt;            Input BED file containing regions of interest (optional). The file will be interpreted 0-based!
+        -best                           Used best (bzip2) compression method. Compression/decompression times might be slighly slower with this method.
+        -blockSize &lt;arg&gt;          Number of codewords per data block (default: 100000)
+        -compressionAlgorithm &lt;arg&gt;	Used envelope compression algorithm [NONE, GZIP, BZIP2]. Default method is GZIP
+        -cov,--covFile &lt;arg&gt;      Input coverage file. Supported file types are SAM, BAM, WIG and bedtools coverage files.
+        -createStats                    Create a statistics file (default: false)
+        -dumpRawCoverage                Create raw coverage file (&lt;outfile&gt;.rawcoverage). No heading or trailing 0-coverage zones will be included. Output will have 1-based coordinates.
+        -filter &lt;arg&gt;             Filter used reads by SAM attribute (applicable only in combination with SAM/BAM files). Multiple filters can be provided that will be combined by a logical AND. Note that filters have no effect on reads that have no value for the according attribute. Examples: 'X0&gt;9', 'X1=ABC', 'STRAND=+''FLAGS^^512', 'none',... [default: -filter FLAGS^^1024 -filter FLAGS^^512].See below for more help on filters.
+        -keepWorkDir                    Do not delete the work directory (e.g., for debugging purposes)
+        -manualGolombK &lt;arg&gt;      Optional parameter for manual determination of the Golomb-encoding k parameter (if unset, it will be estimated from the data). (default: none)
+        -o,--out &lt;arg&gt;            Output file
+        -qmethod &lt;arg&gt;            Quantization method (PERC, GRID, LOG2); default: PERC
+        -qparam &lt;arg&gt;             Quantization parameter (default: 0.2)
+        -scaleCoverage &lt;arg&gt;      Optional parameter for scaling the coverage values. Applicable only for coverage file input (not for BAM files). (default: none)
+        -statsFile &lt;arg&gt;          Statistics file name (default: &lt;outfile&gt;.stats)
+        -t,--temp &lt;arg&gt;           Temporary working directory (default is current dir)
+        -v,--verbose                    be verbose
+        -vcf,--vcfFile &lt;arg&gt;      Input VCF file (optional)
 
 
         -------------------------------- FILTERS -----------------------------------
         Filters can be used to restrict the coverage extraction from am SAM/BAM file
         to reads that match the given filter criteria. Multiple filters are combined
-        by a logical AND. Filters are of the form &lt;FIELD&gt;&lt;OPERATOR&gt;&lt;VALUE&gt;
+        by a logical AND. Filters are of the form &lt;FIELD&gt;&lt;OPERATOR&gt;&lt;VALUE&gt;.
 
         Possible fields:
-        MAPQ    the mapping quality
-        FLAGS   the read flags
+        MAPQ    	the mapping quality
+        FLAGS   	the read flags
+        STRAND  	the read strand (+/-)
+        FOPSTRAND   the first-of-pair read strand (+/-)
         Other names will be mapped directly to the optional field name in the SAM file.
         Use e.g., NM for the 'number of mismatches' field. Reads that do not have a field
         set will be included. @see http://samtools.sourceforge.net/SAMv1.pdf
 
         Possible operators:
-        &lt;, &lt;=, =, &gt;, &gt;=, ^^ (flag unset), &amp;&amp; (flag set)
+        &lt;, &lt;=, =, &gt;, &gt;=, ^^ (flag unset), && (flag set)
 
         Example: (do NOT use reads with mapping quality &lt;= 20, or multiple perfect hits)
         -filter 'MAPQ&gt;20' -filter 'H0=1'
         ----------------------------------------------------------------------------
+
+        CODOC 0.0.1 (c) 2013
 </code>
 			</pre>
 
@@ -269,16 +268,16 @@ Prints the header from a compressed coverage file.
 
 			Usage of the decompressor QUERY command:
 			<pre>
-				<code>
-Usage:    java -jar x.jar decompress QUERY [-chrLenFile &lt;arg&gt;] -covFile &lt;arg&gt; [-keepWorkDir] [-tmpDir &lt;arg&gt;] [-v] [-vcfFile &lt;arg&gt;]
+<code>
+Usage:    java -jar x.jar decompress QUERY [-chrLen &lt;arg&gt;] -cov &lt;arg&gt; [-keepWorkDir] [-scale &lt;arg&gt;] [-tmpDir &lt;arg&gt;] [-v] [-vcf &lt;arg&gt;]
 Params:
-          -chrLenFile &lt;arg&gt;     Chromosome lengths (file format: chr\tlength\n). Use to get proper padding for zero-coverage regions.
-          -covFile,--cov &lt;arg&gt;  Compressed coverage input file.
-          -keepWorkDir          Do not delete the work directory (e.g., for debugging purposes).
-          -scaleCoverage &lt;arg&gt;         Optional parameter for scaling the coverage values. Applicable only for coverage
-          -tmpDir,--temp &lt;arg&gt;  Temporary working directory (default is current dir).
-          -v,--verbose          be verbose.
-          -vcfFile &lt;arg&gt;        VCF file used for the compression (optional).
+          -chrLen,--chrLenFile &lt;arg&gt;  Chromosome lengths (file format: chr\tlength\n). Use to get proper padding for zero-coverage regions.
+          -cov,--covFile &lt;arg&gt;        Compressed coverage input file.
+          -keepWorkDir                Do not delete the work directory (e.g., for debugging purposes).
+          -scale,--scaleFactor &lt;arg&gt;  Signal scaling factor (default is 1.0).
+          -tmpDir,--temp &lt;arg&gt;        Temporary working directory (default is current dir).
+          -v,--verbose                be verbose.
+          -vcf,--vcfFile &lt;arg&gt;        VCF file used for the compression (optional).
 
 Starts an interactive query session.
 </code>
@@ -286,23 +285,23 @@ Starts an interactive query session.
 
 			Usage of the decompressor TOBED command:
 			<pre>
-				<code>
-Usage:    java -jar x.jar decompress TOBED [-additional &lt;arg&gt;] [-chrLenFile &lt;arg&gt;] -covFile &lt;arg&gt; [-description &lt;arg&gt;] [-keepWorkDir] [-max &lt;arg&gt;] [-min &lt;arg&gt;]
-       [-name &lt;arg&gt;] -outFile &lt;arg&gt; [-tmpDir &lt;arg&gt;] [-v] [-vcfFile &lt;arg&gt;]
+<code>
+Usage:    java -jar x.jar decompress TOBED [-additional &lt;arg&gt;] [-chrLen &lt;arg&gt;] -cov &lt;arg&gt; [-description &lt;arg&gt;] [-keepWorkDir] [-max &lt;arg&gt;] [-min &lt;arg&gt;] [-name
+       &lt;arg&gt;] -o &lt;arg&gt; [-scale &lt;arg&gt;] [-tmpDir &lt;arg&gt;] [-v] [-vcf &lt;arg&gt;]
 Params:
-          -additional &lt;arg&gt;     Additional BED track info (optional).
-          -chrLenFile &lt;arg&gt;     Chromosome lengths (file format: chr\tlength\n). Use to get proper padding for zero-coverage regions.
-          -covFile,--cov &lt;arg&gt;  Compressed coverage input file.
-          -description &lt;arg&gt;    BED description (optional).
-          -keepWorkDir          Do not delete the work directory (e.g., for debugging purposes).
-          -scaleCoverage &lt;arg&gt;         Optional parameter for scaling the coverage values. Applicable only for coverage
-          -max &lt;arg&gt;            maximum coverage (omit to leave unrestricted).
-          -min &lt;arg&gt;            minimum coverage (omit to leave unrestricted).
-          -name &lt;arg&gt;           BED track name (optional).
-          -outFile &lt;arg&gt;        Output file that will contain the BED intervals.
-          -tmpDir,--temp &lt;arg&gt;  Temporary working directory (default is current dir).
-          -v,--verbose          be verbose.
-          -vcfFile &lt;arg&gt;        VCF file used for the compression (optional).
+          -additional &lt;arg&gt;           Additional BED track info (optional).
+          -chrLen,--chrLenFile &lt;arg&gt;  Chromosome lengths (file format: chr\tlength\n). Use to get proper padding for zero-coverage regions.
+          -cov,--covFile &lt;arg&gt;        Compressed coverage input file.
+          -description &lt;arg&gt;          BED description (optional).
+          -keepWorkDir                Do not delete the work directory (e.g., for debugging purposes).
+          -max &lt;arg&gt;                  maximum coverage (omit to leave unrestricted).
+          -min &lt;arg&gt;                  minimum coverage (omit to leave unrestricted).
+          -name &lt;arg&gt;                 BED track name (optional).
+          -o,--outFile &lt;arg&gt;          Output file that will contain the BED intervals.
+          -scale,--scaleFactor &lt;arg&gt;  Signal scaling factor (default is 1.0).
+          -tmpDir,--temp &lt;arg&gt;        Temporary working directory (default is current dir).
+          -v,--verbose                be verbose.
+          -vcf,--vcfFile &lt;arg&gt;        VCF file used for the compression (optional).
 
 Creates a BED file containing regions that are above/below given coverage thresholds.
 </code>
@@ -310,17 +309,17 @@ Creates a BED file containing regions that are above/below given coverage thresh
 
 			Usage of the decompressor TOWIG command:
 			<pre>
-				<code>
-Usage:    java -jar x.jar decompress TOWIG [-chrLenFile &lt;arg&gt;] -covFile &lt;arg&gt; [-keepWorkDir] [-tmpDir &lt;arg&gt;] [-v] [-vcfFile &lt;arg&gt;] -wigFile &lt;arg&gt;
+<code>
+Usage:    java -jar x.jar decompress TOWIG [-chrLen &lt;arg&gt;] -cov &lt;arg&gt; [-keepWorkDir] -o &lt;arg&gt; [-scale &lt;arg&gt;] [-tmpDir &lt;arg&gt;] [-v] [-vcf &lt;arg&gt;]
 Params:
-          -chrLenFile &lt;arg&gt;     Chromosome lengths (file format: chr\tlength\n). Use to get proper padding for zero-coverage regions.
-          -covFile,--cov &lt;arg&gt;  Compressed coverage input file.
-          -keepWorkDir          Do not delete the work directory (e.g., for debugging purposes).
-          -scaleCoverage &lt;arg&gt;         Optional parameter for scaling the coverage values. Applicable only for coverage
-          -tmpDir,--temp &lt;arg&gt;  Temporary working directory (default is current dir).
-          -v,--verbose          be verbose.
-          -vcfFile &lt;arg&gt;        VCF file used for the compression (optional).
-          -wigFile &lt;arg&gt;        Output file that will contain the rounded approximated coverage values (optional).
+          -chrLen,--chrLenFile &lt;arg&gt;  Chromosome lengths (file format: chr\tlength\n). Use to get proper padding for zero-coverage regions.
+          -cov,--covFile &lt;arg&gt;        Compressed coverage input file.
+          -keepWorkDir                Do not delete the work directory (e.g., for debugging purposes).
+          -o,--outFile &lt;arg&gt;          Output file that will contain the rounded approximated coverage values (optional).
+          -scale,--scaleFactor &lt;arg&gt;  Signal scaling factor (default is 1.0).
+          -tmpDir,--temp &lt;arg&gt;        Temporary working directory (default is current dir).
+          -v,--verbose                be verbose.
+          -vcf,--vcfFile &lt;arg&gt;        VCF file used for the compression (optional).
 
 Converts the coverage data to a WIG file.
 </code>
