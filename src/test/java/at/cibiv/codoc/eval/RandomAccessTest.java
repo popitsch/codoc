@@ -17,12 +17,12 @@ public class RandomAccessTest {
 	
 	public static GenomicPosition getRandomPosition( CoverageDecompressor decomp ) {
 		List<String> chrom = decomp.getChromosomes();
-		int cid = rand.nextInt( chrom.size() );
+		int cid = rand.nextInt( chrom.size() ); 
 		String chr = chrom.get(cid);
 		Long cl = decomp.getChromosomeLength(chr);
 		if ( cl == null )
 			throw new RuntimeException("Could not estimate length of chr " + chr );
-		int pos = rand.nextInt(cl.intValue());
+		int pos = rand.nextInt(1000000);
 		return new GenomicPosition(chr, pos, COORD_TYPE.ZEROBASED);
 	}
 	
@@ -33,14 +33,20 @@ public class RandomAccessTest {
 	 */
 	public static void main(String[] args) throws Throwable {
 		
-		//args = new String[] { "src/test/resources/covcompress/small.compressed", "/project/ngs-work/meta/reference/genomes//hg19_human/hg19.fa.chrSizes" };
+		args = new String[] { 
+				"/scratch/test/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped-FILTERED.bam.p0.comp", 
+				"/project/ngs-work/meta/reference/genomes/hg19_human/hg19.fa.chrSizes",
+				"100",
+				"false"
+				};
 		
 		if ( args.length < 1 )
-			throw new RuntimeException("usage: RandomAccessTest <covFile> <chrlenFile> <n> [<vcfFile>]");
+			throw new RuntimeException("usage: RandomAccessTest <covFile> <chrlenFile> <n> [<nocaching>] [<vcfFile>]");
 		File covFile = new File(args[0]);
 		File chrlenFile = new File(args[1]);
 		int n = Integer.parseInt(args[2]);
-		File vcfFile = (args.length > 3)?new File(args[3]):null;
+		File vcfFile = (args.length > 4)?new File(args[4]):null;
+		String nocaching = (args.length > 3)?args[3]:"true";
 		
 		DebugUtil.addPerformanceMarker("query", "start");
 		PropertyConfiguration conf = CoverageDecompressor.getDefaultConfiguration();
@@ -48,7 +54,7 @@ public class RandomAccessTest {
 		if (vcfFile != null)
 			conf.setProperty(CoverageDecompressor.OPT_VCF_FILE, vcfFile.getAbsolutePath());
 		conf.setProperty(CoverageDecompressor.OPT_CHR_LEN_FILE, chrlenFile.getAbsolutePath());
-		conf.setProperty( CoverageDecompressor.OPT_NO_CACHING, "true" );
+		conf.setProperty( CoverageDecompressor.OPT_NO_CACHING, nocaching );
 		CoverageDecompressor decomp = new CoverageDecompressor(conf);
 		DebugUtil.addPerformanceMarker("query", "instantiate");
 		

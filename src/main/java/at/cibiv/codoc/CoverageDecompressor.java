@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -20,6 +21,7 @@ import org.apache.commons.cli.MissingOptionException;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
+import org.h2.util.MemoryUtils;
 
 import at.cibiv.codoc.CoverageCompressor.STANDARD_STREAM;
 import at.cibiv.codoc.io.AbstractDataBlock;
@@ -58,7 +60,7 @@ public class CoverageDecompressor {
 	/**
 	 * Debug flag.
 	 */
-	static boolean debug = false;
+	public static boolean debug = false;
 
 	/*
 	 * OPTIONS
@@ -77,6 +79,20 @@ public class CoverageDecompressor {
 	public static final String OPT_VERBOSE = "v";
 	public static final String OPT_NO_CACHING = "nocache";
 	public static final String OPT_DUMP_HEADER_AND_EXIT = "dumpHeaderAndExit";
+	public static final String OPT_MAX_CACHED_BLOCKS = "maxCachedBlocks";
+
+	/*
+	 * DEFAULTS
+	 */
+
+	/**
+	 * Default maximum number of memory-cached blocks (BITs)
+	 */
+	public static int DEFAULT_MAX_CACHED_BLOCKS = 10;
+
+	/*
+	 * STATE VARIABLES
+	 */
 
 	/**
 	 * Input stream for chromosomes
@@ -206,6 +222,16 @@ public class CoverageDecompressor {
 	private float scaleFactor = 1.0f;
 
 	/**
+	 * In-memory cache of loaded blocks.
+	 */
+	private LinkedList<CachedBlock> memoryBlockCache = new LinkedList<CachedBlock>();
+
+	/**
+	 * Maximum number of memory-cached blocks (BITs)
+	 */
+	private int maxCachedBlocks = DEFAULT_MAX_CACHED_BLOCKS;
+
+	/**
 	 * Decompresses the passed file using the passed VCF file. The intermediate
 	 * files are written to the passed working dir that is deleted after the
 	 * decompression unless keepWorkDir is set to true.
@@ -315,12 +341,26 @@ public class CoverageDecompressor {
 	 */
 	public void loadBlock(int idx) throws Throwable {
 
-		if (inMemoryBlockCaching)
-			if (currentBlockIdx == idx)
+		if (inMemoryBlockCaching) {
+			if (currentBlockIdx == idx) {
 				return;
+			}
+			for (CachedBlock cb : memoryBlockCache)
+				if (cb.getBlockIdx() == idx) {
+					this.currentBlockIdx = idx;
+					this.itree = cb.getItree();
+					this.paddingDownstreamIntervals = cb.getPaddingDownstreamIntervals();
+					this.paddingUpstreamIntervals = cb.getPaddingUpstreamIntervals();
+					if (debug)
+						System.out.println("LOAD BLOCK " + idx + " FROM CACHE 2");
+					return;
+				}
+		}
 		if (debug)
 			System.out.println("LOAD BLOCK " + idx);
-
+		
+		int mem = MemoryUtils.getMemoryUsed();
+		
 		this.itree = new CodeWordIntervalTree("intervals");
 		this.currentBlockIdx = idx;
 
@@ -386,10 +426,10 @@ public class CoverageDecompressor {
 				if ((pos1 >= 1) && (cov1 == 0)) {
 					CodeWordInterval padLeft = new CodeWordInterval(StringUtils.prefixedChr(chr), 1l, pos1, chr + "-pad-left", COORD_TYPE.ONEBASED);
 					padLeft.setOriginalChrom(chr);
-					paddingUpstreamIntervals.put(padLeft.getChr(), padLeft);
+					this.paddingUpstreamIntervals.put(padLeft.getChr(), padLeft);
 					// System.out.println("PAD LEFT " + padLeft);
 				} else if (cov1 != 0) {
-					CodeWordInterval gi = new CodeWordInterval(StringUtils.prefixedChr(chr), 1l, pos1, "CHROM1");
+					CodeWordInterval gi = new CodeWordInterval(StringUtils.prefixedChr(chr), 1l, pos1, null);
 					gi.setLeftCoverage(cov1);
 					gi.setRightCoverage(cov1);
 					gi.setOriginalChrom(chr);
@@ -415,7 +455,7 @@ public class CoverageDecompressor {
 					CodeWordInterval padRight = new CodeWordInterval(StringUtils.prefixedChr(lastchr), lastpos1 + 1, chromLengths.get(StringUtils
 							.prefixedChr(lastchr)), lastchr + "-pad-right", COORD_TYPE.ONEBASED);
 					padRight.setOriginalChrom(lastchr);
-					paddingDownstreamIntervals.put(padRight.getChr(), padRight);
+					this.paddingDownstreamIntervals.put(padRight.getChr(), padRight);
 					// System.out.println("PAD RIGHT " + padRight);
 				}
 
@@ -435,7 +475,7 @@ public class CoverageDecompressor {
 					Integer varCov = currentVariant.estimateCoverage();
 					if (varCov == null)
 						varCov = cov1;
-					CodeWordInterval gi = new CodeWordInterval(StringUtils.prefixedChr(chr), lastpos1 + 1, varPos, "VAR");
+					CodeWordInterval gi = new CodeWordInterval(StringUtils.prefixedChr(chr), lastpos1 + 1, varPos, null);
 					gi.setLeftCoverage(lastcov2);
 					gi.setRightCoverage(varCov);
 					gi.setOriginalChrom(chr);
@@ -490,7 +530,7 @@ public class CoverageDecompressor {
 			// ended the current interval already!
 			if (!intervalFinished) {
 				// now create the interval and continue
-				CodeWordInterval gi = new CodeWordInterval(StringUtils.prefixedChr(chr), lastpos1 + 1, pos1, "int");
+				CodeWordInterval gi = new CodeWordInterval(StringUtils.prefixedChr(chr), lastpos1 + 1, pos1, null);
 				gi.setLeftCoverage(lastcov2);
 				gi.setRightCoverage(cov1);
 				gi.setOriginalChrom(chr);
@@ -535,7 +575,7 @@ public class CoverageDecompressor {
 						.prefixedChr(lastchr)), lastchr + "-pad-right", COORD_TYPE.ONEBASED);
 				padRight.setOriginalChrom(lastchr);
 
-				paddingDownstreamIntervals.put(padRight.getChr(), padRight);
+				this.paddingDownstreamIntervals.put(padRight.getChr(), padRight);
 				// System.out.println("PAD RIGHT " + padRight);
 			}
 		}
@@ -581,6 +621,14 @@ public class CoverageDecompressor {
 				throw new CodocException("Cannot close block " + block, e);
 			}
 		}
+
+		if (memoryBlockCache.size() > maxCachedBlocks)
+			memoryBlockCache.pop();
+		CachedBlock cb = new CachedBlock(currentBlockIdx, itree, paddingDownstreamIntervals, paddingUpstreamIntervals);
+		memoryBlockCache.add(cb);
+		
+		if (debug)
+			System.out.println("CACHED BLOCK " + idx + " with byte size " + (MemoryUtils.getMemoryUsed()-mem));
 
 	}
 
@@ -675,11 +723,12 @@ public class CoverageDecompressor {
 		File chrLenFile = conf.hasProperty(OPT_CHR_LEN_FILE) ? new File(conf.getProperty(OPT_CHR_LEN_FILE)) : null;
 		this.keepWorkDir = conf.getBooleanProperty(OPT_KEEP_WORKDIR, false);
 		this.scaleFactor = Float.parseFloat(conf.getProperty(OPT_SCALE_FACTOR, " 1.0"));
+		this.maxCachedBlocks = Integer.parseInt(conf.getProperty(OPT_MAX_CACHED_BLOCKS, DEFAULT_MAX_CACHED_BLOCKS + ""));
 		debug = conf.getBooleanProperty(OPT_VERBOSE, false);
 		this.inMemoryBlockCaching = !conf.getBooleanProperty(OPT_NO_CACHING, false);
-		if (debug)
-			if (!inMemoryBlockCaching)
-				System.out.println("In-memory BIT caching was disabled!");
+		if (debug) {
+			System.out.println("Caching options: In-memory BIT caching: " + inMemoryBlockCaching + ", maxCachedBlocks=" + maxCachedBlocks);
+		}
 
 		long startTime = System.currentTimeMillis();
 		if (debug)
@@ -861,6 +910,14 @@ public class CoverageDecompressor {
 
 	public Map<Integer, GenomicPosition> getLeftBorders() {
 		return leftBorders;
+	}
+
+	public int getMaxCachedBlocks() {
+		return maxCachedBlocks;
+	}
+
+	public void setMaxCachedBlocks(int maxCachedBlocks) {
+		this.maxCachedBlocks = maxCachedBlocks;
 	}
 
 	/**
@@ -1405,6 +1462,12 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
+					opt = new Option(OPT_MAX_CACHED_BLOCKS, true, "Maximum number of memory-cached data blocks (BITs) (default is " + DEFAULT_MAX_CACHED_BLOCKS
+							+ ").");
+					opt.setLongOpt("maxCachedBlocks");
+					opt.setRequired(false);
+					options.addOption(opt);
+
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
 					line = parser.parse(options, args);
@@ -1422,6 +1485,8 @@ public class CoverageDecompressor {
 					conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
 					if (line.hasOption(OPT_SCALE_FACTOR))
 						conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
+					if (line.hasOption(OPT_MAX_CACHED_BLOCKS))
+						conf.setProperty(OPT_MAX_CACHED_BLOCKS, line.getOptionValue(OPT_MAX_CACHED_BLOCKS));
 
 					try {
 						decompressor = new CoverageDecompressor(conf);
@@ -1492,6 +1557,12 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
+					opt = new Option(OPT_MAX_CACHED_BLOCKS, true, "Maximum number of memory-cached data blocks (BITs) (default is " + DEFAULT_MAX_CACHED_BLOCKS
+							+ ").");
+					opt.setLongOpt("maxCachedBlocks");
+					opt.setRequired(false);
+					options.addOption(opt);
+
 					line = parser.parse(options, args);
 
 					conf = CoverageDecompressor.getDefaultConfiguration();
@@ -1506,6 +1577,8 @@ public class CoverageDecompressor {
 					conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
 					if (line.hasOption(OPT_SCALE_FACTOR))
 						conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
+					if (line.hasOption(OPT_MAX_CACHED_BLOCKS))
+						conf.setProperty(OPT_MAX_CACHED_BLOCKS, line.getOptionValue(OPT_MAX_CACHED_BLOCKS));
 
 					Integer min = line.hasOption("min") ? new Integer(line.getOptionValue("min")) : null;
 					Integer max = line.hasOption("max") ? new Integer(line.getOptionValue("max")) : null;
@@ -1555,6 +1628,13 @@ public class CoverageDecompressor {
 					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);
+
+					opt = new Option(OPT_MAX_CACHED_BLOCKS, true, "Maximum number of memory-cached data blocks (BITs) (default is " + DEFAULT_MAX_CACHED_BLOCKS
+							+ ").");
+					opt.setLongOpt("maxCachedBlocks");
+					opt.setRequired(false);
+					options.addOption(opt);
+
 					line = parser.parse(options, args);
 
 					conf = CoverageDecompressor.getDefaultConfiguration();
@@ -1569,6 +1649,8 @@ public class CoverageDecompressor {
 					conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
 					if (line.hasOption(OPT_SCALE_FACTOR))
 						conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
+					if (line.hasOption(OPT_MAX_CACHED_BLOCKS))
+						conf.setProperty(OPT_MAX_CACHED_BLOCKS, line.getOptionValue(OPT_MAX_CACHED_BLOCKS));
 
 					try {
 						decompressor = new CoverageDecompressor(conf);
