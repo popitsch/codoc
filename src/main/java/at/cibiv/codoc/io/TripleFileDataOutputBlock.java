@@ -7,6 +7,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import at.cibiv.codoc.utils.CodocException;
 import at.cibiv.codoc.utils.FileUtils;
 import at.cibiv.codoc.utils.PropertyConfiguration;
 
@@ -35,7 +36,7 @@ public class TripleFileDataOutputBlock<T> extends FileDataOutputBlock<T> {
 	 * @throws FileNotFoundException
 	 * @throws Throwable
 	 */
-	public TripleFileDataOutputBlock(String id, File f1, File f2, File f3) throws FileNotFoundException, Throwable {
+	public TripleFileDataOutputBlock(String id, File f1, File f2, File f3) {
 		super(id, f1);
 		this.f2 = f2;
 		this.f3 = f3;
@@ -47,11 +48,12 @@ public class TripleFileDataOutputBlock<T> extends FileDataOutputBlock<T> {
 	 * @param conf
 	 * @return
 	 * @throws FileNotFoundException
+	 * @throws CodocException 
 	 * @throws Throwable
 	 */
 	@Override
 	@SuppressWarnings("unchecked")
-	public TripleFileDataOutputBlock<T> configure(PropertyConfiguration conf) throws FileNotFoundException, Throwable {
+	public TripleFileDataOutputBlock<T> configure(PropertyConfiguration conf) throws FileNotFoundException, CodocException {
 		this.fout1 = new BufferedOutputStream(new FileOutputStream(f1));
 		this.fout2 = new BufferedOutputStream(new FileOutputStream(f2));
 		this.fout3 = new BufferedOutputStream(new FileOutputStream(f3));

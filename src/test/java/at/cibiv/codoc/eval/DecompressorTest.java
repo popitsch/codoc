@@ -39,6 +39,7 @@ public class DecompressorTest {
 		config.setProperty(CoverageCompressor.OPT_QUANT_METHOD, QUANT_METHOD.PERC.name());
 		config.setProperty(CoverageCompressor.OPT_QUANT_PARAM, "0.2");
 		config.setProperty(CoverageCompressor.OPT_CREATE_STATS, "true");
+		config.setProperty(CoverageCompressor.OPT_BLOCKSIZE, "10");
 		if (useRoi)
 			config.setProperty(CoverageCompressor.OPT_BED_FILE, roiFile);
 
@@ -74,13 +75,15 @@ public class DecompressorTest {
 		// check deletion!
 		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60015, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 
+		Assert.assertEquals(128f, decompressor.query(new GenomicPosition("20", 60022, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+
 		// check VCF knot points
 		SimpleVCFFile vcfFile = new SimpleVCFFile(new File(vcf));
 		for (SimpleVCFVariant v : vcfFile.getVariants()) {
 			//System.out.println("CHECK " + v + "\n(coverage: " + v.estimateCoverage() + ")");
 			if (v.estimateCoverage() != null)
 				Assert.assertEquals((float) v.estimateCoverage(),
-						decompressor.query(new GenomicPosition(v.getChromosome(), v.getPosition(), COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+						decompressor.query(new GenomicPosition(v.getChromosomeOrig(), v.getPosition(), COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 		}
 
 		decompressor.close();
@@ -103,19 +106,27 @@ public class DecompressorTest {
 		Assert.assertNull(decompressor.query(new GenomicPosition("20", 0, COORD_TYPE.ONEBASED)));
 		Assert.assertNull(decompressor.query(new GenomicPosition("20", 63025521, COORD_TYPE.ONEBASED)));
 
-		// check ROI borders
-		// chr20 60000 60080 reg1
+		
+		CompressedCoverageIterator it = decompressor.getCoverageIterator();
+		while ( it.hasNext() ) {
+			int cov = it.nextCoverage();
+			System.out.println(it.getGenomicPosition().toString1basedOrig() + "->" + cov);
+		}
+		System.out.println( decompressor.query(new GenomicPosition("21", 60081, COORD_TYPE.ONEBASED) )  );
+		
+		// check ROI borders BED (0-bases!)
+		// chr20 60005 60080 reg1
 		// chr21 60015 60017 reg2
-		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("20", 59999, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
-		Assert.assertEquals(29f, decompressor.query(new GenomicPosition("20", 60000, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
-		Assert.assertEquals(6f, decompressor.query(new GenomicPosition("20", 60080, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
-		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("20", 60081, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("20", 60004, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(29f, decompressor.query(new GenomicPosition("20", 60005, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(6f, decompressor.query(new GenomicPosition("20", 60081, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("20", 60082, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 
 		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60014, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 		// check deletion
 		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60015, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
-		Assert.assertEquals(1f, decompressor.query(new GenomicPosition("21", 60017, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
-		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60018, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(1f, decompressor.query(new GenomicPosition("21", 60018, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+		Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60019, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 
 
 		decompressor.close();
@@ -140,8 +151,10 @@ public class DecompressorTest {
 			GenomicPosition posIterator = it.getGenomicPosition();
 
 			CoverageHit hitQuery = decompressor.query(posIterator);
+			
+			//System.out.println(posIterator.toString1basedOrig() + " ->  " + hitIterator.getInterpolatedCoverage() + "/" +  hitQuery.getInterpolatedCoverage());
 
-			Assert.assertEquals(hitIterator.getInterpolatedCoverage(), hitQuery.getInterpolatedCoverage());
+			Assert.assertEquals(hitQuery.getInterpolatedCoverage(), hitIterator.getInterpolatedCoverage() );
 
 		}
 	}
@@ -275,7 +288,7 @@ public class DecompressorTest {
 			//System.out.println("CHECK " + v + "\n(coverage: " + v.estimateCoverage() + ")");
 			if (v.estimateCoverage() != null)
 				Assert.assertEquals((float) v.estimateCoverage(),
-						decompressor.query(new GenomicPosition(v.getChromosome(), v.getPosition(), COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+						decompressor.query(new GenomicPosition(v.getChromosomeOrig(), v.getPosition(), COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 		}
 
 		decompressor.close();
@@ -315,7 +328,7 @@ public class DecompressorTest {
 		Assert.assertEquals(2f, decompressor.query(new GenomicPosition("20", 60092, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 		Assert.assertEquals(1f, decompressor.query(new GenomicPosition("20", 60093, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 
-		Assert.assertNull( decompressor.query(new GenomicPosition("21", 60028, COORD_TYPE.ONEBASED)));
+		Assert.assertNotNull( decompressor.query(new GenomicPosition("21", 60028, COORD_TYPE.ONEBASED)));
 
 		// check VCF knot points
 		SimpleVCFFile vcfFile = new SimpleVCFFile(new File(vcf));
@@ -323,7 +336,7 @@ public class DecompressorTest {
 			//System.out.println("CHECK " + v + "\n(coverage: " + v.estimateCoverage() + ")");
 			if (v.estimateCoverage() != null)
 				Assert.assertEquals((float) v.estimateCoverage(),
-						decompressor.query(new GenomicPosition(v.getChromosome(), v.getPosition(), COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+						decompressor.query(new GenomicPosition(v.getChromosomeOrig(), v.getPosition(), COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 		}
 
 		decompressor.close();

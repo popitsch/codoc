@@ -1,171 +1,116 @@
 package at.cibiv.codoc;
 
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import at.cibiv.codoc.utils.CodocException;
 import at.cibiv.codoc.utils.PropertyConfiguration;
 import at.cibiv.ngs.tools.sam.iterator.ChromosomeIteratorListener;
 import at.cibiv.ngs.tools.sam.iterator.CoverageIterator;
 import at.cibiv.ngs.tools.util.GenomicPosition;
-import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
 
 /**
- * Iterates over the coverage. Note that this iterator does not support padding intervals.
+ * Iterates over the coverage in a compressed CODOC file.
  * 
  * @author niko.popitsch@univie.ac.at
  * 
  */
-public class CompressedCoverageIterator implements CoverageIterator<CoverageHit> {
+public class CompressedCoverageIterator implements CoverageIterator<CoverageHit>, ChromosomeIteratorListener {
 
 	/**
 	 * List of listeners.
 	 */
 	protected List<ChromosomeIteratorListener> listeners = new ArrayList<ChromosomeIteratorListener>();
 
-	CodeWordInterval current = null;
 	private CoverageDecompressor decomp;
-	private Long pos1;
-	private String currentchr;
-	private Long currentpos;
 	private int blockIdx = 0;
-	CoverageHit currentCoverage = null;
+	CachedBlockIterator it = null;
+	private List<String> chroms;
+	private float scaleFactor;
+	boolean lastBlock = false;
 
-	private boolean wasChangedChrom = false;
+	private boolean exhausted = false;
 
-	public CompressedCoverageIterator(PropertyConfiguration conf) throws Throwable {
-		this.decomp = new CoverageDecompressor(conf);
-		blockIdx = 0;
-		decomp.loadBlock(blockIdx);
-
-		current = decomp.getFirstInterval();
-		if (current != null) {
-			pos1 = current.getMin();
-		}
-	}
-
-	public CompressedCoverageIterator(CoverageDecompressor decomp) throws Throwable {
+	/**
+	 * Constructor.
+	 * 
+	 * @param decomp
+	 * @param chroms
+	 * @param scaleFactor
+	 * @throws CodocException
+	 * @throws IOException
+	 */
+	public CompressedCoverageIterator(CoverageDecompressor decomp, List<String> chroms, float scaleFactor) throws CodocException, IOException {
 		this.decomp = decomp;
-		blockIdx = 0;
-		decomp.loadBlock(blockIdx);
-
-		current = decomp.getFirstInterval();
-		if (current != null) {
-			pos1 = current.getMin();
-		}
+		this.chroms = chroms;
+		this.scaleFactor = scaleFactor;
+		this.blockIdx = 0;
+		this.it = decomp.loadBlock(blockIdx).iterator(chroms, scaleFactor);
+		lastBlock = (blockIdx == decomp.chrData.size() - 1);
 	}
 
 	/**
-	 * Creates a new coverage iterator that starts from the passed position.
-	 * Starts at position 1 of chr if the passed pos was not found! Creates an
-	 * empty iterator if the passed chr was not found.
+	 * Constructor.
 	 * 
-	 * @param decomp
-	 * @param firstPos
-	 * @throws Throwable
+	 * @param conf
+	 * @param chroms
+	 * @param scaleFactor
+	 * @throws CodocException
+	 * @throws IOException
 	 */
-	public CompressedCoverageIterator(CoverageDecompressor decomp, GenomicPosition firstPos) throws Throwable {
-		this.decomp = decomp;
-		blockIdx = decomp.getCurrentBlockIdx();
-		// NOTE: we have to load a block here to get the padding intervals loaded!
-		decomp.loadBlock(blockIdx);
-		CoverageHit h = decomp.query(firstPos);
-		if (h == null) {
-			// retry with 1st position in chr (should be padded)
-			firstPos = new GenomicPosition(firstPos.getChromosomeOriginal(), 0);
-			h = decomp.query(firstPos);
-		}
+	public CompressedCoverageIterator(PropertyConfiguration conf, List<String> chroms, float scaleFactor) throws CodocException, IOException {
+		this.decomp = new CoverageDecompressor(conf);
+		this.chroms = chroms;
+		this.scaleFactor = scaleFactor;
+		this.blockIdx = 0;
+		this.it = decomp.loadBlock(blockIdx).iterator(chroms, scaleFactor);
+		lastBlock = (blockIdx == decomp.chrData.size() - 1);
+	}
 
-		if (h != null && h.isPadding()) {
-			// move over padding interval
-			firstPos = new GenomicPosition(firstPos.getChromosomeOriginal(), h.getInterval().getMax());
-			h = decomp.query(firstPos);
-		}
-
-		if (h == null) {
-			current = null;
-		} else {
-			current = h.getInterval();
-			pos1 = firstPos.get1Position();
-		}
+	/**
+	 * Deplete the iterator.
+	 */
+	public void exhaust() {
+		this.exhausted = true;
 	}
 
 	@Override
 	public boolean hasNext() {
-		return current != null;
+		if (exhausted)
+			return false;
+		if (!it.hasNext() && lastBlock)
+			return false;
+		return true;
 	}
 
 	@Override
 	public boolean wasChangedChrom() {
-		return wasChangedChrom;
-	}
-
-	/**
-	 * sets
-	 */
-	public void exhaust() {
-		current = null;
+		return it.wasChangedChrom();
 	}
 
 	@Override
 	public CoverageHit next() {
-		if (!hasNext())
-			return null;
 
-		// FIXME: set padding of this interval if not in min/max
-		this.currentCoverage = decomp.interpolate(current, pos1);
-
-		// was the chrom changed?
-		if (!current.getOriginalChrom().equals(currentchr)) {
-			// System.out.println("NEW " + current.getChr() );
-			for (ChromosomeIteratorListener l : listeners)
-				try {
-					l.notifyChangedChromosome(current.getOriginalChrom());
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			wasChangedChrom = true;
-		} else
-			wasChangedChrom = false;
-
-		currentchr = current.getOriginalChrom();
-		currentpos = pos1;
-		pos1++;
-		if (pos1 > current.getMax()) {
-			if ((current.getNext() != null) && (!current.getNext().getOriginalChrom().equals(current.getOriginalChrom())))
-				pos1 = current.getNext().getMin();
-			current = current.getNext();
-			if (current == null) {
-				// load next block?
-				blockIdx++;
-				if (decomp.getLeftBorders().get(blockIdx) != null) {
-					try {
-						decomp.loadBlock(blockIdx);
-						current = decomp.getFirstInterval();
-						// now current contains an interval from 1 to the block
-						// start.
-						if (current != null) {
-							current = current.getNext();
-							if (current != null) {
-								pos1 = current.getMin();
-							}
-						}
-					} catch (Throwable e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-
-				} else
-					try {
-						decomp.close();
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-			} else {
+		if (!it.hasNext()) {
+			blockIdx++;
+			try {
+				this.it = decomp.loadBlock(blockIdx).iterator(chroms, scaleFactor);
+			} catch (CodocException | IOException e) {
+				e.printStackTrace();
+				return null;
+			}
+			if (blockIdx == decomp.chrData.size() - 1) {
+				lastBlock = true;
 			}
 		}
-		return this.currentCoverage;
+		if (!it.hasNext())
+			return null;
+
+		CoverageHit hit = it.next();
+		hit.decorateWithBoundaries(decomp.getQuant());
+
+		return hit;
 	}
 
 	@Override
@@ -174,19 +119,17 @@ public class CompressedCoverageIterator implements CoverageIterator<CoverageHit>
 
 	@Override
 	public long getOffset() {
-		return currentpos;
+		return it.getOffset();
 	}
 
 	@Override
 	public String getCurrentReference() {
-		return currentchr;
+		return it.getCurrentReference();
 	}
 
 	@Override
 	public GenomicPosition getGenomicPosition() {
-		if ( currentchr == null ) return null;
-		if ( currentpos == null ) return null;
-		return new GenomicPosition(currentchr, currentpos, COORD_TYPE.ONEBASED);
+		return it.getGenomicPosition();
 	}
 
 	@Override
@@ -201,7 +144,7 @@ public class CompressedCoverageIterator implements CoverageIterator<CoverageHit>
 
 	@Override
 	public CoverageHit getCurrentCoverage() {
-		return currentCoverage;
+		return it.getCurrentCoverage();
 	}
 
 	@Override
@@ -219,48 +162,18 @@ public class CompressedCoverageIterator implements CoverageIterator<CoverageHit>
 		this.listeners.remove(l);
 	}
 
-	/**
-	 * Note that subtracting of WIG files can e.g. be done with the
-	 * java_genomics_toolkit
-	 * 
-	 * @param a
-	 * @param b
-	 * @param out
-	 */
-	@Deprecated
-	public static void subtract(CompressedCoverageIterator a, CompressedCoverageIterator b, PrintStream out) {
-		CoverageHit hita = null, hitb = null;
-		GenomicPosition posa = null, posb = null;
-		while (a.hasNext() || b.hasNext()) {
-			if (hita == null) {
-				hita = a.next();
-				posa = a.getGenomicPosition();
+	@Override
+	public void notifyChangedChromosome(String chromosome) throws IOException {
+		for (ChromosomeIteratorListener l : listeners)
+			try {
+				l.notifyChangedChromosome(it.getCurrentReference());
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
-			if (hitb == null) {
-				hitb = b.next();
-				posb = b.getGenomicPosition();
-			}
-			int dir = posa.compareTo(posb);
-			if (dir < 0) {
-				int diff = Math.round(hita.getInterpolatedCoverage());
-				out.println(posa + "\t" + diff);
-				hita = null;
-			} else if (dir > 0) {
-				int diff = Math.round(hitb.getInterpolatedCoverage());
-				out.println(posb + "\t" + diff);
-				hitb = null;
-			} else {
-				int diff = Math.round(hita.getInterpolatedCoverage() - hitb.getInterpolatedCoverage());
-				out.println(posa + "\t" + diff);
-				hita = null;
-				hitb = null;
-			}
-		}
 	}
 
 	public CoverageDecompressor getDecomp() {
 		return decomp;
 	}
-
 
 }
