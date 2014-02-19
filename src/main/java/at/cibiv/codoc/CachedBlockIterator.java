@@ -2,7 +2,6 @@ package at.cibiv.codoc;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -12,12 +11,12 @@ import at.cibiv.ngs.tools.util.GenomicPosition;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
 
 /**
- * Iterates over the coverage values in a BIT.
+ * Iterates over the coverage values in a cached block.
  * 
  * @author niko.popitsch@univie.ac.at
  * 
  */
-public class CachedBlockIterator implements CoverageIterator<CoverageHit> {
+public class CachedBlockIterator implements CoverageIterator<Float> {
 
 	/**
 	 * List of listeners.
@@ -38,7 +37,7 @@ public class CachedBlockIterator implements CoverageIterator<CoverageHit> {
 	/**
 	 * internal vars for caching
 	 */
-	private CoverageHit preloadedCoverage = null;
+	private Float preloadedCoverage = null;
 	private String preloadedChrom = null;
 	private int preloadedPosition = 0;
 	private int keyPosIdx = 0;
@@ -47,7 +46,7 @@ public class CachedBlockIterator implements CoverageIterator<CoverageHit> {
 	/**
 	 * Current state variables
 	 */
-	CoverageHit currentCoverage = null;
+	Float currentCoverage = null;
 	String currentChrom = null;
 	int currentPosition = 0;
 
@@ -90,7 +89,7 @@ public class CachedBlockIterator implements CoverageIterator<CoverageHit> {
 	}
 
 	@Override
-	public CoverageHit next() {
+	public Float next() {
 		currentCoverage = preloadedCoverage;
 		currentChrom = preloadedChrom;
 		currentPosition = preloadedPosition;
@@ -103,8 +102,8 @@ public class CachedBlockIterator implements CoverageIterator<CoverageHit> {
 	 * 
 	 * @return
 	 */
-	private CoverageHit preloadCoverage() {
-		CoverageHit ret = null;
+	private Float preloadCoverage() {
+		Float ret = null;
 		preloadedPosition++;
 		if (preloadedPosition == cb.positions.get(preloadedChrom).get(keyPosIdx)) {
 			keyPosIdx++;
@@ -131,7 +130,7 @@ public class CachedBlockIterator implements CoverageIterator<CoverageHit> {
 			int right = left;
 			int leftCoverage = cb.coverages.get(preloadedChrom).get(keyPosIdx - 1);
 			int rightCoverage = leftCoverage;
-			ret = new CoverageHit(preloadedChrom, left, right, leftCoverage, rightCoverage, preloadedPosition, this.scaleFactor);
+			ret = CoverageHit.getInterpolatedCoverage(left, right, leftCoverage, rightCoverage, preloadedPosition, this.scaleFactor);
 
 		} else {
 
@@ -139,12 +138,13 @@ public class CachedBlockIterator implements CoverageIterator<CoverageHit> {
 			int right = cb.positions.get(preloadedChrom).get(keyPosIdx) - 1;
 			int leftCoverage = cb.coverages.get(preloadedChrom).get(keyPosIdx - 1);
 			int rightCoverage = cb.coverages2.get(preloadedChrom).get(keyPosIdx);
-			ret = new CoverageHit(preloadedChrom, left, right, leftCoverage, rightCoverage, preloadedPosition, this.scaleFactor);
+			ret = CoverageHit.getInterpolatedCoverage(left, right, leftCoverage, rightCoverage, preloadedPosition, this.scaleFactor);
 		}
 
 		return ret;
 	}
 
+	
 	@Override
 	public boolean wasChangedChrom() {
 		return wasChangedChrom;
@@ -165,18 +165,18 @@ public class CachedBlockIterator implements CoverageIterator<CoverageHit> {
 	}
 
 	@Override
-	public CoverageHit getCurrentCoverage() {
+	public Float getCurrentCoverage() {
 		return currentCoverage;
 	}
 
 	@Override
 	public Double nextCoveragePrecise() {
-		return (double) next().getInterpolatedCoverage();
+		return (double) currentCoverage;
 	}
 
 	@Override
 	public Integer nextCoverage() {
-		return Math.round(next().getInterpolatedCoverage());
+		return Math.round(next());
 	}
 
 	@Override
@@ -199,6 +199,10 @@ public class CachedBlockIterator implements CoverageIterator<CoverageHit> {
 		if (currentChrom == null)
 			return null;
 		return new GenomicPosition(currentChrom, currentPosition, COORD_TYPE.ONEBASED);
+	}
+
+	public float getScaleFactor() {
+		return scaleFactor;
 	}
 
 }

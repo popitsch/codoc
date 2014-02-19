@@ -8,8 +8,13 @@ import java.util.Map;
 
 import at.cibiv.codoc.utils.CodocException;
 import at.cibiv.ngs.tools.util.GenomicPosition;
-import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
 
+/**
+ * A memory-cached block of codewords.
+ * 
+ * @author niko.popitsch@univie.ac.at
+ *
+ */
 public class CachedBlock {
 
 	int blockIdx;
@@ -82,13 +87,13 @@ public class CachedBlock {
 			if (h >= pos.size() - 1) {
 				return null;
 			}
-			int left = positions.get(chr).get(h);
-			int right = positions.get(chr).get(h + 1) - 1;
+			int left = pos.get(h);
+			int right = pos.get(h + 1) - 1;
 			int leftCoverage = coverages.get(chr).get(h);
 			int rightCoverage = coverages2.get(chr).get(h + 1);
 			hit = new CoverageHit(chr, left, right, leftCoverage, rightCoverage, qpos, scaleFactor);
 		} else {
-			int left = positions.get(chr).get(h);
+			int left = pos.get(h);
 			int right = left;
 			int leftCoverage = coverages.get(chr).get(h);
 			int rightCoverage = leftCoverage;
@@ -156,11 +161,11 @@ public class CachedBlock {
 		CachedBlockIterator it = cb.iterator(chrs, 1.0f);
 
 		while (it.hasNext()) {
-			CoverageHit hit = it.next();
+			Float hit = it.next();
 			if (hit == null)
 				System.out.println("EOF");
 			else
-				System.out.println(it.getGenomicPosition().toString1basedOrig() + " -> " + hit.getInterpolatedCoverage() + " " + hit);
+				System.out.println(it.getGenomicPosition().toString1basedOrig() + " -> " + hit);
 		}
 
 	}

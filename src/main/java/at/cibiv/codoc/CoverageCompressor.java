@@ -806,9 +806,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				if (chromWasChanged) {
 
 					// finish chrom!
-					if (roiFile == null)
+					if (roiFile == null) {
 						writeCodeword(lastChr, lastPos1 + 1, lastCoverage, 0,
 								"last1");
+					}
 					String prefixedChr = StringUtils.prefixedChr(chr);
 
 					// load ROIs

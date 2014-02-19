@@ -16,7 +16,7 @@ import at.cibiv.ngs.tools.util.GenomicPosition;
  * @author niko.popitsch@univie.ac.at
  * 
  */
-public class CompressedCoverageIterator implements CoverageIterator<CoverageHit>, ChromosomeIteratorListener {
+public class CompressedCoverageIterator implements CoverageIterator<Float>, ChromosomeIteratorListener {
 
 	/**
 	 * List of listeners.
@@ -90,7 +90,7 @@ public class CompressedCoverageIterator implements CoverageIterator<CoverageHit>
 	}
 
 	@Override
-	public CoverageHit next() {
+	public Float next() {
 
 		if (!it.hasNext()) {
 			blockIdx++;
@@ -107,9 +107,7 @@ public class CompressedCoverageIterator implements CoverageIterator<CoverageHit>
 		if (!it.hasNext())
 			return null;
 
-		CoverageHit hit = it.next();
-		hit.decorateWithBoundaries(decomp.getQuant());
-
+		Float hit = it.next();
 		return hit;
 	}
 
@@ -134,16 +132,16 @@ public class CompressedCoverageIterator implements CoverageIterator<CoverageHit>
 
 	@Override
 	public Integer nextCoverage() {
-		return Math.round(next().getInterpolatedCoverage());
+		return Math.round(next());
 	}
 
 	@Override
 	public Double nextCoveragePrecise() {
-		return (double) next().getInterpolatedCoverage();
+		return (double) next();
 	}
 
 	@Override
-	public CoverageHit getCurrentCoverage() {
+	public Float getCurrentCoverage() {
 		return it.getCurrentCoverage();
 	}
 
@@ -151,6 +149,7 @@ public class CompressedCoverageIterator implements CoverageIterator<CoverageHit>
 	public Integer skip() {
 		return nextCoverage();
 	}
+
 
 	@Override
 	public void addListener(ChromosomeIteratorListener l) {
@@ -175,5 +174,10 @@ public class CompressedCoverageIterator implements CoverageIterator<CoverageHit>
 	public CoverageDecompressor getDecomp() {
 		return decomp;
 	}
+
+	public float getScaleFactor() {
+		return scaleFactor;
+	}
+
 
 }

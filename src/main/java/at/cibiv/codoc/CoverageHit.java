@@ -3,7 +3,8 @@ package at.cibiv.codoc;
 import at.cibiv.codoc.quant.QuantizationFunction;
 
 /**
- * A query hit.
+ * A query hit. Use only if you need access to the individual data fields
+ * (otherwise, the static getInterpolatedCoverage() method is much faster!).
  * 
  * @author niko.popitsch@univie.ac.at
  * 
@@ -23,6 +24,17 @@ public class CoverageHit {
 	private float scaleFactor;
 	private int qpos;
 
+	/**
+	 * Constructor.
+	 * 
+	 * @param chr
+	 * @param left
+	 * @param right
+	 * @param leftCoverage
+	 * @param rightCoverage
+	 * @param qpos
+	 * @param scaleFactor
+	 */
 	public CoverageHit(String chr, int left, int right, int leftCoverage, int rightCoverage, int qpos, float scaleFactor) {
 		this.scaleFactor = scaleFactor;
 		this.chr = chr;
@@ -31,6 +43,28 @@ public class CoverageHit {
 		this.leftCoverage = leftCoverage;
 		this.rightCoverage = rightCoverage;
 		this.qpos = qpos;
+		this.interpolatedCoverage = getInterpolatedCoverage(left, right, leftCoverage, rightCoverage, qpos, scaleFactor);
+	}
+
+	/**
+	 * Linear interpolation of the coverage.
+	 * 
+	 * @param chr
+	 * @param l
+	 * @param r
+	 * @param lc
+	 * @param rc
+	 * @param qp
+	 * @param scaleFactor
+	 * @return
+	 */
+	public static float getInterpolatedCoverage(int l, int r, int lc, int rc, int qp, float scaleFactor) {
+		int w = (r - l);
+		if (w == 0) 
+			return (float) rc* scaleFactor;
+		float prec = (float) (qp - l) / (float) w;
+		float ret = lc + ((rc - lc) * prec);
+		return ret * scaleFactor;
 	}
 
 	/**
@@ -39,10 +73,7 @@ public class CoverageHit {
 	 * @return
 	 */
 	public int getRoundedCoverage() {
-		if (interpolatedCoverage == null) {
-			getInterpolatedCoverageRaw();
-		}
-		return Math.round(interpolatedCoverage * scaleFactor);
+		return Math.round(interpolatedCoverage);
 	}
 
 	/**
@@ -51,10 +82,7 @@ public class CoverageHit {
 	 * @return
 	 */
 	public int getRoundedCoverageRaw() {
-		if (interpolatedCoverage == null) {
-			getInterpolatedCoverageRaw();
-		}
-		return Math.round(interpolatedCoverage);
+		return Math.round(getInterpolatedCoverage(left, right, leftCoverage, rightCoverage, qpos, 1.0f));
 	}
 
 	/**
@@ -63,9 +91,6 @@ public class CoverageHit {
 	 * @return
 	 */
 	public float getInterpolatedCoverage() {
-		if (interpolatedCoverage == null) {
-			getInterpolatedCoverageRaw();
-		}
 		return interpolatedCoverage * scaleFactor;
 	}
 
@@ -79,15 +104,7 @@ public class CoverageHit {
 	 * @return
 	 */
 	public float getInterpolatedCoverageRaw() {
-		if (interpolatedCoverage == null) {
-			if (getWidth() == 0)
-				interpolatedCoverage = (float) rightCoverage;
-			else {
-				float prec = (float) (qpos - left) / (float) getWidth();
-				interpolatedCoverage = leftCoverage + ((rightCoverage - leftCoverage) * prec);
-			}
-		}
-		return interpolatedCoverage;
+		return getInterpolatedCoverage(left, right, leftCoverage, rightCoverage, qpos, 1.0f);
 	}
 
 	/**
@@ -248,31 +265,38 @@ public class CoverageHit {
 		this.qpos = qpos;
 	}
 
+	/**
+	 * set the upper and lower boundary for this hit based on the passed
+	 * quantization function.
+	 * 
+	 * @param quant
+	 */
 	public void decorateWithBoundaries(QuantizationFunction quant) {
 		setUpperBoundary((float) quant.getMaxBorder(leftCoverage));
 		setLowerBoundary((float) quant.getMinBorder(leftCoverage));
 	}
-	
+
+	/**
+	 * Prints the interpolated coverage followed by a
+	 */
 	@Override
 	public String toString() {
-		StringBuilder sb = new StringBuilder();
-		sb.append(getInterpolatedCoverage() + " [" + getChr() + ":" + getLeft() + "-" + getRight() + "]" + ", low:[" + getLowerBoundary() + "/"
-				+ getLeftCoverage() + "]" + ", up:[" + getUpperBoundary() + "/" + getRightCoverage() + "]" + ", isFuzzy:" + isFuzzy() + ", isPadding:"
-				+ isPadding());
-
-		// System.out.println("isFuzzy: " + hit.isFuzzy());
-		// System.out.println("isPadding: " + hit.isPadding());
-		// // System.out.println("prev:" +
-		// // hit.getInterval().getAnnotation("prev"));
-		// // System.out.println("next:" +
-		// // hit.getInterval().getAnnotation("next"));
-		// System.out.println("prev:" + hit.getInterval().getPrev());
-		// System.out.println("next:" + hit.getInterval().getNext());
-		// System.out.println("lc: " + hit.getInterval().getLeftCoverage());
-		// System.out.println("rc: " + hit.getInterval().getRightCoverage());
-
-		return sb.toString();
+		return (isFuzzy() ? "~" : "") + String.format("%.2f", getInterpolatedCoverage());
 	}
 
+	public String toStringVerbose() {
+		StringBuilder sb = new StringBuilder();
+		sb.append(getInterpolatedCoverage()
+				+ " ["
+				+ getChr()
+				+ ":"
+				+ getLeft()
+				+ "-"
+				+ getRight()
+				+ "]"
+				+ (isFuzzy() ? ", low:[" + getLowerBoundary() + "/" + getLeftCoverage() + "]" + ", up:[" + getUpperBoundary() + "/" + getRightCoverage() + "]"
+						: "") + (isPadding() ? ", from padding!" : ""));
+		return sb.toString();
+	}
 
 }

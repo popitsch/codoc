@@ -257,7 +257,7 @@ public class CoverageDecompressor {
 	 * @param covFile
 	 * @param workDir
 	 * @throws IOException
-	 * @throws CodocException 
+	 * @throws CodocException
 	 * @throws Throwable
 	 */
 	public void dumpHeader(PropertyConfiguration conf) throws IOException, CodocException {
@@ -366,6 +366,7 @@ public class CoverageDecompressor {
 		int icount = 0;
 
 		int pos1 = 1, lastpos1 = 1, lastcov2 = 0;
+		String firstChrom = null;
 
 		while (chrData.get(idx).getStream().available() > 0) {
 			icount++;
@@ -381,7 +382,13 @@ public class CoverageDecompressor {
 			int diffpos = posData.get(idx).getStream().pop();
 			int cov1 = cov1Data.get(idx).getStream().pop();
 			int cov2 = cov2Data.get(idx).getStream().pop();
+
 			pos1 += diffpos;
+			// System.out.println("READ " + chr+":"+pos1 + " " + diffpos + " " +
+			// cov1 + " "+ cov2);
+			if (firstChrom == null)
+				firstChrom = chr;
+
 			boolean intervalFinished = false;
 
 			// chr change
@@ -507,20 +514,26 @@ public class CoverageDecompressor {
 			}
 		}
 
-		if (memoryBlockCache.size() > maxCachedBlocks)
+		if (memoryBlockCache.size() > maxCachedBlocks) {
 			memoryBlockCache.removeLast();
+			System.gc();
+		}
 
-//		for (String cc : positions.keySet()) {
-//			System.out.println("CHR: " + cc);
-//			System.out.println("LOADED WITH POS  " + Arrays.toString(positions.get(cc).toArray()));
-//			System.out.println("LOADED WITH COV  " + Arrays.toString(covPrev.get(cc).toArray()));
-//			System.out.println("LOADED WITH COV2 " + Arrays.toString(covKeypoint.get(cc).toArray()));
-//		}
+		// for (String cc : positions.keySet()) {
+		// System.out.println("CHR: " + cc);
+		// System.out.println("LOADED WITH POS  " +
+		// Arrays.toString(positions.get(cc).toArray()));
+		// System.out.println("LOADED WITH COV  " +
+		// Arrays.toString(covPrev.get(cc).toArray()));
+		// System.out.println("LOADED WITH COV2 " +
+		// Arrays.toString(covKeypoint.get(cc).toArray()));
+		// }
 		CachedBlock cb = new CachedBlock(idx, positions, covKeypoint, covPrev);
 		memoryBlockCache.add(0, cb);
 
-//		if (debug)
-			System.out.println("CACHED BLOCK " + idx + " with byte size " + (MemoryUtils.getMemoryUsed() - mem) + " and " + cb.size() + " codewords in " + (System.currentTimeMillis()-start) + " ms.");
+		if (debug)
+			System.out.println("CACHED BLOCK " + idx + " at " + firstChrom + ":" + cb.getFirstPos(firstChrom) + " with byte size "
+					+ (MemoryUtils.getMemoryUsed() - mem) + " and " + cb.size() + " codewords in " + (System.currentTimeMillis() - start) + " ms.");
 
 		return cb;
 	}
@@ -803,9 +816,12 @@ public class CoverageDecompressor {
 	 */
 	public CompressedCoverageIterator getCoverageIterator(GenomicPosition pos) throws CodocException, IOException {
 		CompressedCoverageIterator it = new CompressedCoverageIterator(this, chrOrigList, 1.0f);
-		while (it.hasNext())
-			if (it.getGenomicPosition().equals(pos))
-				return it;
+		while (it.hasNext()) {
+			it.next();
+			if (it.getGenomicPosition() != null)
+				if (it.getGenomicPosition().compareTo(pos) > 0)
+					return it;
+		}
 		return null;
 	}
 
@@ -954,20 +970,7 @@ public class CoverageDecompressor {
 						System.out.println("cov:\t" + hit.getInterpolatedCoverage());
 
 					System.out.println("\tinfo:\t" + hit);
-					// System.out.println("isFuzzy: " + hit.isFuzzy());
-					// System.out.println("isPadding: " + hit.isPadding());
-					// // System.out.println("prev:" +
-					// // hit.getInterval().getAnnotation("prev"));
-					// // System.out.println("next:" +
-					// // hit.getInterval().getAnnotation("next"));
-					// System.out.println("prev:" +
-					// hit.getInterval().getPrev());
-					// System.out.println("next:" +
-					// hit.getInterval().getNext());
-					// System.out.println("lc: " +
-					// hit.getInterval().getLeftCoverage());
-					// System.out.println("rc: " +
-					// hit.getInterval().getRightCoverage());
+
 					System.out.println("\ttime:\t" + (hit.getExecTime() / 1000) + "micros.");
 				}
 
@@ -1026,6 +1029,8 @@ public class CoverageDecompressor {
 		if (hit == null) {
 			return queryPadding(pos);
 		}
+		hit.decorateWithBoundaries(getQuant());
+
 		return hit;
 	}
 
@@ -1055,8 +1060,8 @@ public class CoverageDecompressor {
 		int rc = 0;
 		GenomicPosition startPos = null, lastPos = null;
 		while (it.hasNext()) {
-			CoverageHit h = it.next();
-			int cov = (h != null ? Math.round(h.getInterpolatedCoverage()) : 0);
+			Float h = it.next();
+			int cov = (h != null ? Math.round(h) : 0);
 			GenomicPosition pos = it.getGenomicPosition();
 			boolean inCorridor = (cov >= minCoverage) && (cov <= maxCoverage);
 			if (startPos == null) {
@@ -1215,13 +1220,15 @@ public class CoverageDecompressor {
 				"WIG track created by CoverageDecompressor()", "");
 		CompressedCoverageIterator it = getCoverageIterator();
 		while (it.hasNext()) {
-			CoverageHit hit = it.next();
+			Float hit = it.next();
+			if (hit == null)
+				hit = 0f;
 			// FIXME: this is a hack as normalized chr names are used internally
 			GenomicPosition pos = it.getGenomicPosition();
 			String origChr = chrNameMap.get(pos.getChromosome());
 			if (origChr != null)
 				pos.setScaffold(origChr);
-			out.push(pos, Math.round(hit.getInterpolatedCoverage()));
+			out.push(pos, Math.round(hit));
 		}
 		out.close();
 	}
@@ -1279,7 +1286,9 @@ public class CoverageDecompressor {
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
 
-		//args = new String[] { "query", "-cov", "src/test/resources/covcompress/small.compressed", "-vcf", "src/test/resources/covcompress/small.vcf", "-v" };
+		// args = new String[] { "query", "-cov",
+		// "src/test/resources/covcompress/small.compressed", "-vcf",
+		// "src/test/resources/covcompress/small.vcf", "-v" };
 
 		// args = new String[] { "tobed", "-cov",
 		// "/scratch/projects/codoc/src/test/resources/covcompress/small.compressed",

@@ -55,16 +55,28 @@ public class CoverageTools {
 	 * @param covTFile
 	 * @throws Throwable
 	 */
-	public static void dumpIterator(File cov1File, File cov1VcfFile) throws Throwable {
+	public static void dumpIterator(File cov1File, File cov1VcfFile, PrintStream out) throws Throwable {
 		if (debug)
 			System.out.println("Load " + cov1File);
 		CoverageDecompressor cov1 = CoverageDecompressor.loadFromFile(cov1File, cov1VcfFile);
+		cov1.setMaxCachedBlocks(1);
 		CompressedCoverageIterator it1 = cov1.getCoverageIterator();
+		StringBuilder sb = new StringBuilder();
+		int c = 0;
 		while (it1.hasNext()) {
-			CoverageHit hit1 = it1.next();
+			Float hit1 = it1.next();
 			GenomicPosition pos = it1.getGenomicPosition();
-			System.out.println(pos.getChromosomeOriginal() + "\t" + pos.get1Position() + "\t" + hit1.getInterpolatedCoverage());
+			sb.append(pos.getChromosomeOriginal() + "\t" + pos.get1Position() + "\t" + hit1 + "\n");
+			if (sb.length() > 50000000) {
+				System.out.print("w");
+				out.println(sb.toString());
+				sb = new StringBuilder();
+				System.out.print("!");
+			}
+			if (++c % 1000000 == 0)
+				System.out.print(".");
 		}
+		out.println(sb.toString());
 		cov1.close();
 	}
 
@@ -199,10 +211,8 @@ public class CoverageTools {
 			int count = 0;
 			while (it.hasNext()) {
 				GenomicPosition pos = it.next();
-				CoverageHit hit1 = it.getCoverage1();
-				CoverageHit hit2 = it.getCoverage2();
-				float c1 = hit1.getInterpolatedCoverage();
-				float c2 = hit2.getInterpolatedCoverage();
+				float c1 = it.getCoverage1();
+				float c2 = it.getCoverage2();
 				float co = 0;
 				switch (op) {
 				case ADD:
@@ -232,7 +242,8 @@ public class CoverageTools {
 			out.close();
 			out = null;
 
-			System.out.println("Wrote " + temp);
+			if (debug)
+				System.out.println("Wrote " + temp);
 
 			// compress
 			PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
@@ -307,10 +318,8 @@ public class CoverageTools {
 			double sumX = 0d, sumY = 0d, sumXY = 0d, N = 0d;
 			while (it.hasNext()) {
 				it.next();
-				CoverageHit hit1 = it.getCoverage1();
-				CoverageHit hit2 = it.getCoverage2();
-				float c1 = hit1.getInterpolatedCoverage();
-				float c2 = hit2.getInterpolatedCoverage();
+				float c1 = it.getCoverage1();
+				float c2 = it.getCoverage2();
 				sumX += c1;
 				sumY += c2;
 				sumXY += c1 * c2;
@@ -326,10 +335,8 @@ public class CoverageTools {
 			double stddevX = 0d, stddevY = 0d;
 			while (it.hasNext()) {
 				it.next();
-				CoverageHit hit1 = it.getCoverage1();
-				CoverageHit hit2 = it.getCoverage2();
-				float c1 = hit1.getInterpolatedCoverage();
-				float c2 = hit2.getInterpolatedCoverage();
+				float c1 = it.getCoverage1();
+				float c2 = it.getCoverage2();
 				stddevX += (c1 - meanX) * (c1 - meanX);
 				stddevY += (c2 - meanY) * (c2 - meanY);
 			}
@@ -376,39 +383,46 @@ public class CoverageTools {
 
 			double scoreAvgAll = 0f, scoreCountAll = 0f;
 			SimpleBEDFile bf = new SimpleBEDFile(bedFile);
-			Map<String, Double> absCov = new HashMap<String, Double>();
-			Map<String, Double> avgCov = new HashMap<String, Double>();
+			GenomicITree intervals = bf.getGenomicITree();
+
+			Map<String, Map<File, Double>> allScores = new HashMap<String, Map<File, Double>>();
 
 			for (File covFile : covFiles) {
-
+				Map<String, Double> absCov = new HashMap<String, Double>();
 				if (debug)
 					System.out.println("Load " + covFile);
-				cov = CoverageDecompressor.loadFromFile(covFile, covVcfFile);
+				try {
+					cov = CoverageDecompressor.loadFromFile(covFile, covVcfFile);
 
-				for (GenomicInterval gi : bf.getIntervalsList()) {
-					System.out.println("INTERVAL " + gi + " FILE " + covFile + " " + gi.getLeftPosition());
-					CompressedCoverageIterator it = cov.getCoverageIterator(gi.getLeftPosition());
-					if (!cov.getPrefixedChromosomes().contains(StringUtils.prefixedChr(gi.getChr())))
-						System.err.println("IGNORED INTERVAL: chromosome " + gi.getChr() + " is not contained/covered in " + covFile + ": "
-								+ Arrays.toString(cov.getChromosomes().toArray()));
-					GenomicPosition endPos = gi.getRightPosition();
-					double scoreSum = 0f;
-					double width = gi.getWidth(); // inclusive width!
+					CompressedCoverageIterator it = cov.getCoverageIterator();
 					while (it.hasNext()) {
-						CoverageHit h = it.next();
-						if (h == null)
-							break;
-						if (it.getGenomicPosition().compareTo(endPos) >= 0)
-							break;
-						double c = h.getInterpolatedCoverage();
-						scoreSum += c;
+						Float coverage = it.next();
+						SortedSet<? extends GenomicInterval> res = intervals.query(it.getGenomicPosition());
+						for (GenomicInterval gi : res) {
+							Double sum = absCov.get(gi.toString());
+							if (sum == null)
+								sum = 0d;
+							sum += coverage;
+							absCov.put(gi.toString(), sum);
+						}
+
 					}
 
-					absCov.put(gi.toString() + covFile.getAbsolutePath(), scoreSum);
-					avgCov.put(gi.toString() + covFile.getAbsolutePath(), (scoreSum / width));
+				} finally {
+					cov.close();
+				}
 
-					scoreAvgAll += (scoreSum / width);
-					scoreCountAll++;
+				for (GenomicInterval gi : bf.getIntervalsList()) {
+					double width = gi.getWidth();
+					Double sum = absCov.get(gi.toString());
+					if (sum == null)
+						sum = 0d;
+					double avgScore = sum / width;
+					Map<File, Double> scores = allScores.get(gi.toString());
+					if (scores == null)
+						scores = new HashMap<File, Double>();
+					scores.put(covFile, avgScore);
+					allScores.put(gi.toString(), scores);
 				}
 
 			}
@@ -418,7 +432,7 @@ public class CoverageTools {
 				out.println("# Score files: \t" + Arrays.toString(covFiles.toArray()));
 				out.print("#chr\tmin\tmax\tname\twidth");
 				for (File covFile : covFiles)
-					out.print("\tabs.cov (" + covFile.getName() + ")\tavg.cov (" + covFile.getName() + ")");
+					out.print("\tavg.cov (" + covFile.getName() + ")");
 				out.println();
 
 				for (GenomicInterval gi : bf.getIntervalsList()) {
@@ -426,7 +440,9 @@ public class CoverageTools {
 					out.format("%s\t%d\t%d\t%s\t%.0f", gi.getOriginalChrom(), gi.getMin(), gi.getMax(), gi.getId(), gi.getWidth());
 
 					for (File covFile : covFiles) {
-						out.format("\t%.0f\t%.1f", absCov.get(gi.toString() + covFile.getAbsolutePath()), avgCov.get(gi.toString() + covFile.getAbsolutePath()));
+						Map<File, Double> scores = allScores.get(gi.toString());
+						Double avg = scores==null?-1:scores.get(covFile);
+						out.format("\t%.1f", avg);
 					}
 
 					out.println();
@@ -474,7 +490,8 @@ public class CoverageTools {
 
 			cov = CoverageDecompressor.loadFromFile(covFile, covVcfFile);
 			CoverageTools.debug = false;
-			System.out.println(Arrays.toString(cov.getChromosomes().toArray()));
+			if (debug)
+				System.out.println(Arrays.toString(cov.getChromosomes().toArray()));
 
 			covOut.println("min/max are gene positions; cov, width, avg.cov is calc only over exons.");
 			covOut.println("#chr\tmin\tmax\tname\tstrand\twidth\tcov\tavg.cov\tperc.uncov");
@@ -482,8 +499,8 @@ public class CoverageTools {
 			Map<String, ITree<Long>> trees = db.buildItrees();
 			CompressedCoverageIterator it = cov.getCoverageIterator();
 			while (it.hasNext()) {
-				CoverageHit h = it.next();
-				float coverage = (h == null) ? 0f : h.getInterpolatedCoverage();
+				Float h = it.next();
+				float coverage = (h == null) ? 0f : h;
 				GenomicPosition pos = it.getGenomicPosition();
 				if (pos == null) {
 					break;
@@ -648,15 +665,33 @@ public class CoverageTools {
 	 */
 	public static void main(String[] args) throws Throwable {
 
-//		args = new String[] { "calculateCoveragePerBedFeature",
-//
-//		"-cov", "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D21ANACXX_8_20130322B_20130325_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
-//		"-cov", "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D2295ACXX_6_20130409B_20130412_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
-//		"-cov", "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D2295ACXX_7_20130409B_20130412_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
-//		"-cov", "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D2295ACXX_8_20130409B_20130412_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
-//
-//		"-o", "/project/oesi/borrelia/reads-ngm/run1se50/coverage/delme.csv", "-bed", "/project/oesi/borrelia/reads-ngm/run1se50/coverage/delme.bed" };
+		// args = new String[] { "calculateCoveragePerBedFeature",
+		//
+		// "-cov",
+		// "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D21ANACXX_8_20130322B_20130325_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
+		// "-cov",
+		// "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D2295ACXX_6_20130409B_20130412_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
+		// "-cov",
+		// "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D2295ACXX_7_20130409B_20130412_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
+		// "-cov",
+		// "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D2295ACXX_8_20130409B_20130412_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
+		//
+		// "-o", "/project/oesi/borrelia/reads-ngm/run1se50/coverage/delme.csv",
+		// "-bed",
+		// "/project/oesi/borrelia/reads-ngm/run1se50/coverage/delme.bed" };
 
+		// args = new String[] { "dumpCoverage", "-cov",
+		// "/scratch/test/geuvadis_UCSC_Genome-sorted.bam.p005.comp", "-o",
+		// "/scratch/test/geuvadis_UCSC_Genome-sorted.bam.p005.comp.dump"
+		// };
+
+//		args = new String[] { "calculateCoveragePerBedFeature",
+//				"-bed", "/project/ngs-work/philipp/hfq-pd/bobsdata/aptamers/eck12_MG1655_ecoli-hfq_aptamers-chr.gff3.bed",
+//				"-cov", "/project/ngs-work/philipp/hfq-pd/reads-ngm-chr/coverage/codoc/3xF-PD-chr.bam.codoc",
+//				"-cov", "/project/ngs-work/philipp/hfq-pd/reads-ngm-chr/coverage/codoc/3xF-totRNA-chr.bam.codoc",
+//				"-o", "-"
+//		};
+		
 		// create the command line parser
 		CommandLineParser parser = new PosixParser();
 
@@ -856,9 +891,9 @@ public class CoverageTools {
 					debug = false;
 
 				File cov1File = new File(line.getOptionValue("cov1"));
-				File cov1VcfFile = line.hasOption("cov1Vcf") ? new File(line.getOptionValue("cov1")) : null;
+				File cov1VcfFile = line.hasOption("cov1Vcf") ? new File(line.getOptionValue("cov1Vcf")) : null;
 				File cov2File = new File(line.getOptionValue("cov2"));
-				File cov2VcfFile = line.hasOption("cov2Vcf") ? new File(line.getOptionValue("cov2")) : null;
+				File cov2VcfFile = line.hasOption("cov2Vcf") ? new File(line.getOptionValue("cov2Vcf")) : null;
 				File covOut = new File(line.getOptionValue("o"));
 				OPERATOR op = (OPERATOR) StringUtils.findInEnum(line.getOptionValue("op"), OPERATOR.values());
 
@@ -896,9 +931,9 @@ public class CoverageTools {
 					debug = false;
 
 				File cov1File = new File(line.getOptionValue("cov1"));
-				File cov1VcfFile = line.hasOption("cov1Vcf") ? new File(line.getOptionValue("cov1")) : null;
+				File cov1VcfFile = line.hasOption("cov1Vcf") ? new File(line.getOptionValue("cov1Vcf")) : null;
 				File cov2File = new File(line.getOptionValue("cov2"));
-				File cov2VcfFile = line.hasOption("cov2Vcf") ? new File(line.getOptionValue("cov2")) : null;
+				File cov2VcfFile = line.hasOption("cov2Vcf") ? new File(line.getOptionValue("cov2Vcf")) : null;
 				PrintStream corrOut = System.out;
 				if (!line.getOptionValue("o").equals("-"))
 					corrOut = new PrintStream(line.getOptionValue("o"));
@@ -911,12 +946,16 @@ public class CoverageTools {
 			} else if (subcommand.equalsIgnoreCase("dumpCoverage")) {
 				options = new Options();
 
-				Option opt = new Option("cov1", true, "Compressed coverage 1.");
+				Option opt = new Option("cov", true, "Compressed coverage.");
 				opt.setRequired(true);
 				options.addOption(opt);
 
-				opt = new Option("cov1Vcf", true, "Compressed coverage 1 VCF file (optional).");
+				opt = new Option("covVcf", true, "Compressed coverage VCF file (optional).");
 				opt.setRequired(false);
+				options.addOption(opt);
+
+				opt = new Option("o", true, "Output.");
+				opt.setRequired(true);
 				options.addOption(opt);
 
 				options.addOption("v", "verbose", false, "be verbose.");
@@ -927,10 +966,17 @@ public class CoverageTools {
 				else
 					debug = false;
 
-				File cov1File = new File(line.getOptionValue("cov1"));
-				File cov1VcfFile = line.hasOption("cov1Vcf") ? new File(line.getOptionValue("cov1")) : null;
+				File covFile = new File(line.getOptionValue("cov"));
+				File covVcfFile = line.hasOption("covVcf") ? new File(line.getOptionValue("covVcf")) : null;
 
-				dumpIterator(cov1File, cov1VcfFile);
+				PrintStream out = System.out;
+				if (!line.getOptionValue("o").equals("-"))
+					out = new PrintStream(line.getOptionValue("o"));
+
+				dumpIterator(covFile, covVcfFile, out);
+
+				if (!line.getOptionValue("o").equals("-"))
+					out.close();
 				System.exit(0);
 			} else {
 				usage(options, subcommand, null);
