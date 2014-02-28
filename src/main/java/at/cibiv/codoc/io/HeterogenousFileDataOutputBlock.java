@@ -31,7 +31,7 @@ public class HeterogenousFileDataOutputBlock<T> extends FileDataOutputBlock<T> {
 	 * @throws FileNotFoundException
 	 * @throws Throwable
 	 */
-	public HeterogenousFileDataOutputBlock(String id, File f1, File f2) throws FileNotFoundException, Throwable {
+	public HeterogenousFileDataOutputBlock(String id, File f1, File f2) {
 		super(id, f1);
 		this.f2 = f2;
 	}

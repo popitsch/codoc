@@ -58,6 +58,9 @@ public class CoverageIteratorTest implements CoverageIterator<Integer>, Chromoso
 				}
 		currentReference = c;
 		currentCoverage = it.next();
+		
+//		System.err.println(currentReference+":"+currentPos+ " -> " + currentCoverage );
+		
 		return currentCoverage;
 	}
 
@@ -136,15 +139,16 @@ public class CoverageIteratorTest implements CoverageIterator<Integer>, Chromoso
 		List<String> refValues = new ArrayList<String>();
 		
 		addCov( "chr1", 1, 0, coverageValues, posValues, refValues );
-		addCov( "chr1", 2, 1, coverageValues, posValues, refValues );
-		addCov( "chr1", 3, 1, coverageValues, posValues, refValues );
-		addCov( "chr1", 4, 1, coverageValues, posValues, refValues );
+		addCov( "chr1", 2, 2, coverageValues, posValues, refValues );
+		addCov( "chr1", 3, 3, coverageValues, posValues, refValues );
+		addCov( "chr1", 4, 4, coverageValues, posValues, refValues );
 		//addCov( "chr2", 1, 1 );
-		addCov( "chr2", 1, 1, coverageValues, posValues, refValues );
-		addCov( "chr2", 2, 1, coverageValues, posValues, refValues );
-		addCov( "chr2", 3, 0, coverageValues, posValues, refValues );
-		addCov( "chr2", 4, 1, coverageValues, posValues, refValues );
-		addCov( "chr3", 4, 2, coverageValues, posValues, refValues );
+		addCov( "chr2", 10, 2, coverageValues, posValues, refValues );
+		addCov( "chr2", 11, 3, coverageValues, posValues, refValues );
+		addCov( "chr2", 12, 4, coverageValues, posValues, refValues );
+		addCov( "chr2", 13, 0, coverageValues, posValues, refValues );
+		addCov( "chr2", 14, 5, coverageValues, posValues, refValues );
+		addCov( "chr3", 4, 6, coverageValues, posValues, refValues );
 
 		CoverageIteratorTest c = new CoverageIteratorTest(coverageValues, posValues, refValues);
 		File covFile = new File("src/test/resources/CoverageIteratorTest.comp");
@@ -163,10 +167,9 @@ public class CoverageIteratorTest implements CoverageIterator<Integer>, Chromoso
 //		c.addListener(c);
 //		while (c.hasNext())
 //			System.out.println(c.next() + " " + c.getGenomicPosition().toString1based());
-		
 		while (decomit.hasNext()) {
-			CoverageHit hit = decomit.next();
-			System.out.println("POS "+ decomit.getGenomicPosition().toString1based() + "\t" + hit.getInterpolatedCoverage() + "\t" + hit + "\t" + hit.getInterval().getUri());
+			Float hit = decomit.next();
+			System.out.println("POS "+ decomit.getGenomicPosition().toString1based() + "\t" + hit );
 		}
 		
 //		int cov = 0, pos =0;String chr=null;

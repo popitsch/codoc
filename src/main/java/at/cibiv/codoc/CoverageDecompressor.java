@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -20,6 +21,7 @@ import org.apache.commons.cli.MissingOptionException;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
+import org.h2.util.MemoryUtils;
 
 import at.cibiv.codoc.CoverageCompressor.STANDARD_STREAM;
 import at.cibiv.codoc.io.AbstractDataBlock;
@@ -58,7 +60,7 @@ public class CoverageDecompressor {
 	/**
 	 * Debug flag.
 	 */
-	static boolean debug = false;
+	public static boolean debug = false;
 
 	/*
 	 * OPTIONS
@@ -77,6 +79,20 @@ public class CoverageDecompressor {
 	public static final String OPT_VERBOSE = "v";
 	public static final String OPT_NO_CACHING = "nocache";
 	public static final String OPT_DUMP_HEADER_AND_EXIT = "dumpHeaderAndExit";
+	public static final String OPT_MAX_CACHED_BLOCKS = "maxCachedBlocks";
+
+	/*
+	 * DEFAULTS
+	 */
+
+	/**
+	 * Default maximum number of memory-cached blocks (BITs)
+	 */
+	public static int DEFAULT_MAX_CACHED_BLOCKS = 10;
+
+	/*
+	 * STATE VARIABLES
+	 */
 
 	/**
 	 * Input stream for chromosomes
@@ -119,36 +135,9 @@ public class CoverageDecompressor {
 	private SimpleVCFFile vcf;
 
 	/**
-	 * interval tree for indexing.
-	 */
-	private CodeWordIntervalTree itree;
-
-	/**
-	 * the first interval in the current block
-	 */
-	private CodeWordInterval firstIntervalInBlock;
-
-	/**
-	 * the last interval in the current block
-	 */
-	private CodeWordInterval lastIntervalInBlock;
-
-	/**
 	 * Configuration of the last decompressed file.
 	 */
 	private PropertyConfiguration compressedConfig;
-
-	/**
-	 * Padding intervals before and after the first/last interval on a
-	 * chromosome. The coverage within these intervals is by definition zero.
-	 */
-	private Map<String, CodeWordInterval> paddingUpstreamIntervals = new HashMap<>();
-
-	/**
-	 * Padding intervals before and after the first/last interval on a
-	 * chromosome. The coverage within these intervals is by definition zero.
-	 */
-	private Map<String, CodeWordInterval> paddingDownstreamIntervals = new HashMap<>();
 
 	/**
 	 * The quantization function.
@@ -186,11 +175,6 @@ public class CoverageDecompressor {
 	private File workDir;
 
 	/**
-	 * Index of the current BIT.
-	 */
-	private int currentBlockIdx = -1;
-
-	/**
 	 * Set to true if in-memory BIT caching should be enabled.
 	 */
 	private boolean inMemoryBlockCaching = true;
@@ -206,6 +190,16 @@ public class CoverageDecompressor {
 	private float scaleFactor = 1.0f;
 
 	/**
+	 * In-memory cache of loaded blocks.
+	 */
+	private LinkedList<CachedBlock> memoryBlockCache = new LinkedList<CachedBlock>();
+
+	/**
+	 * Maximum number of memory-cached blocks (BITs)
+	 */
+	private int maxCachedBlocks = DEFAULT_MAX_CACHED_BLOCKS;
+
+	/**
 	 * Decompresses the passed file using the passed VCF file. The intermediate
 	 * files are written to the passed working dir that is deleted after the
 	 * decompression unless keepWorkDir is set to true.
@@ -214,11 +208,12 @@ public class CoverageDecompressor {
 	 * @param vcfFile
 	 * @param regionsOfInterest
 	 * @param out
+	 * @throws CodocException
 	 * @throws Throwable
 	 * @throws IOException
 	 * @throws ParseException
 	 */
-	public CoverageDecompressor(PropertyConfiguration conf) throws Throwable {
+	public CoverageDecompressor(PropertyConfiguration conf) throws CodocException, IOException {
 		if (conf == null) {
 			throw new CodocException("Cannot decompress with null configuration");
 		}
@@ -261,9 +256,11 @@ public class CoverageDecompressor {
 	 * 
 	 * @param covFile
 	 * @param workDir
+	 * @throws IOException
+	 * @throws CodocException
 	 * @throws Throwable
 	 */
-	public void dumpHeader(PropertyConfiguration conf) throws Throwable {
+	public void dumpHeader(PropertyConfiguration conf) throws IOException, CodocException {
 		File covFile = new File(conf.getProperty(OPT_COV_FILE));
 		FileHeader header = null;
 		this.workDir = conf.hasProperty(OPT_TMP_DIR) ? new File(conf.getProperty(OPT_TMP_DIR)) : new File(covFile.getParentFile(), "" + Math.random());
@@ -311,18 +308,31 @@ public class CoverageDecompressor {
 	 * Load blocks with index idx.
 	 * 
 	 * @param idx
+	 * @throws CodocException
+	 * @throws IOException
 	 * @throws Throwable
 	 */
-	public void loadBlock(int idx) throws Throwable {
+	public CachedBlock loadBlock(int idx) throws IOException, CodocException {
 
-		if (inMemoryBlockCaching)
-			if (currentBlockIdx == idx)
-				return;
+		if (inMemoryBlockCaching) {
+
+			if (memoryBlockCache.size() > 0 && memoryBlockCache.get(0).getBlockIdx() == idx) {
+				return memoryBlockCache.get(0);
+			}
+
+			for (CachedBlock cb : memoryBlockCache)
+				if (cb.getBlockIdx() == idx) {
+					memoryBlockCache.add(0, cb);
+					if (debug)
+						System.out.println("LOAD BLOCK " + idx + " FROM CACHE 2");
+					return memoryBlockCache.get(0);
+				}
+		}
 		if (debug)
 			System.out.println("LOAD BLOCK " + idx);
 
-		this.itree = new CodeWordIntervalTree("intervals");
-		this.currentBlockIdx = idx;
+		int mem = MemoryUtils.getMemoryUsed();
+		long start = System.currentTimeMillis();
 
 		Iterator<SimpleVCFVariant> currentVariants = null;
 		SimpleVCFVariant currentVariant = null;
@@ -344,13 +354,19 @@ public class CoverageDecompressor {
 				throw new CodocException("Could not remove decompressed file(s) of " + cov2Data.get(idx));
 		cov2Data.get(idx).configure(compressedConfig);
 
-		String lastchr = "";
+		Map<String, List<Integer>> positions = new HashMap<String, List<Integer>>();
+		Map<String, List<Integer>> covPrev = new HashMap<String, List<Integer>>();
+		Map<String, List<Integer>> covKeypoint = new HashMap<String, List<Integer>>();
+		// FIXME: init with actual blocksize (get from compressed conf)
+		List<Integer> cpos = new ArrayList<>(CoverageCompressor.DEFAULT_BLOCKSIZE);
+		List<Integer> ccov = new ArrayList<>(CoverageCompressor.DEFAULT_BLOCKSIZE);
+		List<Integer> ccov2 = new ArrayList<>(CoverageCompressor.DEFAULT_BLOCKSIZE);
+
+		String lastchr = null;
 		int icount = 0;
-		CodeWordInterval gi0 = null, gi1 = null, gi2 = null;
-		firstIntervalInBlock = null;
-		lastIntervalInBlock = null;
-		long pos1 = 1, lastpos1 = 1;
-		int lastcov2 = 0;
+
+		int pos1 = 1, lastpos1 = 1, lastcov2 = 0;
+		String firstChrom = null;
 
 		while (chrData.get(idx).getStream().available() > 0) {
 			icount++;
@@ -368,11 +384,17 @@ public class CoverageDecompressor {
 			int cov2 = cov2Data.get(idx).getStream().pop();
 
 			pos1 += diffpos;
+			// System.out.println("READ " + chr+":"+pos1 + " " + diffpos + " " +
+			// cov1 + " "+ cov2);
+			if (firstChrom == null)
+				firstChrom = chr;
+
 			boolean intervalFinished = false;
 
-			if (!chr.equals(lastchr)) {
-				// switch chromosome
-				pos1 = diffpos;
+			// chr change
+			if (lastchr == null || !chr.equals(lastchr)) {
+				// set current position
+				pos1 = diffpos + 1;
 
 				// save original chr name
 				chrNameMap.put(StringUtils.prefixedChr(chr), chr);
@@ -382,79 +404,33 @@ public class CoverageDecompressor {
 					currentVariants = vcf.getVariants(chr).iterator();
 					currentVariant = positionRightAfter(currentVariants, pos1);
 				}
-				// emit left padding interval for current chrom
-				if ((pos1 >= 1) && (cov1 == 0)) {
-					CodeWordInterval padLeft = new CodeWordInterval(StringUtils.prefixedChr(chr), 1l, pos1, chr + "-pad-left", COORD_TYPE.ONEBASED);
-					padLeft.setOriginalChrom(chr);
-					paddingUpstreamIntervals.put(padLeft.getChr(), padLeft);
-					// System.out.println("PAD LEFT " + padLeft);
-				} else if (cov1 != 0) {
-					CodeWordInterval gi = new CodeWordInterval(StringUtils.prefixedChr(chr), 1l, pos1, "CHROM1");
-					gi.setLeftCoverage(cov1);
-					gi.setRightCoverage(cov1);
-					gi.setOriginalChrom(chr);
-					// System.out.println(pos1 + "VAR " + gi);
-					// store interval
-					if (this.firstIntervalInBlock == null)
-						this.firstIntervalInBlock = gi;
-					gi0 = gi1;
-					gi1 = gi2;
-					gi2 = gi;
-					if (gi1 != null) {
-						if (gi0 != null) {
-							gi1.setPrev(gi0);
-						}
-						if (gi2 != null) {
-							gi1.setNext(gi2);
-						}
-					}
-					itree.insert(gi);
-				}
-				// emit right padding interval for previous chrom (if any).
-				if (chromLengths.get(StringUtils.prefixedChr(lastchr)) != null) {
-					CodeWordInterval padRight = new CodeWordInterval(StringUtils.prefixedChr(lastchr), lastpos1 + 1, chromLengths.get(StringUtils
-							.prefixedChr(lastchr)), lastchr + "-pad-right", COORD_TYPE.ONEBASED);
-					padRight.setOriginalChrom(lastchr);
-					paddingDownstreamIntervals.put(padRight.getChr(), padRight);
-					// System.out.println("PAD RIGHT " + padRight);
-				}
 
-				lastpos1 = pos1;
-				lastcov2 = cov2;
-				lastchr = chr;
-				continue;
+				// save positions
+				if (lastchr != null) {
+					positions.put(lastchr, cpos);
+					covPrev.put(lastchr, ccov);
+					covKeypoint.put(lastchr, ccov2);
+					cpos = new ArrayList<>(CoverageCompressor.DEFAULT_BLOCKSIZE);
+					ccov = new ArrayList<>(CoverageCompressor.DEFAULT_BLOCKSIZE);
+					ccov2 = new ArrayList<>(CoverageCompressor.DEFAULT_BLOCKSIZE);
+				}
 			}
 
 			if (currentVariant != null) {
-
 				// for every variant between here and the right-border of
 				// the interval: create a span
 				while (currentVariant.getPosition().longValue() <= pos1) {
 
-					long varPos = currentVariant.getPosition();
+					int varPos = currentVariant.getPosition().intValue();
 					Integer varCov = currentVariant.estimateCoverage();
 					if (varCov == null)
 						varCov = cov1;
-					CodeWordInterval gi = new CodeWordInterval(StringUtils.prefixedChr(chr), lastpos1 + 1, varPos, "VAR");
-					gi.setLeftCoverage(lastcov2);
-					gi.setRightCoverage(varCov);
-					gi.setOriginalChrom(chr);
-					// System.out.println(pos1 + "VAR " + gi);
-					// store interval
-					if (this.firstIntervalInBlock == null)
-						this.firstIntervalInBlock = gi;
-					gi0 = gi1;
-					gi1 = gi2;
-					gi2 = gi;
-					if (gi1 != null) {
-						if (gi0 != null) {
-							gi1.setPrev(gi0);
-						}
-						if (gi2 != null) {
-							gi1.setNext(gi2);
-						}
-					}
-					itree.insert(gi);
+
+					// add codewords
+					cpos.add(varPos);
+					ccov.add(lastcov2);
+					ccov2.add(varCov);
+
 					// update positions
 					lastpos1 = varPos;
 					cov1 = lastcov2;
@@ -489,64 +465,20 @@ public class CoverageDecompressor {
 			// we need to check for the position here as variants may have
 			// ended the current interval already!
 			if (!intervalFinished) {
-				// now create the interval and continue
-				CodeWordInterval gi = new CodeWordInterval(StringUtils.prefixedChr(chr), lastpos1 + 1, pos1, "int");
-				gi.setLeftCoverage(lastcov2);
-				gi.setRightCoverage(cov1);
-				gi.setOriginalChrom(chr);
-
-				// System.out.println(pos1 + "INT " + gi);
-
-				// store interval
-				if (this.firstIntervalInBlock == null)
-					this.firstIntervalInBlock = gi;
-				gi0 = gi1;
-				gi1 = gi2;
-				gi2 = gi;
-				if (gi1 != null) {
-					if (gi0 != null) {
-						gi1.setPrev(gi0);
-					}
-					if (gi2 != null) {
-						gi1.setNext(gi2);
-					}
-				}
-				itree.insert(gi);
+				// add codewords
+				cpos.add(pos1);
+				ccov.add(cov1);
+				ccov2.add(cov2);
 			}
-			// update positions
 			lastpos1 = pos1;
 			lastcov2 = cov2;
 			lastchr = chr;
-
 		}
 
-		// interlink last interval
-		if (gi2 != null) {
-			if (gi1 != null) {
-				gi2.setPrev(gi1);
-			}
-			this.lastIntervalInBlock = gi2;
-		}
-
-		// last downstream padding interval
-		if (chromLengths.get(StringUtils.prefixedChr(lastchr)) != null) {
-			if (lastpos1 < chromLengths.get(StringUtils.prefixedChr(lastchr))) {
-				CodeWordInterval padRight = new CodeWordInterval(StringUtils.prefixedChr(lastchr), lastpos1 + 1, chromLengths.get(StringUtils
-						.prefixedChr(lastchr)), lastchr + "-pad-right", COORD_TYPE.ONEBASED);
-				padRight.setOriginalChrom(lastchr);
-
-				paddingDownstreamIntervals.put(padRight.getChr(), padRight);
-				// System.out.println("PAD RIGHT " + padRight);
-			}
-		}
-
-		// build tree
-		itree.buildTree();
-		// itree.dump();
-
-		if (debug)
-			for (String chr : itree.getChromosomes())
-				System.out.println(chr + "->" + itree.getTree(chr));
+		// add last codewords
+		positions.put(lastchr, cpos);
+		covPrev.put(lastchr, ccov);
+		covKeypoint.put(lastchr, ccov2);
 
 		// close streams
 		for (FileDataInputBlock<String> block : chrData) {
@@ -582,10 +514,41 @@ public class CoverageDecompressor {
 			}
 		}
 
+		if (memoryBlockCache.size() > maxCachedBlocks) {
+			memoryBlockCache.removeLast();
+			System.gc();
+		}
+
+		// for (String cc : positions.keySet()) {
+		// System.out.println("CHR: " + cc);
+		// System.out.println("LOADED WITH POS  " +
+		// Arrays.toString(positions.get(cc).toArray()));
+		// System.out.println("LOADED WITH COV  " +
+		// Arrays.toString(covPrev.get(cc).toArray()));
+		// System.out.println("LOADED WITH COV2 " +
+		// Arrays.toString(covKeypoint.get(cc).toArray()));
+		// }
+		CachedBlock cb = new CachedBlock(idx, positions, covKeypoint, covPrev);
+		memoryBlockCache.add(0, cb);
+
+		if (debug)
+			System.out.println("CACHED BLOCK " + idx + " at " + firstChrom + ":" + cb.getFirstPos(firstChrom) + " with byte size "
+					+ (MemoryUtils.getMemoryUsed() - mem) + " and " + cb.size() + " codewords in " + (System.currentTimeMillis() - start) + " ms.");
+
+		return cb;
 	}
 
-	public int getCurrentBlockIdx() {
-		return currentBlockIdx;
+	public CachedBlock getCurrentBIT() {
+		if (memoryBlockCache.size() == 0)
+			return null;
+		return memoryBlockCache.getFirst();
+	}
+
+	public Integer getCurrentBlockIdx() {
+		CachedBlock bit = getCurrentBIT();
+		if (bit == null)
+			return null;
+		return bit.getBlockIdx();
 	}
 
 	public GenomicITree getBlockIndexTree() {
@@ -599,7 +562,7 @@ public class CoverageDecompressor {
 	 * @param pos1
 	 * @return
 	 */
-	private SimpleVCFVariant positionRightAfter(Iterator<SimpleVCFVariant> it, Long pos1) {
+	private SimpleVCFVariant positionRightAfter(Iterator<SimpleVCFVariant> it, int pos1) {
 		if (!it.hasNext())
 			return null;
 		SimpleVCFVariant ret = it.next();
@@ -653,6 +616,10 @@ public class CoverageDecompressor {
 		close();
 	}
 
+	public QuantizationFunction getQuant() {
+		return quant;
+	}
+
 	/**
 	 * Decompress the passed file
 	 * 
@@ -669,17 +636,18 @@ public class CoverageDecompressor {
 	 *            optional output file in WIG format
 	 * @throws Throwable
 	 */
-	public void decompress(PropertyConfiguration conf) throws Throwable {
+	public void decompress(PropertyConfiguration conf) throws IOException, CodocException {
 		this.covFile = new File(conf.getProperty(OPT_COV_FILE));
 		this.workDir = conf.hasProperty(OPT_TMP_DIR) ? new File(conf.getProperty(OPT_TMP_DIR)) : new File(covFile.getParentFile(), "" + Math.random());
 		File chrLenFile = conf.hasProperty(OPT_CHR_LEN_FILE) ? new File(conf.getProperty(OPT_CHR_LEN_FILE)) : null;
 		this.keepWorkDir = conf.getBooleanProperty(OPT_KEEP_WORKDIR, false);
 		this.scaleFactor = Float.parseFloat(conf.getProperty(OPT_SCALE_FACTOR, " 1.0"));
+		this.maxCachedBlocks = Integer.parseInt(conf.getProperty(OPT_MAX_CACHED_BLOCKS, DEFAULT_MAX_CACHED_BLOCKS + ""));
 		debug = conf.getBooleanProperty(OPT_VERBOSE, false);
 		this.inMemoryBlockCaching = !conf.getBooleanProperty(OPT_NO_CACHING, false);
-		if (debug)
-			if (!inMemoryBlockCaching)
-				System.out.println("In-memory BIT caching was disabled!");
+		if (debug) {
+			System.out.println("Caching options: In-memory BIT caching: " + inMemoryBlockCaching + ", maxCachedBlocks=" + maxCachedBlocks);
+		}
 
 		long startTime = System.currentTimeMillis();
 		if (debug)
@@ -719,6 +687,7 @@ public class CoverageDecompressor {
 						compressedConfig.getProperty(CoverageCompressor.OPT_VCF_FILE)) : null;
 			} else
 				this.vcfFile = conf.hasProperty(OPT_VCF_FILE) ? new File(conf.getProperty(OPT_VCF_FILE)) : null;
+
 			// Check whether file was compressed with VCF knotpoints
 			if (compressedConfig.hasProperty(CoverageCompressor.OPT_VCF_FILE) && vcfFile == null)
 				System.err.println(new CodocException("NOTE that file was compressed with the VCF file "
@@ -812,15 +781,17 @@ public class CoverageDecompressor {
 				leftBorders.put(blockId, p1);
 			}
 			blockIndexTree.buildTree();
-			if (debug)
-				blockIndexTree.dump();
+			if (debug) {
+				for (GenomicInterval gi : blockIndexTree.getIntervalsSorted())
+					System.out.println(gi + "->" + gi.getAnnotation("blockid"));
+			}
 			if (debug)
 				System.out.println("Finished loading in " + (System.currentTimeMillis() - startTime) + "ms.");
 		} catch (Exception e) {
 			// delete temporary directory
 			if (!workDir.delete())
 				System.err.println("Could not remove temporary directory " + workDir);
-			throw e;
+			throw new CodocException(e.toString());
 		}
 
 	}
@@ -828,20 +799,41 @@ public class CoverageDecompressor {
 	/**
 	 * 
 	 * @return a coverage iterator.
+	 * @throws IOException
+	 * @throws CodocException
 	 * @throws Throwable
 	 */
-	public CompressedCoverageIterator getCoverageIterator() throws Throwable {
-		return new CompressedCoverageIterator(this);
+	public CompressedCoverageIterator getCoverageIterator() throws CodocException, IOException {
+		return new CompressedCoverageIterator(this, chrOrigList, scaleFactor);
 	}
 
 	/**
 	 * 
 	 * @return a coverage iterator.
+	 * @throws IOException
+	 * @throws CodocException
 	 * @throws Throwable
 	 */
-	public CompressedCoverageIterator getCoverageIterator(GenomicPosition startPos) throws Throwable {
-		return new CompressedCoverageIterator(this, startPos);
+	public CompressedCoverageIterator getCoverageIterator(GenomicPosition pos) throws CodocException, IOException {
+		CompressedCoverageIterator it = new CompressedCoverageIterator(this, chrOrigList, 1.0f);
+		while (it.hasNext()) {
+			it.next();
+			if (it.getGenomicPosition() != null)
+				if (it.getGenomicPosition().compareTo(pos) > 0)
+					return it;
+		}
+		return null;
 	}
+
+	// /**
+	// *
+	// * @return a coverage iterator.
+	// * @throws Throwable
+	// */
+	// public CompressedCoverageIterator getCoverageIterator(GenomicPosition
+	// startPos) throws Throwable {
+	// return new CompressedCoverageIterator(this, startPos);
+	// }
 
 	public File getCovFile() {
 		return covFile;
@@ -863,104 +855,82 @@ public class CoverageDecompressor {
 		return leftBorders;
 	}
 
-	/**
-	 * Query the padding regions.
-	 * 
-	 * @param pos
-	 * @return
-	 */
-	private CoverageHit queryPadding(GenomicPosition pos) {
-		CodeWordInterval upstream = paddingUpstreamIntervals.get(pos.getChromosome());
-		if (upstream != null)
-			if (upstream.contains(pos)) {
-				CoverageHit hit = new CoverageHit(scaleFactor);
-				hit.setLowerBoundary(0f);
-				hit.setUpperBoundary(0f);
-				hit.setInterpolatedCoverage(0);
-				hit.setPadding(true);
-				hit.setInterval(upstream);
-				return hit;
-			}
-		CodeWordInterval downstream = paddingDownstreamIntervals.get(pos.getChromosome());
-		if (downstream != null)
-			if (downstream.contains(pos)) {
-				CoverageHit hit = new CoverageHit(scaleFactor);
-				hit.setLowerBoundary(0f);
-				hit.setUpperBoundary(0f);
-				hit.setInterpolatedCoverage(0);
-				hit.setPadding(true);
-				hit.setInterval(downstream);
-				return hit;
-			}
-
-		return null;
+	public int getMaxCachedBlocks() {
+		return maxCachedBlocks;
 	}
 
-	/**
-	 * 
-	 * @param pos
-	 * @return [interpolated-coverage][maxborder][minborder]
-	 * @throws Throwable
-	 */
-	public CoverageHit query(GenomicPosition pos) throws Throwable {
-
-		long start = System.nanoTime();
-
-		Set<? extends GenomicInterval> blocks = blockIndexTree.query1based(pos);
-		if ((blocks == null) || (blocks.size() != 1)) {
-			// FIXME: the padding intervals might not have been initialized yet!
-			return queryPadding(pos);
-		}
-		GenomicInterval gi = blocks.iterator().next();
-
-		if (debug)
-			System.out.println("query " + pos + " => load block " + gi + " / " + gi.getAnnotation("blockid"));
-
-		loadBlock((Integer) gi.getAnnotation("blockid"));
-
-		Set<CodeWordInterval> res = itree.query1based(pos);
-		if ((res == null) || (res.isEmpty())) {
-			// System.out.println("N/A");
-			return queryPadding(pos);
-		}
-
-		if (res.size() > 1) {
-			for (CodeWordInterval cv : res)
-				System.err.println(cv + " lc:" + cv.getLeftCoverage() + " rc:" + cv.getRightCoverage());
-			// throw new RuntimeException("Something is wrong...(" + pos + ": "
-			// + Arrays.toString(res.toArray()));
-		}
-
-		CodeWordInterval iv = res.iterator().next();
-		CoverageHit hit = interpolate(iv, pos.get1Position());
-		hit.setExecTime(System.nanoTime() - start);
-
-		return hit;
+	public void setMaxCachedBlocks(int maxCachedBlocks) {
+		this.maxCachedBlocks = maxCachedBlocks;
 	}
 
-	/**
-	 * Interpolation
-	 * 
-	 * @param iv
-	 * @param pos1
-	 * @return
-	 */
-	protected CoverageHit interpolate(CodeWordInterval iv, long pos1) {
-		CoverageHit hit = new CoverageHit(scaleFactor);
-		Integer leftCoverage = iv.getLeftCoverage();
-		Integer rightCoverage = iv.getRightCoverage();
-		float width = iv.getWidth().floatValue();
-		if (width == 0)
-			hit.setInterpolatedCoverage(rightCoverage);
-		else {
-			float prec = (float) (pos1 - iv.getMin()) / (float) width;
-			hit.setInterpolatedCoverage(leftCoverage + ((rightCoverage - leftCoverage) * prec));
-		}
-		hit.setUpperBoundary((float) quant.getMaxBorder(leftCoverage));
-		hit.setLowerBoundary((float) quant.getMinBorder(leftCoverage));
-		hit.setInterval(iv);
-		return hit;
-	}
+	// /**
+	// *
+	// * @param pos
+	// * @return [interpolated-coverage][maxborder][minborder]
+	// * @throws Throwable
+	// */
+	// public CoverageHit query(GenomicPosition pos) throws Throwable {
+	//
+	// long start = System.nanoTime();
+	//
+	// Set<? extends GenomicInterval> blocks = blockIndexTree.query1based(pos);
+	// if ((blocks == null) || (blocks.size() != 1)) {
+	// // FIXME: the padding intervals might not have been initialized yet!
+	// return queryPadding(pos);
+	// }
+	// GenomicInterval gi = blocks.iterator().next();
+	//
+	// if (debug)
+	// System.out.println("query " + pos + " => load block " + gi + " / " +
+	// gi.getAnnotation("blockid"));
+	//
+	// loadBlock((Integer) gi.getAnnotation("blockid"));
+	//
+	// Set<CodeWordInterval> res = itree.query1based(pos);
+	// if ((res == null) || (res.isEmpty())) {
+	// // System.out.println("N/A");
+	// return queryPadding(pos);
+	// }
+	//
+	// if (res.size() > 1) {
+	// for (CodeWordInterval cv : res)
+	// System.err.println(cv + " lc:" + cv.getLeftCoverage() + " rc:" +
+	// cv.getRightCoverage());
+	// // throw new RuntimeException("Something is wrong...(" + pos + ": "
+	// // + Arrays.toString(res.toArray()));
+	// }
+	//
+	// CodeWordInterval iv = res.iterator().next();
+	// CoverageHit hit = interpolate(iv, pos.get1Position());
+	// hit.setExecTime(System.nanoTime() - start);
+	//
+	// return hit;
+	// }
+
+	// /**
+	// * Interpolation
+	// *
+	// * @param iv
+	// * @param pos1
+	// * @return
+	// */
+	// protected CoverageHit interpolate(CodeWordInterval iv, long pos1) {
+	// CoverageHit hit = new CoverageHit(scaleFactor);
+	// Integer leftCoverage = iv.getLeftCoverage();
+	// Integer rightCoverage = iv.getRightCoverage();
+	// float width = iv.getWidth().floatValue();
+	// if (width == 0)
+	// hit.setInterpolatedCoverage(rightCoverage);
+	// else {
+	// float prec = (float) (pos1 - iv.getMin()) / (float) width;
+	// hit.setInterpolatedCoverage(leftCoverage + ((rightCoverage -
+	// leftCoverage) * prec));
+	// }
+	// hit.setUpperBoundary((float) quant.getMaxBorder(leftCoverage));
+	// hit.setLowerBoundary((float) quant.getMinBorder(leftCoverage));
+	// hit.setInterval(iv);
+	// return hit;
+	// }
 
 	/**
 	 * Starts an interactive query session.
@@ -986,7 +956,7 @@ public class CoverageDecompressor {
 					continue;
 				}
 
-				String chr = cmd.split(":")[0];
+				String chr = cmd.split(":")[0].trim();
 				Integer off1 = new Integer(cmd.split(":")[1]);
 				GenomicPosition pos = new GenomicPosition(chr, off1, COORD_TYPE.ONEBASED);
 				// System.out.println("Query " + pos);\
@@ -1000,20 +970,7 @@ public class CoverageDecompressor {
 						System.out.println("cov:\t" + hit.getInterpolatedCoverage());
 
 					System.out.println("\tinfo:\t" + hit);
-					// System.out.println("isFuzzy: " + hit.isFuzzy());
-					// System.out.println("isPadding: " + hit.isPadding());
-					// // System.out.println("prev:" +
-					// // hit.getInterval().getAnnotation("prev"));
-					// // System.out.println("next:" +
-					// // hit.getInterval().getAnnotation("next"));
-					// System.out.println("prev:" +
-					// hit.getInterval().getPrev());
-					// System.out.println("next:" +
-					// hit.getInterval().getNext());
-					// System.out.println("lc: " +
-					// hit.getInterval().getLeftCoverage());
-					// System.out.println("rc: " +
-					// hit.getInterval().getRightCoverage());
+
 					System.out.println("\ttime:\t" + (hit.getExecTime() / 1000) + "micros.");
 				}
 
@@ -1027,6 +984,54 @@ public class CoverageDecompressor {
 
 		} while (!cmd.equalsIgnoreCase("q"));
 		System.out.println("Good Bye.");
+	}
+
+	/**
+	 * Determines whether the passed position is in the padding regions.
+	 * 
+	 * @param pos
+	 * @return
+	 */
+	public CoverageHit queryPadding(GenomicPosition pos) {
+		Long len = chromLengths.get(StringUtils.prefixedChr(pos.getChromosome()));
+		if (len != null && pos.get1Position() > 0 && pos.get1Position() < len) {
+			CoverageHit hit = new CoverageHit(pos.getChromosome(), (int) pos.get1Position(), (int) pos.get1Position(), 0, 0, (int) pos.get1Position(),
+					scaleFactor);
+			hit.setLowerBoundary(0f);
+			hit.setUpperBoundary(0f);
+			hit.setPadding(true);
+			return hit;
+		}
+		return null;
+	}
+
+	/**
+	 * Query.
+	 * 
+	 * @param pos
+	 * @return
+	 * @throws Throwable
+	 */
+	public CoverageHit query(GenomicPosition pos) throws Throwable {
+
+		Set<? extends GenomicInterval> blocks = blockIndexTree.query1based(pos);
+		if ((blocks == null) || (blocks.size() != 1)) {
+			return queryPadding(pos);
+		}
+		GenomicInterval gi = blocks.iterator().next();
+
+		if (debug)
+			System.out.println("query " + pos.toString1basedOrig() + " => load block " + gi + " / " + gi.getAnnotation("blockid"));
+
+		CachedBlock cb = loadBlock((Integer) gi.getAnnotation("blockid"));
+
+		CoverageHit hit = cb.query(pos, scaleFactor);
+		if (hit == null) {
+			return queryPadding(pos);
+		}
+		hit.decorateWithBoundaries(getQuant());
+
+		return hit;
 	}
 
 	/**
@@ -1055,8 +1060,8 @@ public class CoverageDecompressor {
 		int rc = 0;
 		GenomicPosition startPos = null, lastPos = null;
 		while (it.hasNext()) {
-			CoverageHit h = it.next();
-			int cov = (h != null ? Math.round(h.getInterpolatedCoverage()) : 0);
+			Float h = it.next();
+			int cov = (h != null ? Math.round(h) : 0);
 			GenomicPosition pos = it.getGenomicPosition();
 			boolean inCorridor = (cov >= minCoverage) && (cov <= maxCoverage);
 			if (startPos == null) {
@@ -1179,21 +1184,6 @@ public class CoverageDecompressor {
 	}
 
 	/**
-	 * @return the first interval
-	 */
-	public CodeWordInterval getFirstInterval() {
-		return firstIntervalInBlock;
-	}
-
-	/**
-	 * @return the last interval
-	 */
-	public CodeWordInterval getLastInterval() {
-		return lastIntervalInBlock;
-	}
-
-	/**
-	 * 
 	 * @return the original chromosome names
 	 */
 	public List<String> getChromosomes() {
@@ -1230,13 +1220,15 @@ public class CoverageDecompressor {
 				"WIG track created by CoverageDecompressor()", "");
 		CompressedCoverageIterator it = getCoverageIterator();
 		while (it.hasNext()) {
-			CoverageHit hit = it.next();
+			Float hit = it.next();
+			if (hit == null)
+				hit = 0f;
 			// FIXME: this is a hack as normalized chr names are used internally
 			GenomicPosition pos = it.getGenomicPosition();
 			String origChr = chrNameMap.get(pos.getChromosome());
 			if (origChr != null)
 				pos.setScaffold(origChr);
-			out.push(pos, Math.round(hit.getInterpolatedCoverage()));
+			out.push(pos, Math.round(hit));
 		}
 		out.close();
 	}
@@ -1293,6 +1285,10 @@ public class CoverageDecompressor {
 	 * @throws IOException
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
+
+		// args = new String[] { "query", "-cov",
+		// "src/test/resources/covcompress/small.compressed", "-vcf",
+		// "src/test/resources/covcompress/small.vcf", "-v" };
 
 		// args = new String[] { "tobed", "-cov",
 		// "/scratch/projects/codoc/src/test/resources/covcompress/small.compressed",
@@ -1405,6 +1401,12 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
+					opt = new Option(OPT_MAX_CACHED_BLOCKS, true, "Maximum number of memory-cached data blocks (BITs) (default is " + DEFAULT_MAX_CACHED_BLOCKS
+							+ ").");
+					opt.setLongOpt("maxCachedBlocks");
+					opt.setRequired(false);
+					options.addOption(opt);
+
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
 					line = parser.parse(options, args);
@@ -1422,6 +1424,8 @@ public class CoverageDecompressor {
 					conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
 					if (line.hasOption(OPT_SCALE_FACTOR))
 						conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
+					if (line.hasOption(OPT_MAX_CACHED_BLOCKS))
+						conf.setProperty(OPT_MAX_CACHED_BLOCKS, line.getOptionValue(OPT_MAX_CACHED_BLOCKS));
 
 					try {
 						decompressor = new CoverageDecompressor(conf);
@@ -1492,6 +1496,12 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
+					opt = new Option(OPT_MAX_CACHED_BLOCKS, true, "Maximum number of memory-cached data blocks (BITs) (default is " + DEFAULT_MAX_CACHED_BLOCKS
+							+ ").");
+					opt.setLongOpt("maxCachedBlocks");
+					opt.setRequired(false);
+					options.addOption(opt);
+
 					line = parser.parse(options, args);
 
 					conf = CoverageDecompressor.getDefaultConfiguration();
@@ -1506,6 +1516,8 @@ public class CoverageDecompressor {
 					conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
 					if (line.hasOption(OPT_SCALE_FACTOR))
 						conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
+					if (line.hasOption(OPT_MAX_CACHED_BLOCKS))
+						conf.setProperty(OPT_MAX_CACHED_BLOCKS, line.getOptionValue(OPT_MAX_CACHED_BLOCKS));
 
 					Integer min = line.hasOption("min") ? new Integer(line.getOptionValue("min")) : null;
 					Integer max = line.hasOption("max") ? new Integer(line.getOptionValue("max")) : null;
@@ -1555,6 +1567,13 @@ public class CoverageDecompressor {
 					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);
+
+					opt = new Option(OPT_MAX_CACHED_BLOCKS, true, "Maximum number of memory-cached data blocks (BITs) (default is " + DEFAULT_MAX_CACHED_BLOCKS
+							+ ").");
+					opt.setLongOpt("maxCachedBlocks");
+					opt.setRequired(false);
+					options.addOption(opt);
+
 					line = parser.parse(options, args);
 
 					conf = CoverageDecompressor.getDefaultConfiguration();
@@ -1569,6 +1588,8 @@ public class CoverageDecompressor {
 					conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
 					if (line.hasOption(OPT_SCALE_FACTOR))
 						conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
+					if (line.hasOption(OPT_MAX_CACHED_BLOCKS))
+						conf.setProperty(OPT_MAX_CACHED_BLOCKS, line.getOptionValue(OPT_MAX_CACHED_BLOCKS));
 
 					try {
 						decompressor = new CoverageDecompressor(conf);

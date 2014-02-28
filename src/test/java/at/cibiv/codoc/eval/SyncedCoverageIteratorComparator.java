@@ -261,7 +261,7 @@ public class SyncedCoverageIteratorComparator implements Iterator<GenomicPositio
 			PropertyConfiguration conf1 = CoverageDecompressor.getDefaultConfiguration();
 			conf1.setProperty(CoverageDecompressor.OPT_COV_FILE, fn);
 			conf1.setProperty(CoverageDecompressor.OPT_VCF_FILE, "AUTO");
-			ret = new CompressedCoverageIterator(conf1);
+			ret = new CompressedCoverageIterator(conf1, chromosomes, 1.0f);
 		} else {
 			System.out.println("Instantiating " + f + " as BedToolsCoverageIterator");
 			ret = new BedToolsCoverageIterator(f, COORD_TYPE.ONEBASED, 1.0f);
@@ -323,13 +323,13 @@ public class SyncedCoverageIteratorComparator implements Iterator<GenomicPositio
 //				"/project/oesi/bgraph/compression-eval/data/sakai_pgm_400bp/delme.txt"
 //				};
 
-//		args=new String[] {
-//		"/project/oesi/bgraph/compression-eval/data/geuvadis_UCSC_Genome/geuvadis_UCSC_Genome-sorted.bam.bedtoolscoverage",
-//		"/project/oesi/bgraph/compression-eval/data/geuvadis_UCSC_Genome/geuvadis_UCSC_Genome-sorted.bam.w1.tdf",
-//		"1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,X,Y",
-//		"-"
-//		//"/project/oesi/bgraph/compression-eval/data/geuvadis_UCSC_Genome/delme.txt"
-//		};
+		args=new String[] {
+		"/project/oesi/bgraph/compression-eval/results-human-NA12878/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped.bam.1.tdf",
+		"/project/oesi/bgraph/compression-eval/results-human-NA12878/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped.bam.helper.rawcoverage",
+		"chr20",
+		"-"
+		//"/project/oesi/bgraph/compression-eval/data/geuvadis_UCSC_Genome/delme.txt"
+		};
 
 		if (args.length < 4)
 			throw new RuntimeException("usage: SyncedCoverageIteratorComparator <real> <found> <chroms> <results>");

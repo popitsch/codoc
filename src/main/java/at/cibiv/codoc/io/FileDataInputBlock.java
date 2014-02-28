@@ -7,6 +7,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 
+import at.cibiv.codoc.utils.CodocException;
 import at.cibiv.codoc.utils.FileUtils;
 import at.cibiv.codoc.utils.PropertyConfiguration;
 
@@ -43,7 +44,7 @@ public class FileDataInputBlock<T> extends AbstractDataBlock {
 	 * @throws FileNotFoundException
 	 * @throws Throwable
 	 */
-	public FileDataInputBlock(String id, File f1) throws FileNotFoundException, Throwable {
+	public FileDataInputBlock(String id, File f1) {
 		this.id = id;
 		this.f1 = f1;
 	}
@@ -57,7 +58,8 @@ public class FileDataInputBlock<T> extends AbstractDataBlock {
 	 * @throws Throwable
 	 */
 	@SuppressWarnings("unchecked")
-	public FileDataInputBlock<T> configure(PropertyConfiguration conf) throws FileNotFoundException, Throwable {
+	public FileDataInputBlock<T> configure(PropertyConfiguration conf) throws FileNotFoundException, CodocException {
+		try {
 		this.fin1 = new BufferedInputStream(new FileInputStream(f1));
 		this.stream = (PopableStream<T>) StreamFactory.createInputStream(fin1, conf, id);
 		this.compressionMethod = compFromString(conf.getProperty(id + "-compression", (String) null));
@@ -69,6 +71,9 @@ public class FileDataInputBlock<T> extends AbstractDataBlock {
 			}
 		}
 		return this;
+		} catch ( Throwable e ) {
+			throw new CodocException(e.getMessage());
+		}
 	}
 
 	/**

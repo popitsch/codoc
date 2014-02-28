@@ -4,11 +4,13 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
+import at.cibiv.codoc.utils.CodocException;
 import at.cibiv.codoc.utils.FileUtils;
 import at.cibiv.codoc.utils.PropertyConfiguration;
 
@@ -38,7 +40,7 @@ public class FileHeader extends FileDataOutputBlock<Object> {
 	 * @throws Throwable
 	 * @throws FileNotFoundException
 	 */
-	public FileHeader(File f) throws FileNotFoundException, Throwable {
+	public FileHeader(File f) throws FileNotFoundException {
 		super("header", f);
 	}
 
@@ -142,9 +144,10 @@ public class FileHeader extends FileDataOutputBlock<Object> {
 	 * 
 	 * @param in
 	 * @return
+	 * @throws CodocException 
 	 * @throws Throwable
 	 */
-	public static FileHeader fromFile(File in, File workDir) throws Throwable {
+	public static FileHeader fromFile(File in, File workDir) throws IOException, CodocException {
 		FileInputStream fin = null;
 		try {
 			fin = new FileInputStream(in);

@@ -1,78 +1,126 @@
 package at.cibiv.codoc;
 
+import at.cibiv.codoc.quant.QuantizationFunction;
+
 /**
- * A query hit.
+ * A query hit. Use only if you need access to the individual data fields
+ * (otherwise, the static getInterpolatedCoverage() method is much faster!).
  * 
  * @author niko.popitsch@univie.ac.at
- *
+ * 
  */
 public class CoverageHit {
 
-	private float interpolatedCoverage;
+	private Float interpolatedCoverage;
 	private Float lowerBoundary;
 	private Float upperBoundary;
-	private CodeWordInterval interval;
+	private String chr;
+	private int left;
+	private int right;
+	private int leftCoverage;
+	private int rightCoverage;
 	private long execTime;
 	private boolean isPadding = false;
 	private float scaleFactor;
+	private int qpos;
 
-	public CoverageHit(float scaleFactor) {
+	/**
+	 * Constructor.
+	 * 
+	 * @param chr
+	 * @param left
+	 * @param right
+	 * @param leftCoverage
+	 * @param rightCoverage
+	 * @param qpos
+	 * @param scaleFactor
+	 */
+	public CoverageHit(String chr, int left, int right, int leftCoverage, int rightCoverage, int qpos, float scaleFactor) {
 		this.scaleFactor = scaleFactor;
+		this.chr = chr;
+		this.left = left;
+		this.right = right;
+		this.leftCoverage = leftCoverage;
+		this.rightCoverage = rightCoverage;
+		this.qpos = qpos;
+		this.interpolatedCoverage = getInterpolatedCoverage(left, right, leftCoverage, rightCoverage, qpos, scaleFactor);
 	}
 
-	
 	/**
-	 * Rounded, scaled coverage 
+	 * Linear interpolation of the coverage.
+	 * 
+	 * @param chr
+	 * @param l
+	 * @param r
+	 * @param lc
+	 * @param rc
+	 * @param qp
+	 * @param scaleFactor
+	 * @return
+	 */
+	public static float getInterpolatedCoverage(int l, int r, int lc, int rc, int qp, float scaleFactor) {
+		int w = (r - l);
+		if (w == 0) 
+			return (float) rc* scaleFactor;
+		float prec = (float) (qp - l) / (float) w;
+		float ret = lc + ((rc - lc) * prec);
+		return ret * scaleFactor;
+	}
+
+	/**
+	 * Rounded, scaled coverage
+	 * 
 	 * @return
 	 */
 	public int getRoundedCoverage() {
-		return Math.round(interpolatedCoverage * scaleFactor);
+		return Math.round(interpolatedCoverage);
 	}
-	
+
 	/**
 	 * Rounded, unscaled coverage
+	 * 
 	 * @return
 	 */
 	public int getRoundedCoverageRaw() {
-		return Math.round(interpolatedCoverage);
+		return Math.round(getInterpolatedCoverage(left, right, leftCoverage, rightCoverage, qpos, 1.0f));
 	}
-	
+
 	/**
-	 * Interpolated, scaled coverage 
+	 * Interpolated, scaled coverage
+	 * 
 	 * @return
 	 */
 	public float getInterpolatedCoverage() {
 		return interpolatedCoverage * scaleFactor;
 	}
-	
-	/**
-	 * Interpolated, unscaled coverage 
-	 * @return
-	 */
-	public float getInterpolatedCoverageRaw() {
-		return interpolatedCoverage;
+
+	public int getWidth() {
+		return right - left;
 	}
 
 	/**
-	 * Set the coverag evalue (unscaled!)
-	 * @param interpolatedCoverage
+	 * Interpolated, unscaled coverage
+	 * 
+	 * @return
 	 */
-	public void setInterpolatedCoverage(float interpolatedCoverage) {
-		this.interpolatedCoverage = interpolatedCoverage;
+	public float getInterpolatedCoverageRaw() {
+		return getInterpolatedCoverage(left, right, leftCoverage, rightCoverage, qpos, 1.0f);
 	}
 
 	/**
 	 * Lower error boundary, scaled
+	 * 
 	 * @return
 	 */
 	public Float getLowerBoundary() {
-		if ( lowerBoundary == null )
+		if (lowerBoundary == null)
 			return null;
 		return lowerBoundary * scaleFactor;
 	}
-	
+
 	/**
 	 * Lower error boundary, unscaled
+	 * 
 	 * @return
 	 */
 	public Float getLowerBoundaryRaw() {
@@ -88,20 +136,22 @@ public class CoverageHit {
 
 	/**
 	 * Upper error boundary, scaled
+	 * 
 	 * @return
 	 */
 	public Float getUpperBoundary() {
-		if ( upperBoundary == null )
+		if (upperBoundary == null)
 			return null;
 		return upperBoundary * scaleFactor;
 	}
 
 	/**
 	 * Upper error boundary, unscaled
+	 * 
 	 * @return
 	 */
 	public Float getUpperBoundaryRaw() {
-		if ( upperBoundary == null )
+		if (upperBoundary == null)
 			return null;
 		return upperBoundary;
 	}
@@ -114,29 +164,15 @@ public class CoverageHit {
 	}
 
 	/**
-	 * @return Codeword interval
-	 */
-	public CodeWordInterval getInterval() {
-		return interval;
-	}
-
-	/**
-	 * Set the codeword interval
-	 */
-	public void setInterval(CodeWordInterval interval) {
-		this.interval = interval;
-	}
-
-	/**
 	 * @return true, if the hit was defined as fuzzy or false otherwise.
 	 */
 	public boolean isFuzzy() {
-		if ( upperBoundary == null )
+		if (upperBoundary == null)
 			return false;
-		if ( lowerBoundary == null )
+		if (lowerBoundary == null)
 			return false;
-		
-		return (! upperBoundary.equals(lowerBoundary));
+
+		return (!upperBoundary.equals(lowerBoundary));
 	}
 
 	/**
@@ -167,44 +203,99 @@ public class CoverageHit {
 	public void setExecTime(long execTime) {
 		this.execTime = execTime;
 	}
-	
+
 	/**
 	 * The scaling factor.
+	 * 
 	 * @return
 	 */
 	public float getScaleFactor() {
 		return scaleFactor;
 	}
 
-
 	public void setScaleFactor(float scaleFactor) {
 		this.scaleFactor = scaleFactor;
 	}
 
+	public String getChr() {
+		return chr;
+	}
 
+	public void setChr(String chr) {
+		this.chr = chr;
+	}
+
+	public int getLeft() {
+		return left;
+	}
+
+	public void setLeft(int left) {
+		this.left = left;
+	}
+
+	public int getRight() {
+		return right;
+	}
+
+	public void setRight(int right) {
+		this.right = right;
+	}
+
+	public int getLeftCoverage() {
+		return leftCoverage;
+	}
+
+	public void setLeftCoverage(int leftCoverage) {
+		this.leftCoverage = leftCoverage;
+	}
+
+	public int getRightCoverage() {
+		return rightCoverage;
+	}
+
+	public void setRightCoverage(int rightCoverage) {
+		this.rightCoverage = rightCoverage;
+	}
+
+	public int getQpos() {
+		return qpos;
+	}
+
+	public void setQpos(int qpos) {
+		this.qpos = qpos;
+	}
+
+	/**
+	 * set the upper and lower boundary for this hit based on the passed
+	 * quantization function.
+	 * 
+	 * @param quant
+	 */
+	public void decorateWithBoundaries(QuantizationFunction quant) {
+		setUpperBoundary((float) quant.getMaxBorder(leftCoverage));
+		setLowerBoundary((float) quant.getMinBorder(leftCoverage));
+	}
+
+	/**
+	 * Prints the interpolated coverage followed by a
+	 */
 	@Override
 	public String toString() {
+		return (isFuzzy() ? "~" : "") + String.format("%.2f", getInterpolatedCoverage());
+	}
+
+	public String toStringVerbose() {
 		StringBuilder sb = new StringBuilder();
-		sb.append(getInterpolatedCoverage() + " [" + interval.getChr()+ ":" + interval.getMin() + "-" + interval.getMax() + "]" +
-				", low:[" + getLowerBoundary() + "/" + getInterval().getLeftCoverage() + "]" +
-				", up:[" + getUpperBoundary() + "/" + getInterval().getRightCoverage() + "]" +
-				", isFuzzy:" + isFuzzy() + 
-				", isPadding:" + isPadding() + 
-				", prev:"+getInterval().getPrev() +
-				", next:"+getInterval().getNext()
-				);
-		
-//		System.out.println("isFuzzy: " + hit.isFuzzy());
-//		System.out.println("isPadding: " + hit.isPadding());
-//		// System.out.println("prev:" +
-//		// hit.getInterval().getAnnotation("prev"));
-//		// System.out.println("next:" +
-//		// hit.getInterval().getAnnotation("next"));
-//		System.out.println("prev:" + hit.getInterval().getPrev());
-//		System.out.println("next:" + hit.getInterval().getNext());
-//		System.out.println("lc: " + hit.getInterval().getLeftCoverage());
-//		System.out.println("rc: " + hit.getInterval().getRightCoverage());
-		
+		sb.append(getInterpolatedCoverage()
+				+ " ["
+				+ getChr()
+				+ ":"
+				+ getLeft()
+				+ "-"
+				+ getRight()
+				+ "]"
+				+ (isFuzzy() ? ", low:[" + getLowerBoundary() + "/" + getLeftCoverage() + "]" + ", up:[" + getUpperBoundary() + "/" + getRightCoverage() + "]"
+						: "") + (isPadding() ? ", from padding!" : ""));
 		return sb.toString();
 	}
 

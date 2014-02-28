@@ -7,6 +7,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 
+import at.cibiv.codoc.utils.CodocException;
 import at.cibiv.codoc.utils.FileUtils;
 import at.cibiv.codoc.utils.PropertyConfiguration;
 
@@ -42,12 +43,12 @@ public class HeterogenousFileDataInputBlock<T> extends FileDataInputBlock<T> {
 	 * @param conf
 	 * @return
 	 * @throws FileNotFoundException
+	 * @throws CodocException 
 	 * @throws Throwable
 	 */
 	@Override
 	@SuppressWarnings("unchecked")
-	public HeterogenousFileDataInputBlock<T> configure(PropertyConfiguration conf) throws FileNotFoundException,
-			Throwable {
+	public HeterogenousFileDataInputBlock<T> configure(PropertyConfiguration conf) throws FileNotFoundException, CodocException {
 		this.fin1 = new BufferedInputStream(new FileInputStream(f1));
 		this.fin2 = new BufferedInputStream(new FileInputStream(f2));
 		this.stream = (PopableStream<T>) StreamFactory.createHeterogenousInputStream(fin1, fin2, conf, id);

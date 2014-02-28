@@ -315,7 +315,7 @@ public class CompareCoverageIteratorsOLD {
 			PropertyConfiguration conf1 = CoverageDecompressor.getDefaultConfiguration();
 			conf1.setProperty(CoverageDecompressor.OPT_COV_FILE, fn);
 			conf1.setProperty(CoverageDecompressor.OPT_VCF_FILE, "AUTO");
-			ret = new CompressedCoverageIterator(conf1);
+			ret = new CompressedCoverageIterator(conf1, chromosomes, 1.0f);
 		} else {
 			System.out.println("Instantiating " + f + " as BedToolsCoverageIterator");
 			ret = new BedToolsCoverageIterator(f, COORD_TYPE.ONEBASED, 1.0f);

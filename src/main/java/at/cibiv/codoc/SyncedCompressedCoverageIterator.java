@@ -18,7 +18,7 @@ import at.cibiv.ngs.tools.util.GenomicPosition;
 public class SyncedCompressedCoverageIterator implements Iterator<GenomicPosition> {
 	CoverageDecompressor d1, d2;
 	CompressedCoverageIterator it1, it2;
-	CoverageHit cachedCov1, cachedCov2, currentCov1, currentCov2;
+	Float cachedCov1, cachedCov2, currentCov1, currentCov2;
 	private GenomicPosition cachedPosition;
 	private GenomicPosition currentPosition;
 
@@ -31,7 +31,7 @@ public class SyncedCompressedCoverageIterator implements Iterator<GenomicPositio
 	 * 
 	 * @param it1
 	 * @param it2
-	 * @throws Throwable 
+	 * @throws Throwable
 	 */
 	public SyncedCompressedCoverageIterator(CoverageDecompressor d1, CoverageDecompressor d2) throws Throwable {
 		this(d1, d2, null);
@@ -42,7 +42,7 @@ public class SyncedCompressedCoverageIterator implements Iterator<GenomicPositio
 	 * 
 	 * @param it1
 	 * @param it2
-	 * @throws Throwable 
+	 * @throws Throwable
 	 */
 	public SyncedCompressedCoverageIterator(CoverageDecompressor d1, CoverageDecompressor d2, List<String> chromOrder) throws Throwable {
 		this.d1 = d1;
@@ -60,7 +60,7 @@ public class SyncedCompressedCoverageIterator implements Iterator<GenomicPositio
 		System.out.println("Chroms: " + Arrays.toString(chroms.toArray()));
 		this.chromIterator = this.chroms.iterator();
 		currentChrom = this.chromIterator.next();
-		
+
 		it1 = d1.getCoverageIterator(new GenomicPosition(currentChrom, 0));
 		it2 = d2.getCoverageIterator(new GenomicPosition(currentChrom, 0));
 	}
@@ -69,25 +69,30 @@ public class SyncedCompressedCoverageIterator implements Iterator<GenomicPositio
 	 * Position iterators above each other.
 	 * 
 	 * @return
-	 * @throws Throwable 
+	 * @throws Throwable
 	 */
 	private GenomicPosition gotoNextCommonPosition() throws Throwable {
-	
+
 		while (!it1.hasNext() || !it2.hasNext()) {
-			if ( ! this.chromIterator.hasNext() )
+			if (!this.chromIterator.hasNext())
 				return null;
-			// load next chrom 
+			// load next chrom
 			currentChrom = this.chromIterator.next();
-			//System.out.println("load "+currentChrom);
+			// System.out.println("load "+currentChrom);
 			it1 = d1.getCoverageIterator(new GenomicPosition(currentChrom, 0));
 			it2 = d2.getCoverageIterator(new GenomicPosition(currentChrom, 0));
 		}
 
-
 		cachedCov1 = it1.next();
-		if (it1.wasChangedChrom() && ! it1.getCurrentReference().equals(currentChrom)) { it1.exhaust(); return gotoNextCommonPosition(); }
+		if (it1.wasChangedChrom() && !it1.getCurrentReference().equals(currentChrom)) {
+			it1.exhaust();
+			return gotoNextCommonPosition();
+		}
 		cachedCov2 = it2.next();
-		if (it2.wasChangedChrom()&& ! it2.getCurrentReference().equals(currentChrom)) { it2.exhaust(); return gotoNextCommonPosition(); }
+		if (it2.wasChangedChrom() && !it2.getCurrentReference().equals(currentChrom)) {
+			it2.exhaust();
+			return gotoNextCommonPosition();
+		}
 		GenomicPosition pos1 = it1.getGenomicPosition();
 		GenomicPosition pos2 = it2.getGenomicPosition();
 
@@ -98,7 +103,10 @@ public class SyncedCompressedCoverageIterator implements Iterator<GenomicPositio
 				}
 				// measure( cachedCov1, 0d, pos1 );
 				cachedCov1 = it1.next();
-				if (it1.wasChangedChrom()&& ! it1.getCurrentReference().equals(currentChrom)) { it1.exhaust(); return gotoNextCommonPosition(); }
+				if (it1.wasChangedChrom() && !it1.getCurrentReference().equals(currentChrom)) {
+					it1.exhaust();
+					return gotoNextCommonPosition();
+				}
 				pos1 = it1.getGenomicPosition();
 			}
 
@@ -107,7 +115,10 @@ public class SyncedCompressedCoverageIterator implements Iterator<GenomicPositio
 					return null;
 				}
 				cachedCov2 = it2.next();
-				if (it2.wasChangedChrom()&& ! it2.getCurrentReference().equals(currentChrom)) { it2.exhaust(); return gotoNextCommonPosition(); }
+				if (it2.wasChangedChrom() && !it2.getCurrentReference().equals(currentChrom)) {
+					it2.exhaust();
+					return gotoNextCommonPosition();
+				}
 				pos2 = it2.getGenomicPosition();
 			}
 		}
@@ -117,8 +128,11 @@ public class SyncedCompressedCoverageIterator implements Iterator<GenomicPositio
 			return null;
 		}
 
-		//System.out.println(pos1.toString1based() + "/" +cachedCov1.getInterpolatedCoverage()+"/"+ cachedCov2.getInterpolatedCoverage()+"/"+  it1.hasNext() + "/" + it2.hasNext());
-		
+		// System.out.println(pos1.toString1based() + "/"
+		// +cachedCov1.getInterpolatedCoverage()+"/"+
+		// cachedCov2.getInterpolatedCoverage()+"/"+ it1.hasNext() + "/" +
+		// it2.hasNext());
+
 		// now we are synced.
 		// measure(cachedCov1, cachedCov2, pos1);
 		return pos1;
@@ -156,11 +170,11 @@ public class SyncedCompressedCoverageIterator implements Iterator<GenomicPositio
 		return currentPosition;
 	}
 
-	public CoverageHit getCoverage1() {
+	public Float getCoverage1() {
 		return cachedCov1;
 	}
 
-	public CoverageHit getCoverage2() {
+	public Float getCoverage2() {
 		return cachedCov2;
 	}
 

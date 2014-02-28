@@ -32,7 +32,7 @@ public class FileDataOutputBlock<T> extends AbstractDataBlock {
 	 * @throws FileNotFoundException
 	 * @throws Throwable
 	 */
-	public FileDataOutputBlock(String id, File f1) throws FileNotFoundException, Throwable {
+	public FileDataOutputBlock(String id, File f1)  {
 		this.id = id;
 		this.f1 = f1;
 	}
