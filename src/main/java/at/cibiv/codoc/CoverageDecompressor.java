@@ -209,7 +209,6 @@ public class CoverageDecompressor {
 	 * @param regionsOfInterest
 	 * @param out
 	 * @throws CodocException
-	 * @throws Throwable
 	 * @throws IOException
 	 * @throws ParseException
 	 */
@@ -258,7 +257,6 @@ public class CoverageDecompressor {
 	 * @param workDir
 	 * @throws IOException
 	 * @throws CodocException
-	 * @throws Throwable
 	 */
 	public void dumpHeader(PropertyConfiguration conf) throws IOException, CodocException {
 		File covFile = new File(conf.getProperty(OPT_COV_FILE));
@@ -293,9 +291,11 @@ public class CoverageDecompressor {
 	 * 
 	 * @param covFile
 	 * @return
+	 * @throws IOException 
+	 * @throws CodocException 
 	 * @throws Throwable
 	 */
-	public static CoverageDecompressor loadFromFile(File covFile, File vcfFile) throws Throwable {
+	public static CoverageDecompressor loadFromFile(File covFile, File vcfFile) throws CodocException, IOException  {
 		// build config
 		PropertyConfiguration conf = getDefaultConfiguration();
 		conf.setProperty(OPT_COV_FILE, covFile.getAbsolutePath());
@@ -1172,9 +1172,11 @@ public class CoverageDecompressor {
 	 * @param covFile
 	 * @param vcfFile
 	 * @return
+	 * @throws IOException 
+	 * @throws CodocException 
 	 * @throws Throwable
 	 */
-	public static CoverageDecompressor decompress(File covFile, File vcfFile) throws Throwable {
+	public static CoverageDecompressor decompress(File covFile, File vcfFile) throws CodocException, IOException  {
 		PropertyConfiguration conf = CoverageDecompressor.getDefaultConfiguration();
 		conf.setProperty(OPT_COV_FILE, covFile.getAbsolutePath());
 		if (vcfFile != null)
