@@ -437,11 +437,14 @@ public class CoverageTools {
 						SortedSet<? extends GenomicInterval> res = intervals
 								.query(it.getGenomicPosition());
 						for (GenomicInterval gi : res) {
+							System.out.println(it.getGenomicPosition() + " / " + gi + " / " + coverage );
+							
 							Double sum = absCov.get(gi.toString());
 							if (sum == null)
 								sum = 0d;
 							sum += coverage;
 							absCov.put(gi.toString(), sum);
+							
 						}
 
 					}
@@ -451,10 +454,11 @@ public class CoverageTools {
 				}
 
 				for (GenomicInterval gi : bf.getIntervalsList()) {
-					double width = gi.getWidth();
+					double width = gi.getWidth() + 1; // note: BED intervals are not including the end coordinate
 					Double sum = absCov.get(gi.toString());
 					if (sum == null)
 						sum = 0d;
+					System.out.println(gi + " " + sum + " " + width );
 					double avgScore = sum / width;
 					Map<File, Double> scores = allScores.get(gi.toString());
 					if (scores == null)

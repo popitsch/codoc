@@ -17,9 +17,7 @@ import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
 
 public class PerformanceDecompressorTest {
 
-	String bam = "c:/data/testbams/bigbam.bam";
-
-	// String bam = "c:/data/testbams/small.bam";
+	String bam = "src/test/resources/covcompress/small.bam";
 
 	/**
 	 * Create a config string for some standard stream.

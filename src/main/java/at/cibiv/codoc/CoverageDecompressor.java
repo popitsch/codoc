@@ -1147,7 +1147,7 @@ public class CoverageDecompressor {
 		if (bedOut != null) {
 			bedOut.println("track name=" + name + " description=\"" + description + "\" " + additional);
 			for (GenomicInterval gi : regionTree.getIntervals()) {
-				bedOut.println(gi.getOriginalChrom() + "\t" + (gi.getMin()) + "\t" + (gi.getMax() + 1) + "\t" + gi.getUri());
+				bedOut.println(gi.toBED());
 			}
 			bedOut.close();
 		}
