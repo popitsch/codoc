@@ -690,9 +690,9 @@ public class CoverageDecompressor {
 
 			// Check whether file was compressed with VCF knotpoints
 			if (compressedConfig.hasProperty(CoverageCompressor.OPT_VCF_FILE) && vcfFile == null)
-				System.err.println(new CodocException("NOTE that file was compressed with the VCF file "
+				System.err.println(new CodocException("NOTE: that file was compressed with the VCF file "
 						+ compressedConfig.getProperty(CoverageCompressor.OPT_VCF_FILE)
-						+ " but decompression was called without this file. Results will be inaccurate."));
+						+ " but decompression was called without providing this file. Resulting DOC values might be inaccurate around variant positions."));
 
 			// create streams.
 			if (debug)
@@ -959,7 +959,8 @@ public class CoverageDecompressor {
 				String chr = cmd.split(":")[0].trim();
 				Integer off1 = new Integer(cmd.split(":")[1]);
 				GenomicPosition pos = new GenomicPosition(chr, off1, COORD_TYPE.ONEBASED);
-				// System.out.println("Query " + pos);\
+				// System.out.println("Query " + pos);
+				
 				CoverageHit hit = query(pos);
 				if (hit == null)
 					System.out.println("cov:\tN/A");
@@ -1290,9 +1291,9 @@ public class CoverageDecompressor {
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
 
-		// args = new String[] { "query", "-cov",
-		// "src/test/resources/covcompress/small.compressed", "-vcf",
-		// "src/test/resources/covcompress/small.vcf", "-v" };
+	// args = new String[] { "query", "-cov",
+	// "src/test/resources/covcompress/small.compressed", "-vcf",
+	// "src/test/resources/covcompress/small.vcf", "-scale", "2.0" };
 
 		// args = new String[] { "tobed", "-cov",
 		// "/scratch/projects/codoc/src/test/resources/covcompress/small.compressed",

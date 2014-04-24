@@ -91,7 +91,7 @@ public class CoverageHit {
 	 * @return
 	 */
 	public float getInterpolatedCoverage() {
-		return interpolatedCoverage * scaleFactor;
+		return interpolatedCoverage;
 	}
 
 	public int getWidth() {
