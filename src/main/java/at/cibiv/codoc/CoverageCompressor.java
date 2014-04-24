@@ -861,6 +861,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 					}
 					// are we within the current roi?
 					if (inRoi) {
+						
 						// NOTE that BED intervals are 0-based
 						inRoi = currentRoi.contains(pos1 - 1);
 						if (!inRoi) {
@@ -876,7 +877,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 						}
 					} else {
 						// NOTE that BED intervals are 0-based
-						inRoi = currentRoi.contains(pos1);
+						inRoi = currentRoi.contains(pos1 - 1 );
 						if (inRoi) {
 							// ENTERED a ROI
 							// writeCodeword(originalChr, pos1, coverage,

@@ -56,6 +56,7 @@ public class RandomAccessTest {
 			conf.setProperty(CoverageDecompressor.OPT_VCF_FILE, vcfFile.getAbsolutePath());
 		conf.setProperty(CoverageDecompressor.OPT_CHR_LEN_FILE, chrlenFile.getAbsolutePath());
 		conf.setProperty(CoverageDecompressor.OPT_NO_CACHING, nocaching);
+		//conf.setProperty(CoverageDecompressor.OPT_VERBOSE, "true");
 		CoverageDecompressor decomp = new CoverageDecompressor(conf);
 		DebugUtil.addPerformanceMarker("query", "instantiate");
 
@@ -68,7 +69,7 @@ public class RandomAccessTest {
 		DebugUtil.addPerformanceMarker("query", "createRandomPos");
 		for (int i = 0; i < n; i++) {
 			CoverageHit hit = decomp.query(pos.get(i));
-			if (hit != null && hit.getRoundedCoverage() > 0)
+			if (hit != null )
 				System.out.println(pos.get(i).toString1basedOrig() + " -> " + hit);
 		}
 		DebugUtil.addPerformanceMarker("query", "query");

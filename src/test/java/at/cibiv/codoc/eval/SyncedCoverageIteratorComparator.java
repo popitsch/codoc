@@ -23,6 +23,8 @@ import at.cibiv.ngs.tools.util.StringUtils;
  * and returns only values for the positions they have in common. The two
  * iterator values can be asked at the current iterator position.
  * 
+ * FIXME: under construction
+ * 
  * @author niko.popitsch@univie.ac.at
  * 
  */

@@ -124,16 +124,19 @@ public class DecompressorTest {
 			// check ROI borders BED (0-bases!)
 			// chr20 60005 60080 reg1
 			// chr21 60015 60017 reg2
-			Assert.assertEquals(0f, decompressor.query(new GenomicPosition("20", 60004, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
-			Assert.assertEquals(29f, decompressor.query(new GenomicPosition("20", 60005, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
-			Assert.assertEquals(6f, decompressor.query(new GenomicPosition("20", 60081, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
-			Assert.assertEquals(0f, decompressor.query(new GenomicPosition("20", 60082, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+			Assert.assertEquals(0f, decompressor.query(new GenomicPosition("20", 60005, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+			Assert.assertEquals(29f, decompressor.query(new GenomicPosition("20", 60006, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+			Assert.assertEquals(6f, decompressor.query(new GenomicPosition("20", 60080, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+			Assert.assertEquals(0f, decompressor.query(new GenomicPosition("20", 60081, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 
-			Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60014, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+
 			// check deletion
+			Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60013, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+			Assert.assertEquals(1f, decompressor.query(new GenomicPosition("21", 60014, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 			Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60015, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
-			Assert.assertEquals(1f, decompressor.query(new GenomicPosition("21", 60018, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
-			Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60019, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+			Assert.assertEquals(1f, decompressor.query(new GenomicPosition("21", 60016, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+			Assert.assertEquals(1f, decompressor.query(new GenomicPosition("21", 60017, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
+			Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60018, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 
 			decompressor.close();
 		} finally {
@@ -220,15 +223,18 @@ public class DecompressorTest {
 		CoverageDecompressor decompressor = new CoverageDecompressor(config);
 		try {
 			GenomicITree tree = decompressor.toBED(null, null, 0, "test", "test", "test");
-			// tree.dump();
+			tree.dump();
 			CompressedCoverageIterator it = decompressor.getCoverageIterator();
 			while (it.hasNext()) {
-				Integer hitIterator = it.nextCoverage();
+				Integer coverage = it.nextCoverage();
 				SortedSet<? extends GenomicInterval> res = tree.query(it.getGenomicPosition());
-				// System.out.println(it.getGenomicPosition() + "/" + res);
-				if (hitIterator > 0)
+				 System.out.println(it.getGenomicPosition() + "/" + res);
+				 // we should not find an interval that overlaps with a region that is covered!
+				if (coverage > 0)
 					Assert.assertTrue(res == null || res.size() == 0);
 			}
+			for ( GenomicInterval g : tree.getIntervalsSorted())
+				System.out.println(g.toBED());
 
 		} finally {
 			decompressor.close();

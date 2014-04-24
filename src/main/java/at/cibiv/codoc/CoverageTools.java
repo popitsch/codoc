@@ -399,11 +399,14 @@ public class CoverageTools {
 						Float coverage = it.next();
 						SortedSet<? extends GenomicInterval> res = intervals.query(it.getGenomicPosition());
 						for (GenomicInterval gi : res) {
+							System.out.println(it.getGenomicPosition() + " / " + gi + " / " + coverage );
+							
 							Double sum = absCov.get(gi.toString());
 							if (sum == null)
 								sum = 0d;
 							sum += coverage;
 							absCov.put(gi.toString(), sum);
+							
 						}
 
 					}
@@ -413,10 +416,11 @@ public class CoverageTools {
 				}
 
 				for (GenomicInterval gi : bf.getIntervalsList()) {
-					double width = gi.getWidth();
+					double width = gi.getWidth() + 1; // note: BED intervals are not including the end coordinate
 					Double sum = absCov.get(gi.toString());
 					if (sum == null)
 						sum = 0d;
+					System.out.println(gi + " " + sum + " " + width );
 					double avgScore = sum / width;
 					Map<File, Double> scores = allScores.get(gi.toString());
 					if (scores == null)
@@ -442,6 +446,7 @@ public class CoverageTools {
 					for (File covFile : covFiles) {
 						Map<File, Double> scores = allScores.get(gi.toString());
 						Double avg = scores==null?-1:scores.get(covFile);
+						
 						out.format("\t%.1f", avg);
 					}
 
@@ -665,33 +670,13 @@ public class CoverageTools {
 	 */
 	public static void main(String[] args) throws Throwable {
 
-		// args = new String[] { "calculateCoveragePerBedFeature",
-		//
-		// "-cov",
-		// "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D21ANACXX_8_20130322B_20130325_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
-		// "-cov",
-		// "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D2295ACXX_6_20130409B_20130412_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
-		// "-cov",
-		// "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D2295ACXX_7_20130409B_20130412_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
-		// "-cov",
-		// "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D2295ACXX_8_20130409B_20130412_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
-		//
-		// "-o", "/project/oesi/borrelia/reads-ngm/run1se50/coverage/delme.csv",
-		// "-bed",
-		// "/project/oesi/borrelia/reads-ngm/run1se50/coverage/delme.bed" };
-
-		// args = new String[] { "dumpCoverage", "-cov",
-		// "/scratch/test/geuvadis_UCSC_Genome-sorted.bam.p005.comp", "-o",
-		// "/scratch/test/geuvadis_UCSC_Genome-sorted.bam.p005.comp.dump"
-		// };
 
 //		args = new String[] { "calculateCoveragePerBedFeature",
-//				"-bed", "/project/ngs-work/philipp/hfq-pd/bobsdata/aptamers/eck12_MG1655_ecoli-hfq_aptamers-chr.gff3.bed",
-//				"-cov", "/project/ngs-work/philipp/hfq-pd/reads-ngm-chr/coverage/codoc/3xF-PD-chr.bam.codoc",
-//				"-cov", "/project/ngs-work/philipp/hfq-pd/reads-ngm-chr/coverage/codoc/3xF-totRNA-chr.bam.codoc",
+//				"-bed", "/scratch/projects/codoc/test/small.bam.comp.bed",
+//				"-cov", "/scratch/projects/codoc/test/small.bam.comp",
 //				"-o", "-"
 //		};
-		
+//		
 		// create the command line parser
 		CommandLineParser parser = new PosixParser();
 

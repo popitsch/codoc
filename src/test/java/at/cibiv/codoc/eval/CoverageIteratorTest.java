@@ -191,7 +191,7 @@ public class CoverageIteratorTest implements CoverageIterator<Integer>, Chromoso
 //			System.out.println("POS "+ decomit.getPosition().toString1based() + "\t" + hit.getInterpolatedCoverage() + "\t" + hit + "\t" + hit.getInterval().getUri());
 //		}
 		System.out.println(decomp.getWorkDir());
-//		decomp.close();
+		decomp.close();
 		System.out.println("-------------------------");
 	}
 
