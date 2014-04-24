@@ -57,7 +57,7 @@ public class SimpleUsageExamples {
     private static void querySNPs(File covFile, File covFile2, File covVcfFile) throws IOException, ParseException, CodocException {
 	SimpleVCFFile vcf = new SimpleVCFFile(covVcfFile);
 	CoverageDecompressor cov1 = CoverageDecompressor.loadFromFile(covFile, covVcfFile);
-	CoverageDecompressor cov2 = CoverageDecompressor.loadFromFile(covFile, covVcfFile);
+	CoverageDecompressor cov2 = CoverageDecompressor.loadFromFile(covFile2, covVcfFile);
 	try {
 	    for (SimpleVCFVariant v : vcf.getVariants()) {
 

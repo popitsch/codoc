@@ -1258,7 +1258,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	public static void main(String[] args) throws IOException, ParseException {
 
 //		 args = new String[] { 
-//				 "-cov", "src/test/resources/covcompress/small.bam", 
+//				 "-cov", "src/test/resources/covcompress/small.sam", 
 //				 "-vcf", "src/test/resources/covcompress/small.vcf",
 //		 "-o",
 //		 "src/test/resources/covcompress/small.compressed", "-v",
