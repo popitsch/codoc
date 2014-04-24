@@ -1010,9 +1010,11 @@ public class CoverageDecompressor {
 	 * 
 	 * @param pos
 	 * @return
+	 * @throws CodocException 
+	 * @throws IOException 
 	 * @throws Throwable
 	 */
-	public CoverageHit query(GenomicPosition pos) throws Throwable {
+	public CoverageHit query(GenomicPosition pos) throws IOException, CodocException  {
 
 		Set<? extends GenomicInterval> blocks = blockIndexTree.query1based(pos);
 		if ((blocks == null) || (blocks.size() != 1)) {

@@ -32,10 +32,14 @@
 				<li><a href="https://github.com/popitsch/codoc/zipball/master">Download
 						<strong>ZIP File</strong>
 				</a></li>
-				<li><a href="https://github.com/popitsch/codoc/tarball/master">Download
+				<!--  li><a href="https://github.com/popitsch/codoc/tarball/master">Download
 						<strong>TAR Ball</strong>
-				</a></li>
-				<li><a href="https://github.com/popitsch/codoc/releases">View On <strong>GitHub</strong></a></li>
+				</a></li-->
+				<li><a href="https://github.com/popitsch/codoc/releases">Download 
+						<strong>Releases</strong></a></li>
+						</a></li>
+				<li><a href="https://github.com/popitsch/codoc/">View on 
+						<strong>GitHub</strong></a></li></a>
 			</ul>
 			</p>
 
@@ -127,7 +131,7 @@ $ java -jar bin/codoc-<em>0.0.1</em>.jar tools
 </code>
 			</pre>
 
-			The following command compressed coverage data extracted from a BAM
+			The following command compresses coverage data extracted from a SAM/BAM
 			file using a regular grid of height 5 for quantization. Only reads
 			that have the SAM flag for PCR or optical duplicates (1024) unset and
 			reads with a mapping quality > 20 are included.
@@ -138,7 +142,7 @@ $ java -jar bin/codoc-0.0.1.jar compress -bam <em>BAM</em> -qmethod GRID -qparam
 </code>
 			</pre>
 
-			The following command compressed coverage data extracted from all minus-strand reads in
+			The following command compresses coverage data extracted from all minus-strand reads in
 			a BAM file losslessly. Only reads with a mapping quality > 20 are included.
 
 			<pre>
@@ -147,9 +151,9 @@ $ java -jar bin/codoc-0.0.1.jar compress -bam <em>BAM</em> -qparam 0 -filter "ST
 </code>
 			</pre>
 
-			The following command prints the header of the compressed file
-			showing the metadata as well as the used configuration for
-			compression.
+			The following command prints the header of a compressed file
+			showing the metadata as well as the configuration used for
+			compressing the file.
 
 			<pre>
 				<code>
@@ -157,7 +161,7 @@ $ java -jar bin/codoc-0.0.1.jar decompress head -covFile <em>BAM</em>.comp
 </code>
 			</pre>
 
-			The following command starts an interactive query session for the
+			The following command starts an interactive query session for random accessing the
 			compressed file.
 
 			<pre>
@@ -184,6 +188,18 @@ $ java -jar bin/codoc-0.0.1.jar decompress tobed -covFile <em>BAM</em>.comp -out
 $ java -jar codoc-0.0.1.jar decompress query -covFile <em>BAM</em>.comp -scale 2.0
 </code></pre>
 
+			</p>
+
+		The following commands convert a CODOC file to the 
+		<a href="https://genome.ucsc.edu/goldenPath/help/wiggle.html" target="_blank">Wig</a> 
+		and then to the 
+		<a href="https://genome.ucsc.edu/goldenPath/help/bigWig.html" target="_blank">BigWig</a> format.
+
+		<pre><code>
+$ java -jar codoc-0.0.1.jar decompress towig -covFile <em>BAM</em>.comp -o <em>BAM</em>.comp.wig
+$ wigToBigWig <em>BAM</em>.comp.wig <em>chrSizes</em> <em>BAM</em>.comp.bw
+</code></pre>
+
 			NOTE: if you run into OutOfMemory errors, you can increase the
 			available heap space of the java JVM (e.g., to 4 GByte) using the
 			following switch:
@@ -191,6 +207,8 @@ $ java -jar codoc-0.0.1.jar decompress query -covFile <em>BAM</em>.comp -scale 2
 
 
 			</p>
+
+
 
 			<a name="usage"></a>
 			<h3>Usage</h3>
