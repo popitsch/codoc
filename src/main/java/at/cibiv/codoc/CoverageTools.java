@@ -55,10 +55,12 @@ public class CoverageTools {
 	 * @param covTFile
 	 * @throws Throwable
 	 */
-	public static void dumpIterator(File cov1File, File cov1VcfFile, PrintStream out) throws Throwable {
+	public static void dumpIterator(File cov1File, File cov1VcfFile,
+			PrintStream out) throws Throwable {
 		if (debug)
 			System.out.println("Load " + cov1File);
-		CoverageDecompressor cov1 = CoverageDecompressor.loadFromFile(cov1File, cov1VcfFile);
+		CoverageDecompressor cov1 = CoverageDecompressor.loadFromFile(cov1File,
+				cov1VcfFile);
 		cov1.setMaxCachedBlocks(1);
 		CompressedCoverageIterator it1 = cov1.getCoverageIterator();
 		StringBuilder sb = new StringBuilder();
@@ -66,7 +68,8 @@ public class CoverageTools {
 		while (it1.hasNext()) {
 			Float hit1 = it1.next();
 			GenomicPosition pos = it1.getGenomicPosition();
-			sb.append(pos.getChromosomeOriginal() + "\t" + pos.get1Position() + "\t" + hit1 + "\n");
+			sb.append(pos.getChromosomeOriginal() + "\t" + pos.get1Position()
+					+ "\t" + hit1 + "\n");
 			if (sb.length() > 50000000) {
 				System.out.print("w");
 				out.println(sb.toString());
@@ -94,20 +97,25 @@ public class CoverageTools {
 	 * @param lowCoverageFile
 	 * @throws Throwable
 	 */
-	public static void cancerNormalFilter(File covTFile, File vcfTFile, File covNFile, File vcfNFile, File vcfOutFile, int minCoverage, File normalAlsoFile,
-			File lowCoverageFile) throws Throwable {
+	public static void cancerNormalFilter(File covTFile, File vcfTFile,
+			File covNFile, File vcfNFile, File vcfOutFile, int minCoverage,
+			File normalAlsoFile, File lowCoverageFile) throws Throwable {
 
 		if (debug)
 			System.out.println("Load " + covTFile);
-		CoverageDecompressor covT = CoverageDecompressor.loadFromFile(covTFile, vcfTFile);
+		CoverageDecompressor covT = CoverageDecompressor.loadFromFile(covTFile,
+				vcfTFile);
 		if (covT.getVcfFile() == null)
-			throw new CodocException("Tumor coverage file had not VCF file set.");
+			throw new CodocException(
+					"Tumor coverage file had not VCF file set.");
 
 		if (debug)
 			System.out.println("Load " + covNFile);
-		CoverageDecompressor covN = CoverageDecompressor.loadFromFile(covNFile, vcfNFile);
+		CoverageDecompressor covN = CoverageDecompressor.loadFromFile(covNFile,
+				vcfNFile);
 		if (covN.getVcfFile() == null)
-			throw new CodocException("Normal coverage file had not VCF file set.");
+			throw new CodocException(
+					"Normal coverage file had not VCF file set.");
 
 		if (debug)
 			System.out.println("Prepare vcf files");
@@ -116,8 +124,10 @@ public class CoverageTools {
 		GenomicITree vcfNItree = vcfN.getITree();
 
 		PrintStream out = new PrintStream(vcfOutFile);
-		PrintStream normalAlso = (normalAlsoFile == null) ? null : new PrintStream(normalAlsoFile);
-		PrintStream lowCoverage = (lowCoverageFile == null) ? null : new PrintStream(lowCoverageFile);
+		PrintStream normalAlso = (normalAlsoFile == null) ? null
+				: new PrintStream(normalAlsoFile);
+		PrintStream lowCoverage = (lowCoverageFile == null) ? null
+				: new PrintStream(lowCoverageFile);
 
 		out.print(vcfT.getHeader());
 		if (normalAlso != null)
@@ -129,7 +139,8 @@ public class CoverageTools {
 			System.out.println("Start");
 		int c = 0;
 		for (SimpleVCFVariant v : vcfT.getVariants()) {
-			SortedSet<? extends GenomicInterval> res = vcfNItree.query(v.getGenomicPosition());
+			SortedSet<? extends GenomicInterval> res = vcfNItree.query(v
+					.getGenomicPosition());
 			boolean accept = true;
 
 			if ((res != null) && (res.size() > 0)) {
@@ -140,7 +151,8 @@ public class CoverageTools {
 				if (v.estimateZygosity() == ZYGOSITY.HOM) {
 
 					for (GenomicInterval gi : res) {
-						SimpleVCFVariant nv = (SimpleVCFVariant) gi.getAnnotation(SimpleVCFFile.ANNO_VARIANT);
+						SimpleVCFVariant nv = (SimpleVCFVariant) gi
+								.getAnnotation(SimpleVCFFile.ANNO_VARIANT);
 
 						if ((nv != null && (nv.estimateZygosity() == ZYGOSITY.HET)))
 							accept = true;
@@ -173,6 +185,12 @@ public class CoverageTools {
 		covN.close();
 		if (debug)
 			System.out.println("Finished.");
+
+		out.close();
+		if (normalAlso != null)
+			normalAlso.close();
+		if (lowCoverage != null)
+			lowCoverage.close();
 	}
 
 	public static enum OPERATOR {
@@ -190,7 +208,9 @@ public class CoverageTools {
 	 * @param covOut
 	 * @throws Throwable
 	 */
-	public static void combineCoverageFiles(File cov1File, File cov1VcfFile, File cov2File, File cov2VcfFile, OPERATOR op, File covOut) throws Throwable {
+	public static void combineCoverageFiles(File cov1File, File cov1VcfFile,
+			File cov2File, File cov2VcfFile, OPERATOR op, File covOut)
+			throws Throwable {
 		CoverageDecompressor cov1 = null, cov2 = null;
 		PrintStream out = null;
 		File temp = null;
@@ -204,10 +224,12 @@ public class CoverageTools {
 				System.out.println("Load " + cov2File);
 			cov2 = CoverageDecompressor.loadFromFile(cov2File, cov2VcfFile);
 
-			temp = FileUtils.createRandomTempFile(covOut.getParentFile(), "delme");
+			temp = FileUtils.createRandomTempFile(covOut.getParentFile(),
+					"delme");
 			out = new PrintStream(temp);
 
-			SyncedCompressedCoverageIterator it = new SyncedCompressedCoverageIterator(cov1, cov2);
+			SyncedCompressedCoverageIterator it = new SyncedCompressedCoverageIterator(
+					cov1, cov2);
 			int count = 0;
 			while (it.hasNext()) {
 				GenomicPosition pos = it.next();
@@ -234,9 +256,11 @@ public class CoverageTools {
 					co = (c1 + c2) / 2;
 					break;
 				default:
-					throw new InvalidParameterException("Unknown operator " + op);
+					throw new InvalidParameterException("Unknown operator "
+							+ op);
 				}
-				out.println(pos.getChromosomeOriginal() + "\t" + pos.get1Position() + "\t" + co);
+				out.println(pos.getChromosomeOriginal() + "\t"
+						+ pos.get1Position() + "\t" + co);
 				count++;
 			}
 			out.close();
@@ -246,11 +270,15 @@ public class CoverageTools {
 				System.out.println("Wrote " + temp);
 
 			// compress
-			PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
-			config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE, temp.getAbsolutePath());
-			config.setProperty(CoverageCompressor.OPT_OUT_FILE, covOut.getAbsolutePath());
+			PropertyConfiguration config = CoverageCompressor
+					.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
+			config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE,
+					temp.getAbsolutePath());
+			config.setProperty(CoverageCompressor.OPT_OUT_FILE,
+					covOut.getAbsolutePath());
 			config.setProperty(CoverageCompressor.OPT_VERBOSE, "" + debug);
-			config.setProperty(CoverageCompressor.OPT_QUANT_METHOD, QUANT_METHOD.PERC.name());
+			config.setProperty(CoverageCompressor.OPT_QUANT_METHOD,
+					QUANT_METHOD.PERC.name());
 			config.setProperty(CoverageCompressor.OPT_QUANT_PARAM, "0");
 			CoverageCompressor compressor = new CoverageCompressor(config);
 			compressor.dumpWarnings();
@@ -267,13 +295,16 @@ public class CoverageTools {
 					System.out.println("Diffed " + count + " values");
 					break;
 				case MIN:
-					System.out.println("Calculated minimum for " + count + " values");
+					System.out.println("Calculated minimum for " + count
+							+ " values");
 					break;
 				case MAX:
-					System.out.println("Calculated maximum for " + count + " values");
+					System.out.println("Calculated maximum for " + count
+							+ " values");
 					break;
 				case AVG:
-					System.out.println("Calculated average for " + count + " values");
+					System.out.println("Calculated average for " + count
+							+ " values");
 					break;
 				}
 
@@ -302,7 +333,9 @@ public class CoverageTools {
 	 * @param corrOut
 	 * @throws Throwable
 	 */
-	public static void correlateCoverageFiles(File cov1File, File cov1VcfFile, File cov2File, File cov2VcfFile, PrintStream corrOut) throws Throwable {
+	public static void correlateCoverageFiles(File cov1File, File cov1VcfFile,
+			File cov2File, File cov2VcfFile, PrintStream corrOut)
+			throws Throwable {
 		CoverageDecompressor cov1 = null, cov2 = null;
 
 		try {
@@ -314,7 +347,8 @@ public class CoverageTools {
 				System.out.println("Load " + cov2File);
 			cov2 = CoverageDecompressor.loadFromFile(cov2File, cov2VcfFile);
 
-			SyncedCompressedCoverageIterator it = new SyncedCompressedCoverageIterator(cov1, cov2);
+			SyncedCompressedCoverageIterator it = new SyncedCompressedCoverageIterator(
+					cov1, cov2);
 			double sumX = 0d, sumY = 0d, sumXY = 0d, N = 0d;
 			while (it.hasNext()) {
 				it.next();
@@ -343,7 +377,8 @@ public class CoverageTools {
 			stddevX = Math.sqrt(stddevX / (N - 1));
 			stddevY = Math.sqrt(stddevY / (N - 1));
 
-			double r = (1d / (N - 1d)) * (sumXY - N * meanX * meanY) / (stddevX * stddevY);
+			double r = (1d / (N - 1d)) * (sumXY - N * meanX * meanY)
+					/ (stddevX * stddevY);
 
 			corrOut.println("N\t" + N);
 			corrOut.println("sumX\t" + sumX);
@@ -376,7 +411,8 @@ public class CoverageTools {
 	 * @param out
 	 * @throws Throwable
 	 */
-	public static double calculateCoveragePerBedFeature(List<File> covFiles, File covVcfFile, File bedFile, PrintStream out) throws Throwable {
+	public static double calculateCoveragePerBedFeature(List<File> covFiles,
+			File covVcfFile, File bedFile, PrintStream out) throws Throwable {
 		CoverageDecompressor cov = null;
 
 		try {
@@ -392,12 +428,14 @@ public class CoverageTools {
 				if (debug)
 					System.out.println("Load " + covFile);
 				try {
-					cov = CoverageDecompressor.loadFromFile(covFile, covVcfFile);
+					cov = CoverageDecompressor
+							.loadFromFile(covFile, covVcfFile);
 
 					CompressedCoverageIterator it = cov.getCoverageIterator();
 					while (it.hasNext()) {
 						Float coverage = it.next();
-						SortedSet<? extends GenomicInterval> res = intervals.query(it.getGenomicPosition());
+						SortedSet<? extends GenomicInterval> res = intervals
+								.query(it.getGenomicPosition());
 						for (GenomicInterval gi : res) {
 							Double sum = absCov.get(gi.toString());
 							if (sum == null)
@@ -429,7 +467,8 @@ public class CoverageTools {
 
 			if (out != null) {
 				out.println("# BED file: \t" + bedFile);
-				out.println("# Score files: \t" + Arrays.toString(covFiles.toArray()));
+				out.println("# Score files: \t"
+						+ Arrays.toString(covFiles.toArray()));
 				out.print("#chr\tmin\tmax\tname\twidth");
 				for (File covFile : covFiles)
 					out.print("\tavg.cov (" + covFile.getName() + ")");
@@ -437,11 +476,12 @@ public class CoverageTools {
 
 				for (GenomicInterval gi : bf.getIntervalsList()) {
 
-					out.format("%s\t%d\t%d\t%s\t%.0f", gi.getOriginalChrom(), gi.getMin(), gi.getMax(), gi.getId(), gi.getWidth());
+					out.format("%s\t%d\t%d\t%s\t%.0f", gi.getOriginalChrom(),
+							gi.getMin(), gi.getMax(), gi.getId(), gi.getWidth());
 
 					for (File covFile : covFiles) {
 						Map<File, Double> scores = allScores.get(gi.toString());
-						Double avg = scores==null?-1:scores.get(covFile);
+						Double avg = scores == null ? -1 : scores.get(covFile);
 						out.format("\t%.1f", avg);
 					}
 
@@ -473,7 +513,9 @@ public class CoverageTools {
 	 * @param covOut
 	 * @throws Throwable
 	 */
-	public static void calculateCoveragePerUCSCFeature(File covFile, File covVcfFile, File ucscFlatFile, PrintStream covOut) throws Throwable {
+	public static void calculateCoveragePerUCSCFeature(File covFile,
+			File covVcfFile, File ucscFlatFile, PrintStream covOut)
+			throws Throwable {
 		CoverageDecompressor cov = null;
 
 		try {
@@ -491,7 +533,8 @@ public class CoverageTools {
 			cov = CoverageDecompressor.loadFromFile(covFile, covVcfFile);
 			CoverageTools.debug = false;
 			if (debug)
-				System.out.println(Arrays.toString(cov.getChromosomes().toArray()));
+				System.out.println(Arrays.toString(cov.getChromosomes()
+						.toArray()));
 
 			covOut.println("min/max are gene positions; cov, width, avg.cov is calc only over exons.");
 			covOut.println("#chr\tmin\tmax\tname\tstrand\twidth\tcov\tavg.cov\tperc.uncov");
@@ -505,9 +548,11 @@ public class CoverageTools {
 				if (pos == null) {
 					break;
 				}
-				ExonChromosomeTree tree = (ExonChromosomeTree) trees.get(pos.getChromosomeOriginal());
+				ExonChromosomeTree tree = (ExonChromosomeTree) trees.get(pos
+						.getChromosomeOriginal());
 				if (tree == null) {
-					System.err.println("chromosome not found: " + pos.getChromosomeOriginal());
+					System.err.println("chromosome not found: "
+							+ pos.getChromosomeOriginal());
 					continue;
 				}
 				List<Interval<Long>> res = tree.query(pos.get0Position());
@@ -542,8 +587,12 @@ public class CoverageTools {
 				if (geneCov == null)
 					covOut.print("n/a\t");
 				else
-					covOut.print(toFloat((gene.getWidth() == null ? 0f : (geneCov / gene.getWidth())), 1) + "\t");
-				covOut.print(toFloat((posUnmapped == null ? 0f : (posUnmapped / gene.getWidth())), 1) + "\t");
+					covOut.print(toFloat((gene.getWidth() == null ? 0f
+							: (geneCov / gene.getWidth())), 1)
+							+ "\t");
+				covOut.print(toFloat((posUnmapped == null ? 0f
+						: (posUnmapped / gene.getWidth())), 1)
+						+ "\t");
 				covOut.println();
 			}
 
@@ -633,15 +682,21 @@ public class CoverageTools {
 	private static void usage(Options options, String subcommand, String e) {
 
 		if (subcommand == null) {
-			System.out.println("Usage:\t\tjava -jar x.jar " + CoverageTools.class + " <command> [options]:\t");
+			System.out.println("Usage:\t\tjava -jar x.jar "
+					+ CoverageTools.class + " <command> [options]:\t");
 			System.out.println();
-			System.out.println("Command:\tdumpCoverage\tDump a coverage iterator to stdout.");
+			System.out
+					.println("Command:\tdumpCoverage\tDump a coverage iterator to stdout.");
 			System.out
 					.println("Command:\tcancerNormalFilter\tExtract all variants that occur exclusively in the tumor sample (with sufficient coverage in the normal) and the ones that changed their genotype from HET to HOM.");
-			System.out.println("Command:\tcombineCoverageFiles\tCombine the coverage values from two coverage iterators.");
-			System.out.println("Command:\tcorrelateCoverageFiles\tCalculate the cross-correlation of two coverage signals.");
-			System.out.println("Command:\tcalculateCoveragePerBedFeature\tCalculates the base-coverage per feature in a passed BED file.");
-			System.out.println("Command:\tcalculateCoveragePerUCSCFeature\tCalculates the base-coverage per feature in a UCSC database");
+			System.out
+					.println("Command:\tcombineCoverageFiles\tCombine the coverage values from two coverage iterators.");
+			System.out
+					.println("Command:\tcorrelateCoverageFiles\tCalculate the cross-correlation of two coverage signals.");
+			System.out
+					.println("Command:\tcalculateCoveragePerBedFeature\tCalculates the base-coverage per feature in a passed BED file.");
+			System.out
+					.println("Command:\tcalculateCoveragePerUCSCFeature\tCalculates the base-coverage per feature in a UCSC database");
 			System.out.println();
 		} else {
 
@@ -650,7 +705,8 @@ public class CoverageTools {
 			hf.setDescPadding(2);
 			hf.setWidth(160);
 			hf.setSyntaxPrefix("Usage:    ");
-			hf.printHelp("java -jar x.jar " + CoverageTools.class + " " + subcommand, "Params:", options, "", true);
+			hf.printHelp("java -jar x.jar " + CoverageTools.class + " "
+					+ subcommand, "Params:", options, "", true);
 		}
 
 		if (e != null)
@@ -665,33 +721,6 @@ public class CoverageTools {
 	 */
 	public static void main(String[] args) throws Throwable {
 
-		// args = new String[] { "calculateCoveragePerBedFeature",
-		//
-		// "-cov",
-		// "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D21ANACXX_8_20130322B_20130325_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
-		// "-cov",
-		// "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D2295ACXX_6_20130409B_20130412_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
-		// "-cov",
-		// "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D2295ACXX_7_20130409B_20130412_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
-		// "-cov",
-		// "/project/oesi/borrelia/reads-ngm/run1se50/coverage/D2295ACXX_8_20130409B_20130412_1.trimmed.PLUS.bam.bedtoolscoverage.wig.codoc",
-		//
-		// "-o", "/project/oesi/borrelia/reads-ngm/run1se50/coverage/delme.csv",
-		// "-bed",
-		// "/project/oesi/borrelia/reads-ngm/run1se50/coverage/delme.bed" };
-
-		// args = new String[] { "dumpCoverage", "-cov",
-		// "/scratch/test/geuvadis_UCSC_Genome-sorted.bam.p005.comp", "-o",
-		// "/scratch/test/geuvadis_UCSC_Genome-sorted.bam.p005.comp.dump"
-		// };
-
-//		args = new String[] { "calculateCoveragePerBedFeature",
-//				"-bed", "/project/ngs-work/philipp/hfq-pd/bobsdata/aptamers/eck12_MG1655_ecoli-hfq_aptamers-chr.gff3.bed",
-//				"-cov", "/project/ngs-work/philipp/hfq-pd/reads-ngm-chr/coverage/codoc/3xF-PD-chr.bam.codoc",
-//				"-cov", "/project/ngs-work/philipp/hfq-pd/reads-ngm-chr/coverage/codoc/3xF-totRNA-chr.bam.codoc",
-//				"-o", "-"
-//		};
-		
 		// create the command line parser
 		CommandLineParser parser = new PosixParser();
 
@@ -722,7 +751,10 @@ public class CoverageTools {
 				opt.setRequired(false);
 				options.addOption(opt);
 
-				opt = new Option("ucscDb", true, "UCSC database file. Download from UCSC using the 'all fields from selected table' option.");
+				opt = new Option(
+						"ucscDb",
+						true,
+						"UCSC database file. Download from UCSC using the 'all fields from selected table' option.");
 				opt.setRequired(true);
 				options.addOption(opt);
 
@@ -743,15 +775,18 @@ public class CoverageTools {
 					out = new PrintStream(line.getOptionValue("o"));
 
 				File covFile = new File(line.getOptionValue("cov"));
-				File vcfFile = line.hasOption("vcf") ? new File(line.getOptionValue("vcf")) : null;
+				File vcfFile = line.hasOption("vcf") ? new File(
+						line.getOptionValue("vcf")) : null;
 				File ucscDbFile = new File(line.getOptionValue("ucscDb"));
 
-				calculateCoveragePerUCSCFeature(covFile, vcfFile, ucscDbFile, out);
+				calculateCoveragePerUCSCFeature(covFile, vcfFile, ucscDbFile,
+						out);
 
 				if (!line.getOptionValue("o").equals("-"))
 					out.close();
 				System.exit(0);
-			} else if (subcommand.equalsIgnoreCase("calculateCoveragePerBedFeature")) {
+			} else if (subcommand
+					.equalsIgnoreCase("calculateCoveragePerBedFeature")) {
 				options = new Options();
 
 				Option opt = new Option("cov", true, "Coverage.");
@@ -786,7 +821,8 @@ public class CoverageTools {
 				for (String f : line.getOptionValues("cov"))
 					covFiles.add(new File(f));
 
-				File vcfFile = line.hasOption("vcf") ? new File(line.getOptionValue("vcf")) : null;
+				File vcfFile = line.hasOption("vcf") ? new File(
+						line.getOptionValue("vcf")) : null;
 				File bedFile = new File(line.getOptionValue("bed"));
 
 				calculateCoveragePerBedFeature(covFiles, vcfFile, bedFile, out);
@@ -813,19 +849,23 @@ public class CoverageTools {
 				opt.setRequired(true);
 				options.addOption(opt);
 
-				opt = new Option("tumorOnly", true, "Output of filtered variants (VCF).");
+				opt = new Option("tumorOnly", true,
+						"Output of filtered variants (VCF).");
 				opt.setRequired(true);
 				options.addOption(opt);
 
-				opt = new Option("normalAlso", true, "Output of the variants that were found also in the normal (optional).");
+				opt = new Option("normalAlso", true,
+						"Output of the variants that were found also in the normal (optional).");
 				opt.setRequired(false);
 				options.addOption(opt);
 
-				opt = new Option("lowCoverage", true, "Output of the variants that had too low coverage in the normal (optional).");
+				opt = new Option("lowCoverage", true,
+						"Output of the variants that had too low coverage in the normal (optional).");
 				opt.setRequired(false);
 				options.addOption(opt);
 
-				opt = new Option("minCoverage", true, "Minimum coverage (default:2).");
+				opt = new Option("minCoverage", true,
+						"Minimum coverage (default:2).");
 				opt.setRequired(false);
 				options.addOption(opt);
 
@@ -847,12 +887,17 @@ public class CoverageTools {
 
 				File vcfOutFile = new File(line.getOptionValue("tumorOnly"));
 
-				int minCoverage = line.hasOption("minCoverage") ? Integer.parseInt(line.getOptionValue("minCoverage")) : 2;
+				int minCoverage = line.hasOption("minCoverage") ? Integer
+						.parseInt(line.getOptionValue("minCoverage")) : 2;
 
-				File normalAlsoFile = line.hasOption("normalAlso") ? new File(line.getOptionValue("normalAlso")) : null;
-				File lowCoverageFile = line.hasOption("lowCoverage") ? new File(line.getOptionValue("lowCoverage")) : null;
+				File normalAlsoFile = line.hasOption("normalAlso") ? new File(
+						line.getOptionValue("normalAlso")) : null;
+				File lowCoverageFile = line.hasOption("lowCoverage") ? new File(
+						line.getOptionValue("lowCoverage")) : null;
 
-				cancerNormalFilter(covTFile, vcfTFile, covNFile, vcfNFile, vcfOutFile, minCoverage, normalAlsoFile, lowCoverageFile);
+				cancerNormalFilter(covTFile, vcfTFile, covNFile, vcfNFile,
+						vcfOutFile, minCoverage, normalAlsoFile,
+						lowCoverageFile);
 
 				System.exit(0);
 			} else if (subcommand.equalsIgnoreCase("combineCoverageFiles")) {
@@ -862,7 +907,8 @@ public class CoverageTools {
 				opt.setRequired(true);
 				options.addOption(opt);
 
-				opt = new Option("cov1Vcf", true, "Compressed coverage 1 VCF file (optional).");
+				opt = new Option("cov1Vcf", true,
+						"Compressed coverage 1 VCF file (optional).");
 				opt.setRequired(false);
 				options.addOption(opt);
 
@@ -870,11 +916,13 @@ public class CoverageTools {
 				opt.setRequired(true);
 				options.addOption(opt);
 
-				opt = new Option("cov2Vcf", true, "Compressed coverage 2 VCF file (optional).");
+				opt = new Option("cov2Vcf", true,
+						"Compressed coverage 2 VCF file (optional).");
 				opt.setRequired(false);
 				options.addOption(opt);
 
-				opt = new Option("op", true, "Operator " + Arrays.toString(OPERATOR.values()));
+				opt = new Option("op", true, "Operator "
+						+ Arrays.toString(OPERATOR.values()));
 				opt.setRequired(true);
 				options.addOption(opt);
 
@@ -891,13 +939,17 @@ public class CoverageTools {
 					debug = false;
 
 				File cov1File = new File(line.getOptionValue("cov1"));
-				File cov1VcfFile = line.hasOption("cov1Vcf") ? new File(line.getOptionValue("cov1Vcf")) : null;
+				File cov1VcfFile = line.hasOption("cov1Vcf") ? new File(
+						line.getOptionValue("cov1Vcf")) : null;
 				File cov2File = new File(line.getOptionValue("cov2"));
-				File cov2VcfFile = line.hasOption("cov2Vcf") ? new File(line.getOptionValue("cov2Vcf")) : null;
+				File cov2VcfFile = line.hasOption("cov2Vcf") ? new File(
+						line.getOptionValue("cov2Vcf")) : null;
 				File covOut = new File(line.getOptionValue("o"));
-				OPERATOR op = (OPERATOR) StringUtils.findInEnum(line.getOptionValue("op"), OPERATOR.values());
+				OPERATOR op = (OPERATOR) StringUtils.findInEnum(
+						line.getOptionValue("op"), OPERATOR.values());
 
-				combineCoverageFiles(cov1File, cov1VcfFile, cov2File, cov2VcfFile, op, covOut);
+				combineCoverageFiles(cov1File, cov1VcfFile, cov2File,
+						cov2VcfFile, op, covOut);
 				System.exit(0);
 			} else if (subcommand.equalsIgnoreCase("correlateCoverageFiles")) {
 				options = new Options();
@@ -906,7 +958,8 @@ public class CoverageTools {
 				opt.setRequired(true);
 				options.addOption(opt);
 
-				opt = new Option("cov1Vcf", true, "Compressed coverage 1 VCF file (optional).");
+				opt = new Option("cov1Vcf", true,
+						"Compressed coverage 1 VCF file (optional).");
 				opt.setRequired(false);
 				options.addOption(opt);
 
@@ -914,7 +967,8 @@ public class CoverageTools {
 				opt.setRequired(true);
 				options.addOption(opt);
 
-				opt = new Option("cov2Vcf", true, "Compressed coverage 2 VCF file (optional).");
+				opt = new Option("cov2Vcf", true,
+						"Compressed coverage 2 VCF file (optional).");
 				opt.setRequired(false);
 				options.addOption(opt);
 
@@ -931,14 +985,17 @@ public class CoverageTools {
 					debug = false;
 
 				File cov1File = new File(line.getOptionValue("cov1"));
-				File cov1VcfFile = line.hasOption("cov1Vcf") ? new File(line.getOptionValue("cov1Vcf")) : null;
+				File cov1VcfFile = line.hasOption("cov1Vcf") ? new File(
+						line.getOptionValue("cov1Vcf")) : null;
 				File cov2File = new File(line.getOptionValue("cov2"));
-				File cov2VcfFile = line.hasOption("cov2Vcf") ? new File(line.getOptionValue("cov2Vcf")) : null;
+				File cov2VcfFile = line.hasOption("cov2Vcf") ? new File(
+						line.getOptionValue("cov2Vcf")) : null;
 				PrintStream corrOut = System.out;
 				if (!line.getOptionValue("o").equals("-"))
 					corrOut = new PrintStream(line.getOptionValue("o"));
 
-				correlateCoverageFiles(cov1File, cov1VcfFile, cov2File, cov2VcfFile, corrOut);
+				correlateCoverageFiles(cov1File, cov1VcfFile, cov2File,
+						cov2VcfFile, corrOut);
 
 				if (!line.getOptionValue("o").equals("-"))
 					corrOut.close();
@@ -950,7 +1007,8 @@ public class CoverageTools {
 				opt.setRequired(true);
 				options.addOption(opt);
 
-				opt = new Option("covVcf", true, "Compressed coverage VCF file (optional).");
+				opt = new Option("covVcf", true,
+						"Compressed coverage VCF file (optional).");
 				opt.setRequired(false);
 				options.addOption(opt);
 
@@ -967,7 +1025,8 @@ public class CoverageTools {
 					debug = false;
 
 				File covFile = new File(line.getOptionValue("cov"));
-				File covVcfFile = line.hasOption("covVcf") ? new File(line.getOptionValue("covVcf")) : null;
+				File covVcfFile = line.hasOption("covVcf") ? new File(
+						line.getOptionValue("covVcf")) : null;
 
 				PrintStream out = System.out;
 				if (!line.getOptionValue("o").equals("-"))
