@@ -15,6 +15,12 @@ import at.cibiv.ngs.tools.util.DebugUtil;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
 
+/**
+ * Measure compression/decompression performance.
+ * @author niko.popitsch@univie.ac.at
+ *
+ */
+@Deprecated
 public class PerformanceDecompressorTest {
 
 	String bam = "src/test/resources/covcompress/small.bam";

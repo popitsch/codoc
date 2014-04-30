@@ -86,25 +86,4 @@ public class MathUtils {
 		return decimalFormat1.format(num);
 	}
 
-//	/**
-//	 * Debugging.
-//	 * @param args
-//	 * @throws CodocException 
-//	 */
-//	public static void main(String[] args) throws CodocException {
-//		
-//		for ( int i = 0; i < 10; i++) {
-//			long ld = MathUtils.ldfloor(i);
-//			
-//			long lower = i==0?0:MathUtils.pow2(ld);
-//			long upper = i==0?0:MathUtils.pow2(ld+1);
-//			
-//			
-//			System.out.println(i + " -> ld " + ld + " [" + lower + "," + upper + "]");
-//			if ( ! ( ( i >= lower) &&  ( i <= upper) ) )
-//				System.err.println("Err");
-//		}
-//
-//	}
-
 }

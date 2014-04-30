@@ -219,44 +219,5 @@ public class PrefixInputStream<S> implements PopableStream<String> {
 		return readChars;
 	}
 
-	/**
-	 * Debugging.
-	 * 
-	 * @param args
-	 * @throws IOException
-	 */
-	public static void main(String[] args) throws IOException {
-
-		ByteArrayOutputStream data = new ByteArrayOutputStream();
-		ByteArrayOutputStream len = new ByteArrayOutputStream();
-		ByteArrayOutputStream map = new ByteArrayOutputStream();
-
-		PrefixOutputStream<Character> so = new PrefixOutputStream<Character>(data, len, map, Character.class, true,
-				false);
-		for (int i = 0; i < 1000; i++)
-			for (int ii = 0; ii < 1000; ii++)
-				for (int iii = 0; ii < 1000; ii++) {
-					so.push("HWI-ST815:49:C02HFABXX:4:" + i + ":" + ii + ":" + iii);
-				}
-
-		so.close();
-
-		ByteArrayInputStream datai = new ByteArrayInputStream(data.toByteArray());
-		ByteArrayInputStream leni = new ByteArrayInputStream(len.toByteArray());
-		ByteArrayInputStream mapi = new ByteArrayInputStream(map.toByteArray());
-
-		PrefixInputStream<Character> si = new PrefixInputStream<Character>(datai, leni, mapi, Character.class, true,
-				false);
-		String t = null;
-		while ((t = si.next()) != null) {
-			// System.out.println(t);
-		}
-		long size = data.size() + len.size() + map.size();
-
-		System.out.println("Retrieved strings " + si.getDeliveredStrings() + " with " + si.getReadChars()
-				+ " chars that used " + size + " bytes (" + ((float) size * 8f / (float) si.getReadChars())
-				+ " bits/char)");
-
-	}
 
 }

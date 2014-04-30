@@ -169,50 +169,5 @@ public class GolombInputStream<T> extends InputStream implements PopableStream<T
 		return "[GolombInputStream (k=" + k + ">]";
 	}
 
-	/**
-	 * @param args
-	 * @throws IOException
-	 */
-	public static void main(String[] args) throws IOException {
-
-		int x = 1000;
-		File f = new File("c:/data/bio/sam-testsuite/golo.tmp");
-
-		Random rand = new Random();
-		int[] nums = new int[x];
-		int k = 1;
-
-		long t = System.currentTimeMillis();
-		GolombOutputStream<Integer> o = new GolombOutputStream<Integer>(new FileOutputStream(f), k, Integer.class);
-		for (int i = 0; i < x; i++) {
-			int r = rand.nextInt(10);
-			nums[i] = r;
-			o.write(r);
-		}
-		o.close();
-		System.out.println("Wrote " + x + " golomb numbers between 0 and 99 in " + (System.currentTimeMillis() - t)
-				+ "ms.");
-		System.out.println("Size: " + f.length() + ", uncompressed (int) : " + (x * 4) + ", uncompressed (long) : "
-				+ (x * 8));
-		t = System.currentTimeMillis();
-
-		GolombInputStream<Integer> in = new GolombInputStream<Integer>(new FileInputStream(f), k, Integer.class);
-		int i = 0;
-		while (in.available() > 0) {
-			System.out.println(i);
-			int c = in.pop();
-			int r = nums[i];
-			if (r != c)
-				System.out.println("Error: " + c);
-			i++;
-			if (i % 1000000 == 0)
-				System.out.print(".");
-			if (i % 10000000 == 0)
-				System.out.println();
-		}
-		in.close();
-		System.out.println("Read " + i + " golomb numbers in " + (System.currentTimeMillis() - t) + "ms.");
-
-	}
 
 }

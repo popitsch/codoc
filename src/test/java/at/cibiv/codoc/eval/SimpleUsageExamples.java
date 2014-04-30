@@ -2,7 +2,6 @@ package at.cibiv.codoc.eval;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 
 import at.cibiv.codoc.CompressedCoverageIterator;
 import at.cibiv.codoc.CoverageDecompressor;
@@ -71,7 +70,6 @@ public class SimpleUsageExamples {
 			cov2.close();
 		}
 	}
-
 
 	/**
 	 * @param args

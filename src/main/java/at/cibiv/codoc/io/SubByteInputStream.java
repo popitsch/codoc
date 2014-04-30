@@ -151,30 +151,5 @@ public class SubByteInputStream implements PopableStream<Integer> {
 		return "[DataSymbolInputStream]";
 	}
 
-	/**
-	 * @param args
-	 * @throws IOException
-	 */
-	public static void main(String[] args) throws IOException {
-
-		ByteArrayOutputStream bout = new ByteArrayOutputStream();
-		SubByteOutputStream dout = new SubByteOutputStream(bout, SYMBOLS.values().length);
-		dout.push(SYMBOLS.A.ordinal());
-		dout.push(SYMBOLS.A.ordinal());
-		dout.push(SYMBOLS.A.ordinal());
-		dout.push(SYMBOLS.A.ordinal());
-		dout.push(SYMBOLS.A.ordinal());
-		dout.push(SYMBOLS.A.ordinal());
-		dout.push(null);
-		dout.close();
-		System.out.println("used " + bout.toByteArray().length + " bytes");
-
-		ByteArrayInputStream bin = new ByteArrayInputStream(bout.toByteArray());
-		SubByteInputStream din = new SubByteInputStream(bin, SYMBOLS.values().length);
-		while (din.available() > 0) {
-			System.out.println("R " + din.pop());
-		}
-
-	}
 
 }

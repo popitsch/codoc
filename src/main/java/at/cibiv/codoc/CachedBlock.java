@@ -1,8 +1,6 @@
 package at.cibiv.codoc;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -13,7 +11,7 @@ import at.cibiv.ngs.tools.util.GenomicPosition;
  * A memory-cached block of codewords.
  * 
  * @author niko.popitsch@univie.ac.at
- *
+ * 
  */
 public class CachedBlock {
 
@@ -112,62 +110,6 @@ public class CachedBlock {
 
 	public CachedBlockIterator iterator(List<String> chroms, float scaleFactor) throws CodocException {
 		return new CachedBlockIterator(this, chroms, scaleFactor);
-	}
-
-	public static void main(String[] args) throws CodocException {
-		String chr = "chr1";
-		int blockIdx = 1;
-		List<Integer> positions = new ArrayList<Integer>() {
-			{
-				add(10);
-				add(20);
-				add(30);
-				add(40);
-			}
-		};
-		List<Integer> coverages = new ArrayList<Integer>() {
-			{
-				add(1);
-				add(10);
-				add(5);
-				add(0);
-			}
-		};
-		List<Integer> coverages2 = new ArrayList<Integer>() {
-			{
-				add(0);
-				add(5);
-				add(10);
-				add(1);
-			}
-		};
-		Map<String, List<Integer>> p = new HashMap<String, List<Integer>>();
-		Map<String, List<Integer>> c = new HashMap<String, List<Integer>>();
-		Map<String, List<Integer>> c2 = new HashMap<String, List<Integer>>();
-		p.put(chr, positions);
-		c.put(chr, coverages);
-		c2.put(chr, coverages2);
-
-		CachedBlock cb = new CachedBlock(blockIdx, p, c, c2);
-
-		// for (int q = 1; q < 50; q++) {
-		// GenomicPosition x = new GenomicPosition(chr, q, COORD_TYPE.ONEBASED);
-		// System.out.println(x.toString1basedOrig() + " -> " + cb.query(x,
-		// 1.0f));
-		// }
-
-		List<String> chrs = new ArrayList<>();
-		chrs.add("chr1");
-		CachedBlockIterator it = cb.iterator(chrs, 1.0f);
-
-		while (it.hasNext()) {
-			Float hit = it.next();
-			if (hit == null)
-				System.out.println("EOF");
-			else
-				System.out.println(it.getGenomicPosition().toString1basedOrig() + " -> " + hit);
-		}
-
 	}
 
 	/**

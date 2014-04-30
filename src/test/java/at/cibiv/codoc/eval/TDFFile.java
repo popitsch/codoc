@@ -33,12 +33,13 @@ public class TDFFile {
 				System.out.println("No dataset " + dsname + " in " + reader.getDatasetNames());
 				continue;
 			}
-//			System.out.println("Dataset: " + dsname );
+			// System.out.println("Dataset: " + dsname );
 			for (TDFTile t : data.getTiles()) {
 				for (int i = 0; i < t.getStart().length; i++) {
-					long start1 = t.getStart()[i]+1;
-//					if ( start1==100001)
-//						System.out.println(t.getStartPosition(i) + "," + t.getEndPosition(i) + "," + t.getNames());
+					long start1 = t.getStart()[i] + 1;
+					// if ( start1==100001)
+					// System.out.println(t.getStartPosition(i) + "," +
+					// t.getEndPosition(i) + "," + t.getNames());
 					long end1 = t.getEnd()[i];
 					float coverage = t.getData(0)[i];
 					GenomicInterval gi = new GenomicInterval(StringUtils.prefixedChr(chr), start1, end1, coverage + "");
@@ -57,49 +58,14 @@ public class TDFFile {
 		if ((ret == null) || (ret.isEmpty()))
 			return null;
 		GenomicInterval gi = ret.iterator().next();
-		if ( ret.size()>1) {
-			//System.out.println("AMB " + ret);
-			for ( GenomicInterval mayberight : ret )
-				if ( mayberight.getMin().equals( mayberight.getMax() ) )
+		if (ret.size() > 1) {
+			// System.out.println("AMB " + ret);
+			for (GenomicInterval mayberight : ret)
+				if (mayberight.getMin().equals(mayberight.getMax()))
 					gi = mayberight;
 		}
 		return Float.parseFloat(gi.getUri());
 	}
-
-	// public Float slowQuery(GenomicPosition pos) throws IOException {
-	//
-	// if (!cache.getChromosomes().contains(pos.getChromosome())) {
-	//
-	// String dsname = "/" + pos.getChromosomeOriginal() + "/raw";
-	// TDFDataset data = datasets.get(dsname);
-	// if (data == null) {
-	// // try with prefixed name
-	// dsname = "/" + StringUtils.prefixedChr(pos.getChromosome()) + "/raw";
-	// data = datasets.get(dsname);
-	// }
-	// if (data == null)
-	// throw new IOException("Could not find dataset " + dsname + ":" +
-	// Arrays.toString(reader.getDatasetNames().toArray()));
-	//
-	// for (TDFTile t : data.getTiles()) {
-	// for (int i = 0; i < t.getStart().length; i++) {
-	// int start1 = t.getStart()[i] + 1;
-	// int end1 = t.getEnd()[i] + 1;
-	// GenomicInterval gi = new GenomicInterval(pos.getChromosome(), min, max,
-	// uri)
-	// cache.insert(gi)
-	//
-	//
-	// if ((pos.get1Position() >= start1) && (pos.get1Position() < end1)) {
-	// // System.out.println(start1 + "-" + end1 + " " +
-	// // pos.toString1based());
-	// return t.getData(0)[i];
-	// }
-	// }
-	// }
-	// }
-	// return null;
-	// }
 
 	/**
 	 * @param args
@@ -107,10 +73,9 @@ public class TDFFile {
 	 */
 	public static void main(String[] args) throws IOException {
 
-		TDFFile test = new TDFFile(new File("/scratch/testbams/evaluation2/13524_ATCACG_D223KACXX_3_20130430B_20130430_1.trimmed.bam-WRG.bam.1.tdf"));
+		TDFFile test = new TDFFile(new File("xxx"));
 
-		TabIterator it = new TabIterator(new File(
-				"/scratch/testbams/evaluation2/13524_ATCACG_D223KACXX_3_20130430B_20130430_1.trimmed.bam-WRG.bam.helper.rawcoverage"), "#");
+		TabIterator it = new TabIterator(new File("helper.rawcoverage"), "#");
 		while (it.hasNext()) {
 			String[] t = it.next();
 			String chr = t[0];
@@ -119,8 +84,8 @@ public class TDFFile {
 			float realCoverage = Float.parseFloat(t[2]);
 			Float queried = test.query(pos);
 			if (queried == null)
-				queried=0f;
-			
+				queried = 0f;
+
 			if (realCoverage != queried) {
 				System.out.println(pos.toString1based() + ": " + realCoverage + "!=" + queried);
 			}

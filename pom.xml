@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>codoc</groupId>
 	<artifactId>codoc</artifactId>
-	<version>0.0.1</version>
+	<version>0.0.2</version>
 	<name>CODOC</name>
 	<description>Compression of HTS coverage data</description>
 

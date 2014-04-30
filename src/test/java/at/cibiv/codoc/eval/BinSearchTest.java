@@ -3,6 +3,11 @@ package at.cibiv.codoc.eval;
 import java.util.Arrays;
 import java.util.Random;
 
+/**
+ * Tests binary search methods.
+ * @author niko.popitsch@univie.ac.at
+ *
+ */
 public class BinSearchTest {
 
 	private int[] startPos;

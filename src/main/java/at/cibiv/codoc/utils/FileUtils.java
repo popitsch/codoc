@@ -202,7 +202,7 @@ public class FileUtils {
 	}
 
 	/**
-	 * gzip a file. Automatic garbage collection each ~500 calls.
+	 * GZIPs a file. Automatic garbage collection after ~500 calls.
 	 * 
 	 * @param in
 	 * @param out
@@ -280,7 +280,7 @@ public class FileUtils {
 	}
 
 	/**
-	 * gzip a file.
+	 * bzip2 a file. Automatic garbage collection after ~500 calls.
 	 * 
 	 * @param in
 	 * @param out
@@ -445,24 +445,5 @@ public class FileUtils {
 		return f;
 	}
 
-	/**
-	 * Debugging.
-	 * 
-	 * @param args
-	 * @throws IOException
-	 */
-	public static void main(String[] args) throws IOException {
-		File test = new File("null");
-		File test2 = new File("null2");
-		long start = System.currentTimeMillis();
-		for (int i = 0; i < 1000 * 1000; i++) {
-			gzipFile(test, test2, 1000);
-			if (i % 1000 == 0) {
-				Long now = System.currentTimeMillis();
-				System.out.println("it " + i + "(" + (double) i/ (double) (now-start) + ")");
-			}
-		}
-		System.out.println("Finished.");
-	}
 
 }

@@ -574,19 +574,5 @@ public class StreamFactory {
 		}
 	}
 
-	public static void main(String[] args) throws IOException, Throwable {
-		System.out.println(StreamFactory.createOutputStream(System.out, PropertyConfiguration.fromString("test-type=golomb\ntest-k=12"), "test"));
-		System.out.println(StreamFactory.createOutputStream(System.out,
-				PropertyConfiguration.fromString("test-type=rle\ntest-datatype=byte\ntest-lengthtype=byte"), "test"));
-		System.out.println(StreamFactory.createOutputStream(System.out, PropertyConfiguration.fromString("test-type=standard\ntest-datatype=byte"), "test"));
-		System.out.println(StreamFactory.createOutputStream(System.out, PropertyConfiguration.fromString("test-type=null\ntest-datatype=byte"), "test"));
-
-		System.out.println(StreamFactory.createInputStream(null, PropertyConfiguration.fromString("test-type=golomb\ntest-k=12"), "test"));
-		System.out.println(StreamFactory.createInputStream(null, PropertyConfiguration.fromString("test-type=rle\ntest-datatype=byte\ntest-lengthtype=byte"),
-				"test"));
-		System.out.println(StreamFactory.createInputStream(null, PropertyConfiguration.fromString("test-type=standard\ntest-datatype=byte"), "test"));
-		System.out.println(StreamFactory.createInputStream(null, PropertyConfiguration.fromString("test-type=null\ntest-datatype=byte"), "test"));
-
-	}
 
 }

@@ -9,12 +9,17 @@ import java.util.List;
 import at.cibiv.codoc.CompressedCoverageIterator;
 import at.cibiv.codoc.CoverageCompressor;
 import at.cibiv.codoc.CoverageDecompressor;
-import at.cibiv.codoc.CoverageHit;
 import at.cibiv.codoc.SyncedCompressedCoverageIterator;
 import at.cibiv.ngs.tools.bed.BedToolsCoverageIterator;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
 
+/**
+ * Tests the sync. iterator. FIXME: under construction.
+ * 
+ * @author niko.popitsch@univie.ac.at
+ * 
+ */
 public class SyncedCoverageIteratorTest {
 
 	public static void addCov(String chr, int pos1, int cov, List<Integer> coverageValues, List<Integer> posValues, List<String> refValues) {
@@ -34,12 +39,11 @@ public class SyncedCoverageIteratorTest {
 			String ref = refit.next();
 			int pos = posit.next();
 			int cov = it.next();
-			
-			
+
 			o.println(ref + "\t" + pos + "\t" + cov);
 		}
 		BedToolsCoverageIterator bit = new BedToolsCoverageIterator(temp, COORD_TYPE.ONEBASED, 1.0f);
-		while ( bit.hasNext()) {
+		while (bit.hasNext()) {
 			double cov = bit.next();
 			System.err.println(bit.getGenomicPosition().toString1basedOrig() + "\t" + cov);
 		}
@@ -88,11 +92,11 @@ public class SyncedCoverageIteratorTest {
 
 		File temp1 = new File("temp1.delme");
 		CoverageDecompressor cov1 = getCoverageDecompressor(ref1, pos1, cv1, temp1);
-		
 
-		//CompressedCoverageIterator it1 = cov1.getCoverageIterator(new GenomicPosition("chr1", 1));
+		// CompressedCoverageIterator it1 = cov1.getCoverageIterator(new
+		// GenomicPosition("chr1", 1));
 		CompressedCoverageIterator it1 = cov1.getCoverageIterator();
-		System.out.println(it1 );
+		System.out.println(it1);
 		while (it1.hasNext()) {
 			Float h1 = it1.next();
 			System.out.println(it1.getGenomicPosition().toString1based() + "\t" + h1);
@@ -100,13 +104,12 @@ public class SyncedCoverageIteratorTest {
 		System.out.println("--------------");
 
 		cov1.interactiveQuerying();
-		
-		
+
 		File temp2 = new File("temp2.delme");
 		CoverageDecompressor cov2 = getCoverageDecompressor(ref2, pos2, cv2, temp2);
-		
+
 		CompressedCoverageIterator it2 = cov2.getCoverageIterator(new GenomicPosition("chr1", 1));
-		//it2 = cov2.getCoverageIterator(new GenomicPosition("chr3", 1));
+		// it2 = cov2.getCoverageIterator(new GenomicPosition("chr3", 1));
 		while (it2.hasNext()) {
 			Float h2 = it2.next();
 			System.out.println(it2.getGenomicPosition().toString1based() + "\t" + h2);

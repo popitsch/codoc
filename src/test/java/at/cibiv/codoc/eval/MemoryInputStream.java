@@ -15,6 +15,12 @@ import at.cibiv.codoc.io.StreamFactory;
 import at.cibiv.codoc.utils.PropertyConfiguration;
 import at.cibiv.ngs.tools.util.MathUtil;
 
+/**
+ * Tests a memoryinput stream implementation 
+ * @author niko.popitsch@univie.ac.at
+ *
+ */
+@Deprecated
 public class MemoryInputStream implements PopableStream<Integer> {
 
 	File inFile = null;

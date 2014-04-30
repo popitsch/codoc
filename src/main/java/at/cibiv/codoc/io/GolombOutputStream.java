@@ -243,59 +243,6 @@ public class GolombOutputStream<T> extends OutputStream implements PushableStrea
 		return datatype;
 	}
 
-	/**
-	 * @param args
-	 * @throws IOException
-	 */
-	public static void main(String[] args) throws IOException {
-
-		System.out.println(GolombOutputStream.calcK(0));
-		
-		// System.out.println(GolombOutputStream.calcK(11.70f));
-
-		// long t = System.currentTimeMillis();
-		// GolombOutputStream o = new GolombOutputStream(new
-		// FileOutputStream("c:/data/bio/sam-testsuite/golo.tmp"), 16);
-		// FileOutputStream o2 = new
-		// FileOutputStream("c:/data/bio/sam-testsuite/raw.tmp");
-		// Random rand = new Random();
-		// for (int i = 0; i < 1000000; i++) {
-		// long x = rand.nextInt(100); // M = 4 : compression > 50%
-		// o.write(x);
-		// o2.write(MathUtil.long2byte(x));
-		// if (i % 1000 == 0)
-		// System.out.print(".");
-		// }
-		// o.close();
-		// o2.close();
-		// System.out.println("Finished in " + (System.currentTimeMillis() - t)
-		// + "ms.");
-		//
-		// GolombOutputStream o = new GolombOutputStream(new
-		// FileOutputStream("c:/data/bio/sam-testsuite/golo.tmp"), 4);
-		// ByteRLE r = new ByteRLE((byte) CharEncoder.CHARACTERS.E.ordinal());
-		// r.inc();
-		// System.out.println(r);
-		// r.write(o);
-		// r = new ByteRLE((byte) CharEncoder.CHARACTERS.A.ordinal());
-		// r.inc();
-		// r.inc();
-		// System.out.println(r);
-		// r.write(o);
-		// o.close();
-		//
-		// GolombInputStream in = new GolombInputStream(new
-		// FileInputStream("c:/data/bio/sam-testsuite/golo.tmp"), 4);
-		// ByteRLE t = new ByteRLE((byte) 0);
-		// t.read(in);
-		// System.err.println(t);
-		// t.read(in);
-		// System.err.println(t);
-		for (int i = 0; i < 30; i++)
-			System.out.println(i + " => " + GolombOutputStream.calcK(i));
-
-	}
-
 	@Override
 	public void flush() throws IOException {
 		super.flush();

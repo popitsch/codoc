@@ -43,10 +43,10 @@ public class SyncedCoverageIteratorComparator implements Iterator<GenomicPositio
 	double diffPos = 0d;
 	double meanDiffSum = 0d;
 	double countPos = 0;
-	
+
 	File fileReal = null;
 	File fileFound = null;
-	
+
 	List<String> chroms = null;
 	List<String> chromsPrefixed = null;
 
@@ -63,7 +63,7 @@ public class SyncedCoverageIteratorComparator implements Iterator<GenomicPositio
 		this.chromsPrefixed = new ArrayList<>();
 		if (chroms != null)
 			for (String c : chroms)
-				chromsPrefixed.add(StringUtils.prefixedChr(c));		
+				chromsPrefixed.add(StringUtils.prefixedChr(c));
 	}
 
 	/**
@@ -74,27 +74,27 @@ public class SyncedCoverageIteratorComparator implements Iterator<GenomicPositio
 	 * @param pos
 	 */
 	private void measure(Double real, Double found, GenomicPosition pos) {
-		
+
 		// skip chrom?
 		if (chroms != null) {
-			if (!chromsPrefixed.contains(StringUtils.prefixedChr(pos.getChromosome()))) 
+			if (!chromsPrefixed.contains(StringUtils.prefixedChr(pos.getChromosome())))
 				return;
 		}
-		
+
 		countPos++;
 		if (real == null)
 			real = 0d;
 		if (found == null)
 			found = 0d;
 		double diff = found - real;
-		
-		
-//		if ( Math.abs(diff) > 0) {
-//			System.err.println("ERR at " + pos.toString1based() + ": " + real + " vs " + found);
-//			((TDFIterator) it2 ).debug();
-//			System.exit(1);
-//		}
-		
+
+		// if ( Math.abs(diff) > 0) {
+		// System.err.println("ERR at " + pos.toString1based() + ": " + real +
+		// " vs " + found);
+		// ((TDFIterator) it2 ).debug();
+		// System.exit(1);
+		// }
+
 		if (Math.abs(diff) > maxDiff) {
 			maxDiff = Math.max(maxDiff, Math.abs(diff));
 			maxDiffPos = pos;
@@ -119,7 +119,6 @@ public class SyncedCoverageIteratorComparator implements Iterator<GenomicPositio
 		buckets.put(bucketId, data);
 	}
 
-
 	/**
 	 * Position iterators above each other.
 	 * 
@@ -134,13 +133,13 @@ public class SyncedCoverageIteratorComparator implements Iterator<GenomicPositio
 		cachedCov2 = it2.nextCoveragePrecise();
 		GenomicPosition pos1 = it1.getGenomicPosition();
 		GenomicPosition pos2 = it2.getGenomicPosition();
-		
+
 		while (!pos1.equals(pos2)) {
 			while (pos1.compareTo(pos2) < 0) {
 				if (!it1.hasNext()) {
 					return null;
 				}
-				measure( cachedCov1, 0d, pos1 );
+				measure(cachedCov1, 0d, pos1);
 				cachedCov1 = it1.nextCoveragePrecise();
 				pos1 = it1.getGenomicPosition();
 			}
@@ -199,7 +198,6 @@ public class SyncedCoverageIteratorComparator implements Iterator<GenomicPositio
 		return cachedCov2;
 	}
 
-
 	public File getFileReal() {
 		return fileReal;
 	}
@@ -218,10 +216,10 @@ public class SyncedCoverageIteratorComparator implements Iterator<GenomicPositio
 
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		sb.append("real\t"+ getFileReal() + "\n");
-		sb.append("found\t"+ getFileFound() + "\n");
-		sb.append("size-real\t"+ getFileReal().length() + "\n");
-		sb.append("size-found\t"+ getFileFound().length() + "\n");
+		sb.append("real\t" + getFileReal() + "\n");
+		sb.append("found\t" + getFileFound() + "\n");
+		sb.append("size-real\t" + getFileReal().length() + "\n");
+		sb.append("size-found\t" + getFileFound().length() + "\n");
 		sb.append("count-pos\t" + String.format("%1$,.0f", countPos) + "\n");
 		sb.append("maxi-diff\t" + maxDiff + "\n");
 		if (maxDiffPos != null)
@@ -247,6 +245,7 @@ public class SyncedCoverageIteratorComparator implements Iterator<GenomicPositio
 
 	/**
 	 * Instantiate an iterator.
+	 * 
 	 * @param f
 	 * @param chromosomes
 	 * @return
@@ -271,9 +270,9 @@ public class SyncedCoverageIteratorComparator implements Iterator<GenomicPositio
 		return ret;
 	}
 
-	
 	/**
 	 * Compare two iterators and print stats.
+	 * 
 	 * @param real
 	 * @param found
 	 * @param chroms
@@ -287,14 +286,14 @@ public class SyncedCoverageIteratorComparator implements Iterator<GenomicPositio
 			throw new IOException("Could not instatiate " + real);
 		if (itFound == null)
 			throw new IOException("Could not instatiate " + found);
-		
+
 		SyncedCoverageIteratorComparator sync = new SyncedCoverageIteratorComparator(itReal, itFound, chroms);
-		sync.setFileReal( real );
-		sync.setFileFound( found );
-		
+		sync.setFileReal(real);
+		sync.setFileFound(found);
+
 		while (sync.hasNext()) {
 			GenomicPosition pos = sync.next();
-			if ( pos.get0Position() % 10000000 == 0 )
+			if (pos.get0Position() % 10000000 == 0)
 				System.out.println("Handled " + pos);
 		}
 		out.println(sync);
@@ -303,35 +302,9 @@ public class SyncedCoverageIteratorComparator implements Iterator<GenomicPositio
 
 	/**
 	 * @param args
-	 * @throws Throwable 
+	 * @throws Throwable
 	 */
 	public static void main(String[] args) throws Throwable {
-//		args=new String[] {
-//				"/project/oesi/bgraph/compression-eval/data/sakai_mis_2x150pb-both-trimmed/sakai_mis_2x150pb-both-trimmed.bam.bedtoolscoverage",
-//				"/project/oesi/bgraph/compression-eval/data/sakai_mis_2x150pb-both-trimmed/sakai_mis_2x150pb-both-trimmed.bam.w1.tdf",
-//				"gi|15829254|ref|NC_002695.1|,gi|10955266|ref|NC_002128.1|,gi|10955262|ref|NC_002127.1|",
-//				"/project/oesi/bgraph/compression-eval/data/sakai_mis_2x150pb-both-trimmed/delme.txt"
-//				};
-//		args=new String[] {
-//				"/project/oesi/bgraph/compression-eval/data/sakai_mis_2x250pb-both-trimmed/sakai_mis_2x250pb-both-trimmed.bam.bedtoolscoverage",
-//				"/project/oesi/bgraph/compression-eval/data/sakai_mis_2x250pb-both-trimmed/sakai_mis_2x250pb-both-trimmed.bam.w1.tdf",
-//				"gi|15829254|ref|NC_002695.1|,gi|10955266|ref|NC_002128.1|,gi|10955262|ref|NC_002127.1|",
-//				"/project/oesi/bgraph/compression-eval/data/sakai_mis_2x250pb-both-trimmed/delme.txt"
-//				};
-//		args=new String[] {
-//				"/project/oesi/bgraph/compression-eval/data/sakai_pgm_400bp/sakai_pgm_400bp.bam.bedtoolscoverage",
-//				"/project/oesi/bgraph/compression-eval/data/sakai_pgm_400bp/sakai_pgm_400bp.bam.w1.tdf",
-//				"gi|15829254|ref|NC_002695.1|,gi|10955266|ref|NC_002128.1|,gi|10955262|ref|NC_002127.1|",
-//				"/project/oesi/bgraph/compression-eval/data/sakai_pgm_400bp/delme.txt"
-//				};
-
-		args=new String[] {
-		"/project/oesi/bgraph/compression-eval/results-human-NA12878/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped.bam.1.tdf",
-		"/project/oesi/bgraph/compression-eval/results-human-NA12878/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped.bam.helper.rawcoverage",
-		"chr20",
-		"-"
-		//"/project/oesi/bgraph/compression-eval/data/geuvadis_UCSC_Genome/delme.txt"
-		};
 
 		if (args.length < 4)
 			throw new RuntimeException("usage: SyncedCoverageIteratorComparator <real> <found> <chroms> <results>");

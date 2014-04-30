@@ -12,6 +12,12 @@ import at.cibiv.ngs.tools.util.DebugUtil;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
 
+/**
+ * Measure random access speed.
+ * 
+ * @author niko.popitsch@univie.ac.at
+ * 
+ */
 public class RandomAccessTest {
 
 	static Random rand = new Random();
@@ -34,13 +40,6 @@ public class RandomAccessTest {
 	 * @throws Throwable
 	 */
 	public static void main(String[] args) throws Throwable {
-
-		args = new String[] {
-				// "/scratch/test/NA12878.HiSeq.WGS.bwa.cleaned.recal.hg19.20-nounmapped-FILTERED.bam.p0.comp",
-				"/scratch/test/geuvadis_UCSC_Genome-sorted.bam.p005.comp",
-
-				"/project/ngs-work/meta/reference/genomes/hg19_human/hg19.fa.chrSizes", "1000", "false" };
-
 		if (args.length < 1)
 			throw new RuntimeException("usage: RandomAccessTest <covFile> <chrlenFile> <n> [<nocaching>] [<vcfFile>]");
 		File covFile = new File(args[0]);
@@ -56,7 +55,7 @@ public class RandomAccessTest {
 			conf.setProperty(CoverageDecompressor.OPT_VCF_FILE, vcfFile.getAbsolutePath());
 		conf.setProperty(CoverageDecompressor.OPT_CHR_LEN_FILE, chrlenFile.getAbsolutePath());
 		conf.setProperty(CoverageDecompressor.OPT_NO_CACHING, nocaching);
-		//conf.setProperty(CoverageDecompressor.OPT_VERBOSE, "true");
+		// conf.setProperty(CoverageDecompressor.OPT_VERBOSE, "true");
 		CoverageDecompressor decomp = new CoverageDecompressor(conf);
 		DebugUtil.addPerformanceMarker("query", "instantiate");
 
@@ -69,7 +68,7 @@ public class RandomAccessTest {
 		DebugUtil.addPerformanceMarker("query", "createRandomPos");
 		for (int i = 0; i < n; i++) {
 			CoverageHit hit = decomp.query(pos.get(i));
-			if (hit != null )
+			if (hit != null)
 				System.out.println(pos.get(i).toString1basedOrig() + " -> " + hit);
 		}
 		DebugUtil.addPerformanceMarker("query", "query");

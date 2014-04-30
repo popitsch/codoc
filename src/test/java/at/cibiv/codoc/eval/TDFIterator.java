@@ -17,6 +17,12 @@ import at.cibiv.ngs.tools.sam.iterator.CoverageIterator;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
 
+/**
+ * A coverage iterator that is filled from a TDF file.
+ * 
+ * @author niko.popitsch@univie.ac.at
+ * 
+ */
 public class TDFIterator implements CoverageIterator<Float> {
 
 	/**
@@ -111,13 +117,12 @@ public class TDFIterator implements CoverageIterator<Float> {
 
 		return reportedCoverage;
 	}
-	
+
 	public void debug() {
 		System.out.println("Starts: " + Arrays.toString(currentTile.getStart()));
 		System.out.println("Ends: " + Arrays.toString(currentTile.getEnd()));
-		System.out.println("pos: " + currentPosition );
+		System.out.println("pos: " + currentPosition);
 	}
-	
 
 	private boolean nextTile() {
 
@@ -126,13 +131,13 @@ public class TDFIterator implements CoverageIterator<Float> {
 			currentTile = tilesIterator.next();
 			currentPosition = currentTile.getStart()[0];
 			currentIdx = 0;
-//			if (currentTile.getStart().length <= 1) {
-//				currentPosition = currentTile.getStart()[0];
-//				currentIdx = 0;
-//			} else {
-//				currentPosition = currentTile.getStart()[0];
-//				currentIdx = 0;
-//			}
+			// if (currentTile.getStart().length <= 1) {
+			// currentPosition = currentTile.getStart()[0];
+			// currentIdx = 0;
+			// } else {
+			// currentPosition = currentTile.getStart()[0];
+			// currentIdx = 0;
+			// }
 		} else {
 			// load next chrom if any
 			if (!chromIt.hasNext())
@@ -152,7 +157,7 @@ public class TDFIterator implements CoverageIterator<Float> {
 
 	private Float loadNext() {
 		currentPosition++;
-				
+
 		if (currentPosition > currentTile.getEnd()[currentIdx]) {
 
 			if (currentIdx == currentTile.getEnd().length - 1) {
@@ -241,8 +246,7 @@ public class TDFIterator implements CoverageIterator<Float> {
 		List<String> chromosomes = new ArrayList<String>();
 		chromosomes.add("chr20");
 		chromosomes.add("chr21");
-		TDFIterator t = new TDFIterator(new File("/project/oesi/bgraph/compression-eval/results-small/small.bam.1.tdf"));// ,
-																															// chromosomes);
+		TDFIterator t = new TDFIterator(new File("xxx"));
 		while (t.hasNext()) {
 			Float cov = t.next();
 			System.out.println(t.getGenomicPosition().toString1based() + " => " + cov);

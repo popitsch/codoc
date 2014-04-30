@@ -43,7 +43,7 @@ import at.cibiv.ngs.tools.vcf.SimpleVCFVariant;
 import at.cibiv.ngs.tools.wig.WigOutputStream;
 
 /**
- * A decompressor for DOC data.
+ * A decompressor for CODOC data.
  * 
  * @author niko.popitsch@univie.ac.at
  * 
@@ -97,22 +97,22 @@ public class CoverageDecompressor {
 	/**
 	 * Input stream for chromosomes
 	 */
-	List<FileDataInputBlock<String>> chrData = null;
+	private List<FileDataInputBlock<String>> chrData = null;
 
 	/**
 	 * the knot-point position
 	 */
-	List<FileDataInputBlock<Integer>> posData = null;
+	private List<FileDataInputBlock<Integer>> posData = null;
 
 	/**
 	 * the knot-point coverage1
 	 */
-	List<FileDataInputBlock<Integer>> cov1Data = null;
+	private List<FileDataInputBlock<Integer>> cov1Data = null;
 
 	/**
 	 * the knot-point coverage2
 	 */
-	List<FileDataInputBlock<Integer>> cov2Data = null;
+	private List<FileDataInputBlock<Integer>> cov2Data = null;
 
 	/**
 	 * Index for the data blocks.
@@ -182,7 +182,7 @@ public class CoverageDecompressor {
 	/**
 	 * For converting back to original chromosome names.
 	 */
-	Map<String, String> chrNameMap = new HashMap<>();
+	private Map<String, String> chrNameMap = new HashMap<>();
 
 	/**
 	 * Scaling factor for the coverage signal.
@@ -291,11 +291,11 @@ public class CoverageDecompressor {
 	 * 
 	 * @param covFile
 	 * @return
-	 * @throws IOException 
-	 * @throws CodocException 
+	 * @throws IOException
+	 * @throws CodocException
 	 * @throws Throwable
 	 */
-	public static CoverageDecompressor loadFromFile(File covFile, File vcfFile) throws CodocException, IOException  {
+	public static CoverageDecompressor loadFromFile(File covFile, File vcfFile) throws CodocException, IOException {
 		// build config
 		PropertyConfiguration conf = getDefaultConfiguration();
 		conf.setProperty(OPT_COV_FILE, covFile.getAbsolutePath());
@@ -357,7 +357,7 @@ public class CoverageDecompressor {
 		Map<String, List<Integer>> positions = new HashMap<String, List<Integer>>();
 		Map<String, List<Integer>> covPrev = new HashMap<String, List<Integer>>();
 		Map<String, List<Integer>> covKeypoint = new HashMap<String, List<Integer>>();
-		// FIXME: init with actual blocksize (get from compressed conf)
+		// TODO: init with actual blocksize (get from compressed conf)
 		List<Integer> cpos = new ArrayList<>(CoverageCompressor.DEFAULT_BLOCKSIZE);
 		List<Integer> ccov = new ArrayList<>(CoverageCompressor.DEFAULT_BLOCKSIZE);
 		List<Integer> ccov2 = new ArrayList<>(CoverageCompressor.DEFAULT_BLOCKSIZE);
@@ -384,8 +384,7 @@ public class CoverageDecompressor {
 			int cov2 = cov2Data.get(idx).getStream().pop();
 
 			pos1 += diffpos;
-			// System.out.println("READ " + chr+":"+pos1 + " " + diffpos + " " +
-			// cov1 + " "+ cov2);
+
 			if (firstChrom == null)
 				firstChrom = chr;
 
@@ -519,15 +518,6 @@ public class CoverageDecompressor {
 			System.gc();
 		}
 
-		// for (String cc : positions.keySet()) {
-		// System.out.println("CHR: " + cc);
-		// System.out.println("LOADED WITH POS  " +
-		// Arrays.toString(positions.get(cc).toArray()));
-		// System.out.println("LOADED WITH COV  " +
-		// Arrays.toString(covPrev.get(cc).toArray()));
-		// System.out.println("LOADED WITH COV2 " +
-		// Arrays.toString(covKeypoint.get(cc).toArray()));
-		// }
 		CachedBlock cb = new CachedBlock(idx, positions, covKeypoint, covPrev);
 		memoryBlockCache.add(0, cb);
 
@@ -678,7 +668,6 @@ public class CoverageDecompressor {
 			if (debug)
 				System.out.println("Finished.");
 			this.compressedConfig = header.getConfiguration();
-			// System.out.println("Config:\n" + compressedConfig);
 
 			// set vcf file
 			if (conf.hasProperty(OPT_VCF_FILE) && conf.getProperty(OPT_VCF_FILE).equalsIgnoreCase("AUTO")) {
@@ -825,16 +814,6 @@ public class CoverageDecompressor {
 		return null;
 	}
 
-	// /**
-	// *
-	// * @return a coverage iterator.
-	// * @throws Throwable
-	// */
-	// public CompressedCoverageIterator getCoverageIterator(GenomicPosition
-	// startPos) throws Throwable {
-	// return new CompressedCoverageIterator(this, startPos);
-	// }
-
 	public File getCovFile() {
 		return covFile;
 	}
@@ -862,75 +841,6 @@ public class CoverageDecompressor {
 	public void setMaxCachedBlocks(int maxCachedBlocks) {
 		this.maxCachedBlocks = maxCachedBlocks;
 	}
-
-	// /**
-	// *
-	// * @param pos
-	// * @return [interpolated-coverage][maxborder][minborder]
-	// * @throws Throwable
-	// */
-	// public CoverageHit query(GenomicPosition pos) throws Throwable {
-	//
-	// long start = System.nanoTime();
-	//
-	// Set<? extends GenomicInterval> blocks = blockIndexTree.query1based(pos);
-	// if ((blocks == null) || (blocks.size() != 1)) {
-	// // FIXME: the padding intervals might not have been initialized yet!
-	// return queryPadding(pos);
-	// }
-	// GenomicInterval gi = blocks.iterator().next();
-	//
-	// if (debug)
-	// System.out.println("query " + pos + " => load block " + gi + " / " +
-	// gi.getAnnotation("blockid"));
-	//
-	// loadBlock((Integer) gi.getAnnotation("blockid"));
-	//
-	// Set<CodeWordInterval> res = itree.query1based(pos);
-	// if ((res == null) || (res.isEmpty())) {
-	// // System.out.println("N/A");
-	// return queryPadding(pos);
-	// }
-	//
-	// if (res.size() > 1) {
-	// for (CodeWordInterval cv : res)
-	// System.err.println(cv + " lc:" + cv.getLeftCoverage() + " rc:" +
-	// cv.getRightCoverage());
-	// // throw new RuntimeException("Something is wrong...(" + pos + ": "
-	// // + Arrays.toString(res.toArray()));
-	// }
-	//
-	// CodeWordInterval iv = res.iterator().next();
-	// CoverageHit hit = interpolate(iv, pos.get1Position());
-	// hit.setExecTime(System.nanoTime() - start);
-	//
-	// return hit;
-	// }
-
-	// /**
-	// * Interpolation
-	// *
-	// * @param iv
-	// * @param pos1
-	// * @return
-	// */
-	// protected CoverageHit interpolate(CodeWordInterval iv, long pos1) {
-	// CoverageHit hit = new CoverageHit(scaleFactor);
-	// Integer leftCoverage = iv.getLeftCoverage();
-	// Integer rightCoverage = iv.getRightCoverage();
-	// float width = iv.getWidth().floatValue();
-	// if (width == 0)
-	// hit.setInterpolatedCoverage(rightCoverage);
-	// else {
-	// float prec = (float) (pos1 - iv.getMin()) / (float) width;
-	// hit.setInterpolatedCoverage(leftCoverage + ((rightCoverage -
-	// leftCoverage) * prec));
-	// }
-	// hit.setUpperBoundary((float) quant.getMaxBorder(leftCoverage));
-	// hit.setLowerBoundary((float) quant.getMinBorder(leftCoverage));
-	// hit.setInterval(iv);
-	// return hit;
-	// }
 
 	/**
 	 * Starts an interactive query session.
@@ -960,7 +870,7 @@ public class CoverageDecompressor {
 				Integer off1 = new Integer(cmd.split(":")[1]);
 				GenomicPosition pos = new GenomicPosition(chr, off1, COORD_TYPE.ONEBASED);
 				// System.out.println("Query " + pos);
-				
+
 				CoverageHit hit = query(pos);
 				if (hit == null)
 					System.out.println("cov:\tN/A");
@@ -1011,11 +921,11 @@ public class CoverageDecompressor {
 	 * 
 	 * @param pos
 	 * @return
-	 * @throws CodocException 
-	 * @throws IOException 
+	 * @throws CodocException
+	 * @throws IOException
 	 * @throws Throwable
 	 */
-	public CoverageHit query(GenomicPosition pos) throws IOException, CodocException  {
+	public CoverageHit query(GenomicPosition pos) throws IOException, CodocException {
 
 		Set<? extends GenomicInterval> blocks = blockIndexTree.query1based(pos);
 		if ((blocks == null) || (blocks.size() != 1)) {
@@ -1133,7 +1043,7 @@ public class CoverageDecompressor {
 	 * @throws Throwable
 	 */
 	public GenomicITree toBED(File bedOutFile, Integer minCoverage, Integer maxCoverage, String name, String description, String additional) throws Throwable {
-		@SuppressWarnings("resource")
+
 		PrintStream bedOut = bedOutFile != null ? new PrintStream(bedOutFile) : null;
 		if (name == null)
 			name = "CoverageRegions";
@@ -1175,11 +1085,11 @@ public class CoverageDecompressor {
 	 * @param covFile
 	 * @param vcfFile
 	 * @return
-	 * @throws IOException 
-	 * @throws CodocException 
+	 * @throws IOException
+	 * @throws CodocException
 	 * @throws Throwable
 	 */
-	public static CoverageDecompressor decompress(File covFile, File vcfFile) throws CodocException, IOException  {
+	public static CoverageDecompressor decompress(File covFile, File vcfFile) throws CodocException, IOException {
 		PropertyConfiguration conf = CoverageDecompressor.getDefaultConfiguration();
 		conf.setProperty(OPT_COV_FILE, covFile.getAbsolutePath());
 		if (vcfFile != null)
@@ -1222,13 +1132,13 @@ public class CoverageDecompressor {
 	 */
 	private void toWIG(String wigFile) throws Throwable {
 		WigOutputStream out = new WigOutputStream(new PrintStream(wigFile), compressedConfig.getProperty(CoverageCompressor.OPT_OUT_FILE),
-				"WIG track created by CoverageDecompressor()", "");
+				"WIG track created by CODOC CoverageDecompressor", "");
 		CompressedCoverageIterator it = getCoverageIterator();
 		while (it.hasNext()) {
 			Float hit = it.next();
 			if (hit == null)
 				hit = 0f;
-			// FIXME: this is a hack as normalized chr names are used internally
+			// This is done as normalized chr names are used internally
 			GenomicPosition pos = it.getGenomicPosition();
 			String origChr = chrNameMap.get(pos.getChromosome());
 			if (origChr != null)
@@ -1290,19 +1200,6 @@ public class CoverageDecompressor {
 	 * @throws IOException
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
-
-	// args = new String[] { "query", "-cov",
-	// "src/test/resources/covcompress/small.compressed", "-vcf",
-	// "src/test/resources/covcompress/small.vcf", "-scale", "2.0" };
-
-		// args = new String[] { "tobed", "-cov",
-		// "/scratch/projects/codoc/src/test/resources/covcompress/small.compressed",
-		// "-vcf",
-		// "/scratch/projects/codoc/src/test/resources/covcompress/small.vcf",
-		// "-min", "1",
-		// "-outFile",
-		// "/scratch/projects/codoc/src/test/resources/covcompress/test.codoc.bed",
-		// "-v" };
 
 		CommandLineParser parser = new PosixParser();
 

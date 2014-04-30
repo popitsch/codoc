@@ -277,13 +277,17 @@ public class CoverageHit {
 	}
 
 	/**
-	 * Prints the interpolated coverage followed by a
+	 * Prints the interpolated coverage
 	 */
 	@Override
 	public String toString() {
 		return (isFuzzy() ? "~" : "") + String.format("%.2f", getInterpolatedCoverage());
 	}
 
+	/**
+	 * Verbose toString() method.
+	 * @return
+	 */
 	public String toStringVerbose() {
 		StringBuilder sb = new StringBuilder();
 		sb.append(getInterpolatedCoverage()

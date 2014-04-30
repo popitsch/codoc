@@ -5,7 +5,6 @@ import java.util.SortedSet;
 
 import junit.framework.Assert;
 
-import org.junit.After;
 import org.junit.Test;
 
 import at.cibiv.codoc.CompressedCoverageIterator;
@@ -22,6 +21,12 @@ import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
 import at.cibiv.ngs.tools.vcf.SimpleVCFFile;
 import at.cibiv.ngs.tools.vcf.SimpleVCFVariant;
 
+/**
+ * Tests the decompressor.
+ * 
+ * @author niko.popitsch@univie.ac.at
+ * 
+ */
 public class DecompressorTest {
 
 	String bam = "src/test/resources/covcompress/small.bam";
@@ -129,7 +134,6 @@ public class DecompressorTest {
 			Assert.assertEquals(6f, decompressor.query(new GenomicPosition("20", 60080, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 			Assert.assertEquals(0f, decompressor.query(new GenomicPosition("20", 60081, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 
-
 			// check deletion
 			Assert.assertEquals(0f, decompressor.query(new GenomicPosition("21", 60013, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
 			Assert.assertEquals(1f, decompressor.query(new GenomicPosition("21", 60014, COORD_TYPE.ONEBASED)).getInterpolatedCoverage());
@@ -228,12 +232,13 @@ public class DecompressorTest {
 			while (it.hasNext()) {
 				Integer coverage = it.nextCoverage();
 				SortedSet<? extends GenomicInterval> res = tree.query(it.getGenomicPosition());
-				 System.out.println(it.getGenomicPosition() + "/" + res);
-				 // we should not find an interval that overlaps with a region that is covered!
+				System.out.println(it.getGenomicPosition() + "/" + res);
+				// we should not find an interval that overlaps with a region
+				// that is covered!
 				if (coverage > 0)
 					Assert.assertTrue(res == null || res.size() == 0);
 			}
-			for ( GenomicInterval g : tree.getIntervalsSorted())
+			for (GenomicInterval g : tree.getIntervalsSorted())
 				System.out.println(g.toBED());
 
 		} finally {
