@@ -97,7 +97,7 @@ public class CoverageDecompressor {
 	/**
 	 * Input stream for chromosomes
 	 */
-	private List<FileDataInputBlock<String>> chrData = null;
+	List<FileDataInputBlock<String>> chrData = null;
 
 	/**
 	 * the knot-point position
