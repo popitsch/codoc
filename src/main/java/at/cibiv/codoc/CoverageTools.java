@@ -702,10 +702,10 @@ public class CoverageTools {
 	// "-minScoreOut", "0", "-maxScoreOut", "5", "-bedOut",
 	// "c:/data/genomicAmbiguity/ecK12/Low-Avg.ISS-ORFs.bed" };
 
-	args = new String[] { "calculateScoreHistogram", "-cov", "c:/data/genomicAmbiguity/human/hg19-GENOME.ISS.wig.codoc", "-bed",
-		"c:/data/genomicAmbiguity/human/UCSC-hg19-CCDS-genes-sorted.bed", "-binSize", "5", "-o",
-		"c:/data/genomicAmbiguity/human/HIST-hg19-CCDS-ISS.csv", "-minScoreOut", "0", "-maxScoreOut", "5", "-bedOut",
-		"c:/data/genomicAmbiguity/human/Low-Avg.ISS-ORFs.bed", "-scale", "100" };
+//	args = new String[] { "calculateScoreHistogram", "-cov", "c:/data/genomicAmbiguity/human/hg19-GENOME.ISS.wig.codoc", "-bed",
+//		"c:/data/genomicAmbiguity/human/UCSC-hg19-CCDS-genes-sorted.bed", "-binSize", "5", "-o",
+//		"c:/data/genomicAmbiguity/human/HIST-hg19-CCDS-ISS.csv", "-minScoreOut", "0", "-maxScoreOut", "5", "-bedOut",
+//		"c:/data/genomicAmbiguity/human/Low-Avg.ISS-ORFs.bed", "-scale", "100" };
 
 	// System.out.println( calculateScoreHistogram(new
 	// File("src/test/resources/testScoreHist/testScoreHist.codoc"),
