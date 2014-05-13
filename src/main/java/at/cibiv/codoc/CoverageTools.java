@@ -7,6 +7,7 @@ import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
@@ -47,7 +48,7 @@ import at.cibiv.ngs.tools.vcf.SimpleVCFVariant.ZYGOSITY;
  */
 public class CoverageTools {
 
-	public static boolean debug = false;
+	public static boolean debug = true;
 	public static final String CMD = "tools";
 	public static final String CMD_INFO = "Various DOC tools.";
 
@@ -378,8 +379,8 @@ public class CoverageTools {
 	}
 
 	/**
-	 * Calculates the base-coverage per feature in a passed BED file. The output
-	 * will be sorted by genomic coordinates.
+	 * Calculates the base-coverage per feature in a passed (coordinate-sorted)
+	 * BED file. The output will be sorted by genomic coordinates.
 	 * 
 	 * @param covFile
 	 * @param covVcfFile
@@ -397,8 +398,15 @@ public class CoverageTools {
 
 			double scoreAvgAll = 0f, scoreCountAll = 0f;
 			SimpleBEDFile bf = new SimpleBEDFile(bedFile);
-			GenomicITree intervals = bf.getGenomicITree();
+			if (!bf.isSorted())
+				throw new CodocException("BED file has to be ordered by coordinates");
+
 			Map<GenomicInterval, Map<File, Double>> allScores = new HashMap<GenomicInterval, Map<File, Double>>();
+
+			String currentChr = null;
+			Iterator<GenomicInterval> bfit = null;
+			GenomicInterval nextInterval = null;
+			List<GenomicInterval> overlapping = new ArrayList<GenomicInterval>();
 
 			for (int i = 0; i < covFiles.size(); i++) {
 				File covFile = covFiles.get(i);
@@ -415,27 +423,60 @@ public class CoverageTools {
 					CompressedCoverageIterator it = cov.getCoverageIterator();
 					// int c = 0;
 					while (it.hasNext()) {
+
 						Float coverage = it.next();
+						GenomicPosition pos = it.getGenomicPosition();
 						// System.out.println(it.getGenomicPosition() + " -- " +
 						// coverage);
-						List<? extends GenomicInterval> res = intervals.queryList(it.getGenomicPosition());
 
-						if (res != null)
-							for (GenomicInterval gi : res) {
-
-								// if (gi.getUri().contains("GeneID:7751646"))
-								// System.err.println(it.getGenomicPosition() +
-								// " / " + gi + " / " + coverage);
-
-								Double sum = absCov.get(gi.toString());
-								if (sum == null)
-									sum = 0d;
-								sum += coverage;
-								absCov.put(gi.toString(), sum);
-
+						if (currentChr == null || !currentChr.equals(pos.getChromosome())) {
+							overlapping.clear();
+							currentChr = pos.getChromosome();
+							if (bf.getIntervalsList(currentChr) == null) {
+								System.err.println("Cannot load any intervals for " + currentChr);
+								bfit = null;
+								nextInterval = null;
+							} else {
+								bfit = bf.getIntervalsList(currentChr).iterator();
+								nextInterval = null;
+								System.err.println("switch to " + currentChr);
 							}
-						// if ( ++c % 1000 == 0 )
-						// System.out.println(it.getGenomicPosition());
+						}
+
+						// del intervals that are finished
+						Iterator<GenomicInterval> delit = overlapping.iterator();
+						while (delit.hasNext()) {
+							GenomicInterval iv = delit.next();
+							if (!iv.contains(pos)) {
+								delit.remove();
+								// System.out.println("fin" + iv);
+							}
+						}
+
+						if (bfit != null) {
+							if (nextInterval == null && bfit.hasNext())
+								nextInterval = bfit.next();
+							if (nextInterval != null)
+								while (nextInterval.contains(pos)) {
+									overlapping.add(nextInterval);
+									if (!bfit.hasNext()) {
+
+										nextInterval = null;
+										break;
+									} else
+										nextInterval = bfit.next();
+								}
+						}
+
+						for (GenomicInterval gi : overlapping) {
+
+							Double sum = absCov.get(gi.toString());
+							if (sum == null)
+								sum = 0d;
+							sum += coverage;
+							absCov.put(gi.toString(), sum);
+
+						}
 
 					}
 
@@ -449,15 +490,19 @@ public class CoverageTools {
 					// not including the end
 					// coordinate
 					Double sum = absCov.get(gi.toString());
-					if (sum == null)
-						sum = 0d;
-					// System.out.println(gi + " " + sum + " " + width);
-					double avgScore = sum / width;
-					Map<File, Double> scores = allScores.get(gi.toString());
-					if (scores == null)
-						scores = new HashMap<File, Double>();
-					scores.put(covFile, avgScore);
-					allScores.put(gi, scores);
+					if (sum != null) {
+						// there was no cov found - maybe wrong chr...
+						// System.out.println(gi + " " + sum + " " + width);
+						double avgScore = sum / width;
+						Map<File, Double> scores = allScores.get(gi.toString());
+						if (scores == null)
+							scores = new HashMap<File, Double>();
+						scores.put(covFile, avgScore);
+						allScores.put(gi, scores);
+					} else {
+						if (debug)
+							System.err.println("No cov found for " + gi);
+					}
 				}
 
 			}
