@@ -17,7 +17,6 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
-import org.broad.igv.feature.genome.GenomeImporter;
 
 import at.ac.univie.cs.mis.lds.index.itree.ITree;
 import at.ac.univie.cs.mis.lds.index.itree.Interval;
@@ -58,29 +57,36 @@ public class CoverageTools {
      * @param covTFile
      * @throws Throwable
      */
-    public static void dumpIterator(File cov1File, File cov1VcfFile, PrintStream out) throws Throwable {
+    public static void dumpIterator(File cov1File, File cov1VcfFile, boolean printPos, PrintStream out) throws Throwable {
 	if (debug)
 	    System.out.println("Load " + cov1File);
 	CoverageDecompressor cov1 = CoverageDecompressor.loadFromFile(cov1File, cov1VcfFile);
-	cov1.setMaxCachedBlocks(1);
-	CompressedCoverageIterator it1 = cov1.getCoverageIterator();
-	StringBuilder sb = new StringBuilder();
-	int c = 0;
-	while (it1.hasNext()) {
-	    Float hit1 = it1.next();
-	    GenomicPosition pos = it1.getGenomicPosition();
-	    sb.append(pos.getChromosomeOriginal() + "\t" + pos.get1Position() + "\t" + hit1 + "\n");
-	    if (sb.length() > 50000000) {
-		System.out.print("w");
-		out.println(sb.toString());
-		sb = new StringBuilder();
-		System.out.print("!");
+	try {
+	    cov1.setMaxCachedBlocks(1);
+	    CompressedCoverageIterator it1 = cov1.getCoverageIterator();
+	    StringBuilder sb = new StringBuilder();
+	    int c = 0;
+	    while (it1.hasNext()) {
+		Float hit1 = it1.next();
+		GenomicPosition pos = it1.getGenomicPosition();
+		if (printPos)
+		    sb.append(pos.getChromosomeOriginal() + "\t" + pos.get1Position() + "\t");
+		sb.append(hit1 + "\n");
+		if (sb.length() > 50000000) {
+		    if (debug)
+			System.out.print("w");
+		    out.println(sb.toString());
+		    sb = new StringBuilder();
+		    if (debug)
+			System.out.print("!");
+		}
+		if (++c % 1000000 == 0)
+		    System.out.print(".");
 	    }
-	    if (++c % 1000000 == 0)
-		System.out.print(".");
+	    out.println(sb.toString());
+	} finally {
+	    cov1.close();
 	}
-	out.println(sb.toString());
-	cov1.close();
     }
 
     /**
@@ -702,10 +708,10 @@ public class CoverageTools {
 	// "-minScoreOut", "0", "-maxScoreOut", "5", "-bedOut",
 	// "c:/data/genomicAmbiguity/ecK12/Low-Avg.ISS-ORFs.bed" };
 
-	args = new String[] { "calculateScoreHistogram", "-cov", "c:/data/genomicAmbiguity/human/hg19-GENOME.ISS.wig.codoc", "-bed",
-		"c:/data/genomicAmbiguity/human/UCSC-hg19-CCDS-genes-sorted.bed", "-binSize", "5", "-o",
-		"c:/data/genomicAmbiguity/human/HIST-hg19-CCDS-ISS.csv", "-minScoreOut", "0", "-maxScoreOut", "5", "-bedOut",
-		"c:/data/genomicAmbiguity/human/Low-Avg.ISS-ORFs.bed", "-scale", "100" };
+//	args = new String[] { "calculateScoreHistogram", "-cov", "c:/data/genomicAmbiguity/human/hg19-GENOME.ISS.wig.codoc", "-bed",
+//		"c:/data/genomicAmbiguity/human/UCSC-hg19-CCDS-genes-sorted.bed", "-binSize", "5", "-o",
+//		"c:/data/genomicAmbiguity/human/HIST-hg19-CCDS-ISS.csv", "-minScoreOut", "0", "-maxScoreOut", "5", "-bedOut",
+//		"c:/data/genomicAmbiguity/human/Low-Avg.ISS-ORFs.bed", "-scale", "100" };
 
 	// System.out.println( calculateScoreHistogram(new
 	// File("src/test/resources/testScoreHist/testScoreHist.codoc"),
@@ -1051,6 +1057,8 @@ public class CoverageTools {
 		opt = new Option("o", true, "Output.");
 		opt.setRequired(true);
 		options.addOption(opt);
+		
+		options.addOption("printCoords", false, "Print also coordinates" );
 
 		options.addOption("v", "verbose", false, "be verbose.");
 
@@ -1062,12 +1070,13 @@ public class CoverageTools {
 
 		File covFile = new File(line.getOptionValue("cov"));
 		File covVcfFile = line.hasOption("covVcf") ? new File(line.getOptionValue("covVcf")) : null;
+		boolean printCoords = line.hasOption("printCoords" );
 
 		PrintStream out = System.out;
 		if (!line.getOptionValue("o").equals("-"))
 		    out = new PrintStream(line.getOptionValue("o"));
 
-		dumpIterator(covFile, covVcfFile, out);
+		dumpIterator(covFile, covVcfFile, printCoords, out);
 
 		if (!line.getOptionValue("o").equals("-"))
 		    out.close();
