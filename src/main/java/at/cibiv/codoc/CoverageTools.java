@@ -856,8 +856,9 @@ public class CoverageTools {
 					covFiles.add(new File(f));
 
 				List<File> vcfFiles = new ArrayList<File>();
-				for (String f : line.getOptionValues("vcf"))
-					vcfFiles.add(new File(f));
+				if (line.hasOption("vcf"))
+					for (String f : line.getOptionValues("vcf"))
+						vcfFiles.add(new File(f));
 
 				File bedFile = new File(line.getOptionValue("bed"));
 
