@@ -420,7 +420,11 @@ public class CoverageTools {
 						// coverage);
 						List<? extends GenomicInterval> res = intervals.queryList(it.getGenomicPosition());
 
-						if (res != null)
+						if (res != null) {
+							if (res.size() > 0) {
+								scoreAvgAll += coverage;
+								scoreCountAll++;
+							}
 							for (GenomicInterval gi : res) {
 
 								// if (gi.getUri().contains("GeneID:7751646"))
@@ -434,6 +438,7 @@ public class CoverageTools {
 								absCov.put(gi.toString(), sum);
 
 							}
+						}
 						// if ( ++c % 1000 == 0 )
 						// System.out.println(it.getGenomicPosition());
 
@@ -453,7 +458,7 @@ public class CoverageTools {
 						sum = 0d;
 					// System.out.println(gi + " " + sum + " " + width);
 					double avgScore = sum / width;
-					Map<File, Double> scores = allScores.get(gi.toString());
+					Map<File, Double> scores = allScores.get(gi);
 					if (scores == null)
 						scores = new HashMap<File, Double>();
 					scores.put(covFile, avgScore);
@@ -470,12 +475,12 @@ public class CoverageTools {
 					out.print("\tavg.cov (" + covFile.getName() + ")");
 				out.println();
 
-				for (GenomicInterval gi : bf.getIntervalsList()) {
+				for (GenomicInterval gi : allScores.keySet()) {
 
 					out.format("%s\t%d\t%d\t%s\t%.0f", gi.getOriginalChrom(), gi.getMin(), gi.getMax(), gi.getId(), gi.getWidth());
 
 					for (File covFile : covFiles) {
-						Map<File, Double> scores = allScores.get(gi.toString());
+						Map<File, Double> scores = allScores.get(gi);
 						Double avg = scores == null ? -1 : scores.get(covFile);
 						out.format("\t%.1f", avg);
 					}
@@ -487,7 +492,7 @@ public class CoverageTools {
 
 			double averageScore = scoreAvgAll / scoreCountAll;
 			if (out != null)
-				out.println("# Overall average score: " + averageScore);
+				out.println("# Overall average score: " + averageScore + " in " + scoreCountAll + " positions");
 			if (debug)
 				System.out.println("Finished.");
 
