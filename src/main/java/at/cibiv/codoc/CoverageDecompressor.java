@@ -200,6 +200,12 @@ public class CoverageDecompressor {
 	private int maxCachedBlocks = DEFAULT_MAX_CACHED_BLOCKS;
 
 	/**
+	 * TRue if the work dir was created (and will be deleted when the
+	 * decompressor is closed).
+	 */
+	boolean workDirWasCreated = false;
+
+	/**
 	 * Decompresses the passed file using the passed VCF file. The intermediate
 	 * files are written to the passed working dir that is deleted after the
 	 * decompression unless keepWorkDir is set to true.
@@ -267,6 +273,7 @@ public class CoverageDecompressor {
 		if (!workDir.exists()) {
 			if (!workDir.mkdirs())
 				throw new IOException("Could not create temporary directory " + workDir);
+			workDirWasCreated = true;
 		}
 
 		try {
@@ -596,8 +603,9 @@ public class CoverageDecompressor {
 						System.err.println(new IOException("Could not remove temporary file(s) of " + block));
 				}
 			// delete temporary directory
-			if ((workDir != null) && (workDir.exists()))
-				org.apache.commons.io.FileUtils.forceDelete(workDir);
+			if (workDirWasCreated)
+				if ((workDir != null) && (workDir.exists()))
+					org.apache.commons.io.FileUtils.forceDelete(workDir);
 		}
 	}
 
@@ -658,6 +666,7 @@ public class CoverageDecompressor {
 		if (!workDir.exists()) {
 			if (!workDir.mkdirs())
 				throw new IOException("Could not create temporary directory " + workDir);
+			workDirWasCreated = true;
 		}
 
 		try {
@@ -778,8 +787,9 @@ public class CoverageDecompressor {
 				System.out.println("Finished loading in " + (System.currentTimeMillis() - startTime) + "ms.");
 		} catch (Exception e) {
 			// delete temporary directory
-			if (!workDir.delete())
-				System.err.println("Could not remove temporary directory " + workDir);
+			if (workDirWasCreated)
+				if (!workDir.delete())
+					System.err.println("Could not remove temporary directory " + workDir);
 			throw new CodocException(e.toString());
 		}
 

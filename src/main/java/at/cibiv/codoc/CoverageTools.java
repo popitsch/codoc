@@ -84,7 +84,8 @@ public class CoverageTools {
 		    System.out.print(".");
 	    }
 	    out.println(sb.toString());
-	    if ( debug ) System.out.println(" Finished.");
+	    if (debug)
+		System.out.println(" Finished.");
 	} finally {
 	    cov1.close();
 	}
@@ -411,7 +412,7 @@ public class CoverageTools {
 	    for (int i = 0; i < covFiles.size(); i++) {
 		File covFile = covFiles.get(i);
 		File covVcfFile = null;
-		if (i < covVcfFiles.size())
+		if (covVcfFiles != null && i < covVcfFiles.size())
 		    covVcfFile = covVcfFiles.get(i);
 
 		Map<String, Double> absCov = new HashMap<String, Double>();
@@ -427,7 +428,11 @@ public class CoverageTools {
 			// coverage);
 			List<? extends GenomicInterval> res = intervals.queryList(it.getGenomicPosition());
 
-			if (res != null)
+			if (res != null) {
+			    if (res.size() > 0) {
+				scoreAvgAll += coverage;
+				scoreCountAll++;
+			    }
 			    for (GenomicInterval gi : res) {
 
 				// if (gi.getUri().contains("GeneID:7751646"))
@@ -441,11 +446,13 @@ public class CoverageTools {
 				absCov.put(gi.toString(), sum);
 
 			    }
+			}
 
 		    }
 
 		} finally {
-		    cov.close();
+		    if (cov != null)
+			cov.close();
 		}
 
 		for (GenomicInterval gi : bf.getIntervalsList()) {
@@ -457,7 +464,7 @@ public class CoverageTools {
 			sum = 0d;
 		    // System.out.println(gi + " " + sum + " " + width);
 		    double avgScore = sum / width;
-		    Map<File, Double> scores = allScores.get(gi.toString());
+		    Map<File, Double> scores = allScores.get(gi);
 		    if (scores == null)
 			scores = new HashMap<File, Double>();
 		    scores.put(covFile, avgScore);
@@ -474,12 +481,12 @@ public class CoverageTools {
 		    out.print("\tavg.cov (" + covFile.getName() + ")");
 		out.println();
 
-		for (GenomicInterval gi : bf.getIntervalsList()) {
+		for (GenomicInterval gi : allScores.keySet()) {
 
 		    out.format("%s\t%d\t%d\t%s\t%.0f", gi.getOriginalChrom(), gi.getMin(), gi.getMax(), gi.getId(), gi.getWidth());
 
 		    for (File covFile : covFiles) {
-			Map<File, Double> scores = allScores.get(gi.toString());
+			Map<File, Double> scores = allScores.get(gi);
 			Double avg = scores == null ? -1 : scores.get(covFile);
 			out.format("\t%.1f", avg);
 		    }
@@ -491,7 +498,7 @@ public class CoverageTools {
 
 	    double averageScore = scoreAvgAll / scoreCountAll;
 	    if (out != null)
-		out.println("# Overall average score: " + averageScore);
+		out.println("# Overall average score: " + averageScore + " in " + scoreCountAll + " positions");
 	    if (debug)
 		System.out.println("Finished.");
 
@@ -695,10 +702,12 @@ public class CoverageTools {
      */
     public static void main(String[] args) throws Throwable {
 
-//	 args = new String[] { "dumpCoverage", "-cov",
-//	 "c:/data/genomicAmbiguity/ecK12/eck12_MG1655_ecoli-chr-GENOME.ISS.wig.codoc", "-v",
-//	  "-o", "c:/data/genomicAmbiguity/ecK12/eck12_MG1655_ecoli-chr-GENOME.ISS.wig.codoc.dat" };
-
+	// args = new String[] { "dumpCoverage", "-cov",
+	// "c:/data/genomicAmbiguity/ecK12/eck12_MG1655_ecoli-chr-GENOME.ISS.wig.codoc",
+	// "-v",
+	// "-o",
+	// "c:/data/genomicAmbiguity/ecK12/eck12_MG1655_ecoli-chr-GENOME.ISS.wig.codoc.dat"
+	// };
 
 	// create the command line parser
 	CommandLineParser parser = new PosixParser();
@@ -865,8 +874,9 @@ public class CoverageTools {
 		    covFiles.add(new File(f));
 
 		List<File> vcfFiles = new ArrayList<File>();
-		for (String f : line.getOptionValues("vcf"))
-		    vcfFiles.add(new File(f));
+		if (line.hasOption("vcf"))
+		    for (String f : line.getOptionValues("vcf"))
+			vcfFiles.add(new File(f));
 
 		File bedFile = new File(line.getOptionValue("bed"));
 
@@ -1038,8 +1048,8 @@ public class CoverageTools {
 		opt = new Option("o", true, "Output.");
 		opt.setRequired(true);
 		options.addOption(opt);
-		
-		options.addOption("printCoords", false, "Print also coordinates" );
+
+		options.addOption("printCoords", false, "Print also coordinates");
 
 		options.addOption("v", "verbose", false, "be verbose.");
 
@@ -1051,7 +1061,7 @@ public class CoverageTools {
 
 		File covFile = new File(line.getOptionValue("cov"));
 		File covVcfFile = line.hasOption("covVcf") ? new File(line.getOptionValue("covVcf")) : null;
-		boolean printCoords = line.hasOption("printCoords" );
+		boolean printCoords = line.hasOption("printCoords");
 
 		PrintStream out = System.out;
 		if (!line.getOptionValue("o").equals("-"))
