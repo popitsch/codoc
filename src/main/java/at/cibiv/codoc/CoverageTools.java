@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
+import java.util.TreeSet;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -424,9 +425,8 @@ public class CoverageTools {
 		    CompressedCoverageIterator it = cov.getCoverageIterator();
 		    while (it.hasNext()) {
 			Float coverage = it.next();
-			// System.out.println(it.getGenomicPosition() + " -- " +
-			// coverage);
-			List<? extends GenomicInterval> res = intervals.queryList(it.getGenomicPosition());
+			System.out.println(it.getGenomicPosition().toString1basedOrig() + " -- " + coverage);
+			List<? extends GenomicInterval> res = intervals.query1basedList(it.getGenomicPosition());
 
 			if (res != null) {
 			    if (res.size() > 0) {
@@ -434,10 +434,6 @@ public class CoverageTools {
 				scoreCountAll++;
 			    }
 			    for (GenomicInterval gi : res) {
-
-				// if (gi.getUri().contains("GeneID:7751646"))
-				// System.err.println(it.getGenomicPosition() +
-				// " / " + gi + " / " + coverage);
 
 				Double sum = absCov.get(gi.toString());
 				if (sum == null)
@@ -481,9 +477,12 @@ public class CoverageTools {
 		    out.print("\tavg.cov (" + covFile.getName() + ")");
 		out.println();
 
-		for (GenomicInterval gi : allScores.keySet()) {
+		// sort
+		SortedSet<GenomicInterval> sort = new TreeSet<>(allScores.keySet());
 
-		    out.format("%s\t%d\t%d\t%s\t%.0f", gi.getOriginalChrom(), gi.getMin(), gi.getMax(), gi.getId(), gi.getWidth());
+		for (GenomicInterval gi : sort) {
+
+		    out.format("%s\t%d\t%d\t%s\t%.0f", gi.getOriginalChrom(), gi.getMin(), gi.getMax() + 1, gi.getId(), gi.getWidth());
 
 		    for (File covFile : covFiles) {
 			Map<File, Double> scores = allScores.get(gi);
@@ -520,6 +519,7 @@ public class CoverageTools {
      * @throws IOException
      * @throws CodocException
      */
+    @SuppressWarnings("resource")
     public static BinnedHistogram calculateScoreHistogram(File covFile, File vcfFile, File bedFile, PrintStream out, int binSize, float scale,
 	    float minScoreOut, float maxScoreOut, File bedOut) throws IOException, CodocException {
 
