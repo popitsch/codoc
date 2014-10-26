@@ -624,12 +624,12 @@ public class CoverageTools {
 				covOut.print(toStr(gene.getMax()) + "\t");
 				covOut.print(toStr(gene.getName()) + "\t");
 				covOut.print(toStr(gene.getStrand()) + "\t");
-				covOut.print(toFloat(gene.getWidth(), 0) + "\t");
+				covOut.print(toFloat(gene.getExonWidth(), 0) + "\t");
 				covOut.print(toFloat(geneCov, 0) + "\t");
 				if (geneCov == null)
 					covOut.print("n/a\t");
 				else
-					covOut.print(toFloat((gene.getWidth() == null ? 0f : (geneCov / gene.getWidth())), 1) + "\t");
+					covOut.print(toFloat((gene.getExonWidth() == null ? 0f : (geneCov / gene.getExonWidth())), 1) + "\t");
 				covOut.print(toFloat((posUnmapped == null ? 0f : (posUnmapped / gene.getWidth())), 1) + "\t");
 				covOut.println();
 			}
