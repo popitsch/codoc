@@ -6,11 +6,11 @@ import java.io.PrintStream;
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
-import java.util.TreeSet;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -477,12 +477,14 @@ public class CoverageTools {
 		    out.print("\tavg.cov (" + covFile.getName() + ")");
 		out.println();
 
-		// sort
-		SortedSet<GenomicInterval> sort = new TreeSet<>(allScores.keySet());
+		// sort intervals
+		List<GenomicInterval> sort = new ArrayList<GenomicInterval>();
+		sort.addAll(allScores.keySet());
+		Collections.sort(sort);
 
 		for (GenomicInterval gi : sort) {
 
-		    out.format("%s\t%d\t%d\t%s\t%.0f", gi.getOriginalChrom(), gi.getMin(), gi.getMax() + 1, gi.getId(), gi.getWidth());
+		    out.format("%s\t%d\t%d\t%s\t%.0f", gi.getOriginalChrom(), gi.getMin() + 1, gi.getMax(), gi.getId(), gi.getWidth() + 1);
 
 		    for (File covFile : covFiles) {
 			Map<File, Double> scores = allScores.get(gi);
@@ -630,12 +632,12 @@ public class CoverageTools {
 		covOut.print(toStr(gene.getMax()) + "\t");
 		covOut.print(toStr(gene.getName()) + "\t");
 		covOut.print(toStr(gene.getStrand()) + "\t");
-		covOut.print(toFloat(gene.getWidth(), 0) + "\t");
+		covOut.print(toFloat(gene.getExonWidth(), 0) + "\t");
 		covOut.print(toFloat(geneCov, 0) + "\t");
 		if (geneCov == null)
 		    covOut.print("n/a\t");
 		else
-		    covOut.print(toFloat((gene.getWidth() == null ? 0f : (geneCov / gene.getWidth())), 1) + "\t");
+		    covOut.print(toFloat((gene.getExonWidth() == null ? 0f : (geneCov / gene.getExonWidth())), 1) + "\t");
 		covOut.print(toFloat((posUnmapped == null ? 0f : (posUnmapped / gene.getWidth())), 1) + "\t");
 		covOut.println();
 	    }
