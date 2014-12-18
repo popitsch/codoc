@@ -53,6 +53,7 @@ import at.cibiv.ngs.tools.util.Statistics;
 import at.cibiv.ngs.tools.util.StringUtils;
 import at.cibiv.ngs.tools.vcf.SimpleVCFFile;
 import at.cibiv.ngs.tools.vcf.SimpleVCFVariant;
+import at.cibiv.ngs.tools.vcf.gvcf.GVCFCoverageIterator;
 import at.cibiv.ngs.tools.wig.WigIterator;
 
 /**
@@ -119,7 +120,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	/**
 	 * # of codewords per block.
 	 */
-	public static int DEFAULT_BLOCKSIZE = 100000;
+	public static int DEFAULT_BLOCKSIZE = 1000000;
 
 	/**
 	 * number of reads/positions that are taken into account for the estimation
@@ -291,6 +292,24 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			}
 
 			it = new WigIterator(coverageFile, scaleFactor);
+		} else if (ext.equalsIgnoreCase(".vcf") || ext.equalsIgnoreCase(".gz") || ext.equalsIgnoreCase(".gvcf") ) {
+			if (debug)
+				System.out.println("Extracting and compressing coverage from gVCF file: " + coverageFile);
+			float scaleFactor = 1.0f;
+			if (config.hasProperty(OPT_SCALE_COVERAGE))
+				scaleFactor = Float.parseFloat(config.getProperty(OPT_SCALE_COVERAGE));
+
+			if (config.hasProperty(OPT_MANUAL_GOLOMB_K)) {
+				config.setProperty(STANDARD_STREAM.POS + "-k", config.getProperty(OPT_MANUAL_GOLOMB_K));
+			} else {
+				// FIXME estimate golomb parameter from the first 10000 VCF blocks
+				float mu = 1;
+				int k = GolombOutputStream.calcK(mu);
+				addMessage("Estimated Golomb param k as " + k + " from mu " + mu);
+				config.setProperty(STANDARD_STREAM.POS + "-k", k + "");
+			}
+
+			it = new GVCFCoverageIterator(coverageFile, scaleFactor);
 		} else {
 			if (debug)
 				System.out.println("Extracting and compressing coverage from coverage file: " + coverageFile);
@@ -1142,7 +1161,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 			options = new Options();
 
-			Option opt = new Option("cov", true, "Input coverage file. Supported file types are SAM, BAM, WIG and bedtools coverage files.");
+			Option opt = new Option("cov", true, "Input coverage file. Supported file types are SAM, BAM, WIG, gVCF and bedtools coverage files.");
 			opt.setLongOpt(OPT_COVERAGE_FILE);
 			opt.setRequired(true);
 			options.addOption(opt);
