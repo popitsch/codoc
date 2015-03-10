@@ -43,7 +43,8 @@ public class DecompressorTest {
 		config.setProperty(CoverageCompressor.OPT_OUT_FILE, comp);
 		config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512");
 		config.setProperty(CoverageCompressor.OPT_QUANT_METHOD, QUANT_METHOD.PERC.name());
-		config.setProperty(CoverageCompressor.OPT_QUANT_PARAM, "0.2");
+		//config.setProperty(CoverageCompressor.OPT_QUANT_PARAM, "0.2");
+		config.setProperty(CoverageCompressor.OPT_QUANT_PARAM, "0");
 		config.setProperty(CoverageCompressor.OPT_CREATE_STATS, "true");
 		config.setProperty(CoverageCompressor.OPT_BLOCKSIZE, "10");
 		if (useRoi)
