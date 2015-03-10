@@ -23,6 +23,7 @@ import org.apache.commons.cli.PosixParser;
 import at.ac.univie.cs.mis.lds.index.itree.ITree;
 import at.ac.univie.cs.mis.lds.index.itree.Interval;
 import at.cibiv.codoc.CoverageCompressor.QUANT_METHOD;
+import at.cibiv.codoc.io.CoverageInputStream;
 import at.cibiv.codoc.io.AbstractDataBlock.BLOCK_COMPRESSION_METHOD;
 import at.cibiv.codoc.utils.CodocException;
 import at.cibiv.codoc.utils.FileUtils;
@@ -755,6 +756,27 @@ public class CoverageTools {
 		if (f == null)
 			return "n/a";
 		return String.format("%." + comma + "f", f);
+	}
+
+	private void coverageToWav(File covFile, File covVcfFile, File wavFile) throws CodocException, IOException {
+
+		if (debug)
+			System.out.println("Load " + covFile);
+		CoverageDecompressor cov = null;
+		CompressedCoverageIterator cci = null;
+		CoverageInputStream ci = null;
+
+		try {
+			cov = CoverageDecompressor.loadFromFile(covFile, covVcfFile);
+			cci = cov.getCoverageIterator();
+			ci = new CoverageInputStream(cci);
+
+		} finally {
+			if (cov != null)
+				cov.close();
+			if (ci != null)
+				ci.close();
+		}
 	}
 
 	/**
