@@ -23,6 +23,7 @@ import org.apache.commons.cli.PosixParser;
 import at.ac.univie.cs.mis.lds.index.itree.ITree;
 import at.ac.univie.cs.mis.lds.index.itree.Interval;
 import at.cibiv.codoc.CoverageCompressor.QUANT_METHOD;
+import at.cibiv.codoc.io.CoverageInputStream;
 import at.cibiv.codoc.io.AbstractDataBlock.BLOCK_COMPRESSION_METHOD;
 import at.cibiv.codoc.utils.CodocException;
 import at.cibiv.codoc.utils.FileUtils;
@@ -757,6 +758,15 @@ public class CoverageTools {
 	return String.format("%." + comma + "f", f);
     }
 
+    /**
+     * Experimental
+     * 
+     * @param covFile
+     * @param covVcfFile
+     * @param wavFile
+     * @throws CodocException
+     * @throws IOException
+     */
     private void coverageToWav(File covFile, File covVcfFile, File wavFile) throws CodocException, IOException {
 
 	if (debug)
@@ -775,63 +785,6 @@ public class CoverageTools {
 		cov.close();
 	    if (ci != null)
 		ci.close();
-	}
-    }
-
-    /**
-     * Extract a random sample from a codoc file.
-     * 
-     * @param covTFile
-     * @throws Throwable
-     */
-    public static void extractRandomSample(File cov1File, File cov1VcfFile, File sampleRegionsBed, int N, int step, PrintStream out) throws Throwable {
-	if (debug)
-	    System.out.println("Load " + cov1File);
-	CoverageDecompressor cov1 = CoverageDecompressor.loadFromFile(cov1File, cov1VcfFile);
-	try {
-	    cov1.setMaxCachedBlocks(1);
-	    CompressedCoverageIterator it1 = cov1.getCoverageIterator();
-
-	    SimpleBEDFile sampleRegions = new SimpleBEDFile(sampleRegionsBed);
-	    GenomicPosition start = sampleRegions.getRandomPosition();
-
-	    StringBuilder sb = new StringBuilder();
-	    sb.append("# Sampled " + N + " with step " + step + " from " + start.toString1basedCanonicalHuman() + " in " + cov1File + "\n");
-	    int c = 0, counter = 0;
-	    boolean inRegion = false;
-	    String lastchr = "";
-	    while (it1.hasNext()) {
-		Float hit1 = it1.next();
-		GenomicPosition pos = it1.getGenomicPosition();
-		if (pos.equals(start))
-		    inRegion = true;
-
-		if (inRegion) {
-		    if (pos.get1Position() % step == 0) {
-			if (!lastchr.equals(pos.getChromosome())) {
-			    sb.append("# " + pos.toString1basedCanonicalHuman() + "\n");
-			    lastchr = pos.getChromosome();
-			}
-			sb.append(hit1.floatValue() + "\n");
-			counter++;
-			if (counter == N)
-			    break;
-		    }
-		}
-		if (sb.length() > 500000) {
-		    out.println(sb.toString());
-		    sb = new StringBuilder();
-		}
-		if (++c % 100000 == 0)
-		    System.err.print(".");
-	    }
-	    out.print(sb.toString());
-	    if (counter < N)
-		out.println("# Could no create complete sample as EOF was reached. Sample size: " + counter);
-	    if (debug)
-		System.out.println("Finished.");
-	} finally {
-	    cov1.close();
 	}
     }
 
