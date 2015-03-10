@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
+import java.util.TreeSet;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -39,6 +40,7 @@ import at.cibiv.ngs.tools.util.StringUtils;
 import at.cibiv.ngs.tools.vcf.SimpleVCFFile;
 import at.cibiv.ngs.tools.vcf.SimpleVCFVariant;
 import at.cibiv.ngs.tools.vcf.SimpleVCFVariant.ZYGOSITY;
+import at.cibiv.ngs.tools.vcf.VCFIterator;
 
 /**
  * Various DOC tools.
@@ -425,7 +427,8 @@ public class CoverageTools {
 		    CompressedCoverageIterator it = cov.getCoverageIterator();
 		    while (it.hasNext()) {
 			Float coverage = it.next();
-			System.out.println(it.getGenomicPosition().toString1basedOrig() + " -- " + coverage);
+			// System.out.println(it.getGenomicPosition().toString1basedOrig()
+			// + " -- " + coverage);
 			List<? extends GenomicInterval> res = intervals.query1basedList(it.getGenomicPosition());
 
 			if (res != null) {
@@ -453,8 +456,8 @@ public class CoverageTools {
 
 		for (GenomicInterval gi : bf.getIntervalsList()) {
 		    double width = gi.getWidth() + 1; // note: BED intervals are
-						      // not including the end
-						      // coordinate
+		    // not including the end
+		    // coordinate
 		    Double sum = absCov.get(gi.toString());
 		    if (sum == null)
 			sum = 0d;
@@ -554,6 +557,97 @@ public class CoverageTools {
 	    out.println(bh);
 	if (bout != null)
 	    bout.close();
+	return bh;
+    }
+
+    /**
+     * Calculate a coverage histogram for all positions in the passed VCF file.
+     * 
+     * @param covFile
+     * @param vcfFile
+     * @param out
+     * @param binSize
+     * @return
+     * @throws IOException
+     * @throws CodocException
+     */
+    public static BinnedHistogram calculateScoreHistogramFromVCF(File covFile, File vcfFile, PrintStream outCSV, PrintStream out, int binSize, boolean onlypass)
+	    throws IOException, CodocException {
+	BinnedHistogram bh = new BinnedHistogram("ALL", binSize);
+	Map<String, BinnedHistogram> chromBH = new HashMap<String, BinnedHistogram>();
+
+	CoverageDecompressor cov = null;
+	try {
+	    cov = CoverageDecompressor.loadFromFile(covFile, null);
+
+	    CompressedCoverageIterator it = cov.getCoverageIterator();
+	    VCFIterator vi = null;
+	    SimpleVCFVariant v = null;
+	    String lastchrom = "";
+	    while (it.hasNext()) {
+		Float coverage = it.next();
+		if (coverage == null)
+		    coverage = -1f;
+
+		GenomicPosition pos = it.getGenomicPosition();
+
+		// load new chrom?
+		if (!pos.getChromosomeOriginal().equals(lastchrom)) {
+		    lastchrom = pos.getChromosomeOriginal();
+		    vi = new VCFIterator(vcfFile);
+		    while (vi.hasNext()) {
+			v = vi.next();
+			if (v.getChromosomeOrig().equals(lastchrom))
+			    break;
+		    }
+		    if (!v.getChromosomeOrig().equals(lastchrom)) {
+			vi = null;
+			continue; // skip as there is no VCF entry for this
+				  // chrom
+		    }
+		}
+
+		if (vi == null)
+		    continue;
+
+		// position vcf iterator
+		while (v.getPosition() < pos.get1Position() && vi.hasNext())
+		    v = vi.next();
+
+		if (v.getGenomicPosition().equals(pos)) {
+		    if (onlypass && !(v.getFilter().equals("PASS") || v.getFilter().equals(".")))
+			continue;
+
+		    if (debug)
+			if ((int) Math.round(coverage) == 0)
+			    System.err.println("Entry with zero coverage found at " + v);
+
+		    bh.push((int) Math.round(coverage));
+		    BinnedHistogram cbh = chromBH.get(v.getChromosomeOrig());
+		    if (cbh == null)
+			cbh = new BinnedHistogram(v.getChromosomeOrig(), binSize);
+		    cbh.push((int) Math.round(coverage));
+		    chromBH.put(v.getChromosomeOrig(), cbh);
+		}
+
+	    }
+	} finally {
+	    if (cov != null)
+		cov.close();
+	}
+	if (out != null) {
+	    out.println(bh);
+	    SortedSet<String> schroms = new TreeSet<String>();
+	    schroms.addAll(chromBH.keySet());
+	    for (String chr : schroms) {
+		out.println();
+		out.println();
+		out.println(chromBH.get(chr));
+	    }
+	}
+	if (outCSV != null) {
+	    outCSV.println(bh.toCSV());
+	}
 	return bh;
     }
 
@@ -663,6 +757,27 @@ public class CoverageTools {
 	return String.format("%." + comma + "f", f);
     }
 
+    private void coverageToWav(File covFile, File covVcfFile, File wavFile) throws CodocException, IOException {
+
+	if (debug)
+	    System.out.println("Load " + covFile);
+	CoverageDecompressor cov = null;
+	CompressedCoverageIterator cci = null;
+	CoverageInputStream ci = null;
+
+	try {
+	    cov = CoverageDecompressor.loadFromFile(covFile, covVcfFile);
+	    cci = cov.getCoverageIterator();
+	    ci = new CoverageInputStream(cci);
+
+	} finally {
+	    if (cov != null)
+		cov.close();
+	    if (ci != null)
+		ci.close();
+	}
+    }
+
     /**
      * Extract a random sample from a codoc file.
      * 
@@ -681,7 +796,7 @@ public class CoverageTools {
 	    GenomicPosition start = sampleRegions.getRandomPosition();
 
 	    StringBuilder sb = new StringBuilder();
-	    sb.append("# Sampled " + N + " with step " + step + " from " + start.toString1basedCanonicalHuman() + " in " + cov1File + "\n" );
+	    sb.append("# Sampled " + N + " with step " + step + " from " + start.toString1basedCanonicalHuman() + " in " + cov1File + "\n");
 	    int c = 0, counter = 0;
 	    boolean inRegion = false;
 	    String lastchr = "";
@@ -693,9 +808,9 @@ public class CoverageTools {
 
 		if (inRegion) {
 		    if (pos.get1Position() % step == 0) {
-			if ( !lastchr.equals(pos.getChromosome())) {
-				sb.append("# " + pos.toString1basedCanonicalHuman()+"\n"); 
-				lastchr = pos.getChromosome();
+			if (!lastchr.equals(pos.getChromosome())) {
+			    sb.append("# " + pos.toString1basedCanonicalHuman() + "\n");
+			    lastchr = pos.getChromosome();
 			}
 			sb.append(hit1.floatValue() + "\n");
 			counter++;
@@ -711,7 +826,64 @@ public class CoverageTools {
 		    System.err.print(".");
 	    }
 	    out.print(sb.toString());
-	    if ( counter < N)
+	    if (counter < N)
+		out.println("# Could no create complete sample as EOF was reached. Sample size: " + counter);
+	    if (debug)
+		System.out.println("Finished.");
+	} finally {
+	    cov1.close();
+	}
+    }
+
+    /**
+     * Extract a random sample from a codoc file.
+     * 
+     * @param covTFile
+     * @throws Throwable
+     */
+    public static void extractRandomSample(File cov1File, File cov1VcfFile, File sampleRegionsBed, int N, int step, PrintStream out) throws Throwable {
+	if (debug)
+	    System.out.println("Load " + cov1File);
+	CoverageDecompressor cov1 = CoverageDecompressor.loadFromFile(cov1File, cov1VcfFile);
+	try {
+	    cov1.setMaxCachedBlocks(1);
+	    CompressedCoverageIterator it1 = cov1.getCoverageIterator();
+
+	    SimpleBEDFile sampleRegions = new SimpleBEDFile(sampleRegionsBed);
+	    GenomicPosition start = sampleRegions.getRandomPosition();
+
+	    StringBuilder sb = new StringBuilder();
+	    sb.append("# Sampled " + N + " with step " + step + " from " + start.toString1basedCanonicalHuman() + " in " + cov1File + "\n");
+	    int c = 0, counter = 0;
+	    boolean inRegion = false;
+	    String lastchr = "";
+	    while (it1.hasNext()) {
+		Float hit1 = it1.next();
+		GenomicPosition pos = it1.getGenomicPosition();
+		if (pos.equals(start))
+		    inRegion = true;
+
+		if (inRegion) {
+		    if (pos.get1Position() % step == 0) {
+			if (!lastchr.equals(pos.getChromosome())) {
+			    sb.append("# " + pos.toString1basedCanonicalHuman() + "\n");
+			    lastchr = pos.getChromosome();
+			}
+			sb.append(hit1.floatValue() + "\n");
+			counter++;
+			if (counter == N)
+			    break;
+		    }
+		}
+		if (sb.length() > 500000) {
+		    out.println(sb.toString());
+		    sb = new StringBuilder();
+		}
+		if (++c % 100000 == 0)
+		    System.err.print(".");
+	    }
+	    out.print(sb.toString());
+	    if (counter < N)
 		out.println("# Could no create complete sample as EOF was reached. Sample size: " + counter);
 	    if (debug)
 		System.out.println("Finished.");
@@ -726,6 +898,7 @@ public class CoverageTools {
      * @param options
      */
     private static void usage(Options options, String subcommand, String e) {
+
 	if (subcommand == null) {
 	    System.out.println("Usage:\t\tjava -jar x.jar " + CoverageTools.class + " <command> [options]:\t");
 	    System.out.println();
@@ -737,6 +910,7 @@ public class CoverageTools {
 	    System.out.println("Command:\tcalculateCoveragePerBedFeature\tCalculates the base-coverage per feature in a passed BED file.");
 	    System.out.println("Command:\tcalculateCoveragePerUCSCFeature\tCalculates the base-coverage per feature in a UCSC database");
 	    System.out.println("Command:\tcalculateScoreHistogram\tCalculate a histogram of the avg. DOC wrt. a given set of intervals");
+	    System.out.println("Command:\tcalculateScoreHistogramFromVCF\tCalculate a histogram of the coverage per entry in a VCF file");
 	    System.out.println("Command:\textractRandomSample\tExtract a random sample from a codoc file.");
 	    System.out.println();
 	} else {
@@ -761,13 +935,18 @@ public class CoverageTools {
      */
     public static void main(String[] args) throws Throwable {
 
-//	args = new String[] { "extractRandomSample",
-//	"-cov", "src/test/resources/covcompress/small.compressed",
-//	"-vcf", "src/test/resources/covcompress/small.vcf",
-//	"-bed", "src/test/resources/covcompress/small.roi",
-//	"-N", "100",
-//	"-step", "2",
-//	"-v", "-o", "-" };
+	// args = new String[] { "extractRandomSample",
+	// "-cov", "src/test/resources/covcompress/small.compressed",
+	// "-vcf", "src/test/resources/covcompress/small.vcf",
+	// "-bed", "src/test/resources/covcompress/small.roi",
+	// "-N", "100",
+	// "-step", "2",
+	// "-v", "-o", "-" };
+
+	// args = new String[] { "calculateScoreHistogramFromVCF", "-cov",
+	// "/temp/Niko/stats/4447.final.bam.codoc", "-vcf",
+	// "/temp/Niko/stats/4447.final.platypus.vcf.gz", "-csv", "-",
+	// "-o", "-", "-onlypass", "-v" };
 
 	// create the command line parser
 	CommandLineParser parser = new PosixParser();
@@ -810,7 +989,7 @@ public class CoverageTools {
 		opt = new Option("step", true, "Step size (default: 1).");
 		opt.setRequired(false);
 		options.addOption(opt);
-		
+
 		opt = new Option("o", true, "Output.");
 		opt.setRequired(true);
 		options.addOption(opt);
@@ -830,11 +1009,11 @@ public class CoverageTools {
 		File covFile = new File(line.getOptionValue("cov"));
 		File vcfFile = (line.hasOption("vcf") ? new File(line.getOptionValue("vcf")) : null);
 		File bedFile = new File(line.getOptionValue("bed"));
-		int N = line.hasOption("N")?Integer.parseInt(line.getOptionValue("N")):100;
-		int step = line.hasOption("step")?Integer.parseInt(line.getOptionValue("step")):1;
-		
-		extractRandomSample( covFile, vcfFile, bedFile, N, step, out);
-		
+		int N = line.hasOption("N") ? Integer.parseInt(line.getOptionValue("N")) : 100;
+		int step = line.hasOption("step") ? Integer.parseInt(line.getOptionValue("step")) : 1;
+
+		extractRandomSample(covFile, vcfFile, bedFile, N, step, out);
+
 		if (!line.getOptionValue("o").equals("-"))
 		    out.close();
 		return;
@@ -1183,6 +1362,56 @@ public class CoverageTools {
 		if (!line.getOptionValue("o").equals("-"))
 		    out.close();
 		System.exit(0);
+	    } else if (subcommand.equalsIgnoreCase("calculateScoreHistogramFromVCF")) {
+		options = new Options();
+
+		Option opt = new Option("cov", true, "Compressed coverage.");
+		opt.setRequired(true);
+		options.addOption(opt);
+
+		opt = new Option("vcf", true, "VCF file");
+		opt.setRequired(true);
+		options.addOption(opt);
+
+		opt = new Option("csv", true, "Result CSV file that can be loaded into R");
+		opt.setRequired(false);
+		options.addOption(opt);
+
+		opt = new Option("binSize", true, "Histogram bin size (default: 1).");
+		opt.setRequired(false);
+		options.addOption(opt);
+
+		options.addOption("p", "onlypass", false, "Count only PASS VCF entries (default: false).");
+
+		opt = new Option("o", true, "Output file (or '-' for stdout). All per-chrom histograms will be printed to this file/stream");
+		opt.setRequired(true);
+		options.addOption(opt);
+
+		options.addOption("v", "verbose", false, "be verbose.");
+
+		line = parser.parse(options, args);
+		if (line.hasOption("v"))
+		    debug = true;
+		else
+		    debug = false;
+
+		File covFile = new File(line.getOptionValue("cov"));
+		File vcf = new File(line.getOptionValue("vcf"));
+		PrintStream outCSV = (line.hasOption("csv") ? (line.getOptionValue("csv").equals("-") ? System.err
+			: new PrintStream(line.getOptionValue("csv"))) : null);
+		int binSize = (line.hasOption("binSize") ? Integer.parseInt(line.getOptionValue("binSize")) : 1);
+		boolean onlypass = line.hasOption("p");
+
+		PrintStream out = System.out;
+		if (!line.getOptionValue("o").equals("-"))
+		    out = new PrintStream(line.getOptionValue("o"));
+
+		calculateScoreHistogramFromVCF(covFile, vcf, outCSV, out, binSize, onlypass);
+
+		if (!line.getOptionValue("o").equals("-"))
+		    out.close();
+		System.exit(0);
+
 	    } else {
 		usage(options, subcommand, null);
 	    }
