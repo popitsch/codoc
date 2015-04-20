@@ -42,6 +42,7 @@ import at.cibiv.ngs.tools.util.StringUtils;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
 import at.cibiv.ngs.tools.vcf.SimpleVCFFile;
 import at.cibiv.ngs.tools.vcf.SimpleVCFVariant;
+import at.cibiv.ngs.tools.vcf.VCFWriter;
 import at.cibiv.ngs.tools.vcf.SimpleVCFVariant.ZYGOSITY;
 import at.cibiv.ngs.tools.vcf.VCFIterator;
 import at.cibiv.ngs.tools.wig.WigOutputStream;
@@ -57,6 +58,49 @@ public class CoverageTools {
 	public static boolean debug = false;
 	public static final String CMD = "tools";
 	public static final String CMD_INFO = "Various DOC tools.";
+
+	/**
+	 * Annotate a VCF with coverage information from the given CODOC.
+	 * 
+	 * @param covFile
+	 * @param vcfFile
+	 * @param field
+	 * @param outFile
+	 * @throws IOException
+	 * @throws CodocException
+	 */
+	private static void annotateVCF(File covFile, File vcfFile, String field, File outFile) throws IOException, CodocException {
+
+		VCFIterator vi = new VCFIterator(vcfFile);
+		StringBuffer head = new StringBuffer(vi.getHeader());
+		head.insert(head.lastIndexOf("#CHROM"), "##INFO=<ID=" + field + ",Number=1,Type=Integer,Description=\"Coverage as extracted from " + covFile + ".\">\n");
+		PrintStream vout = new PrintStream(outFile);
+		vout.println(head.toString());
+
+		CoverageDecompressor cov1 = CoverageDecompressor.loadFromFile(covFile, null);
+		StringBuffer buf = new StringBuffer();
+		try {
+			while (vi.hasNext()) {
+				SimpleVCFVariant v = vi.next();
+				CoverageHit h = cov1.query(v.getGenomicPosition());
+				if (h != null) {
+					int cov = h.getRoundedCoverage();
+					v.addField(field, cov + "");
+				}
+				buf.append(v.toStringAsIs() + "\n");
+				if (buf.length() > 1000000) {
+					vout.print(buf.toString());
+					buf = new StringBuffer();
+				}
+			}
+			vout.print(buf.toString());
+			vout.close();
+			if (debug)
+				System.out.println(" Finished.");
+		} finally {
+			cov1.close();
+		}
+	}
 
 	/**
 	 * Dump the iterator to the given output stream
@@ -816,7 +860,7 @@ public class CoverageTools {
 
 			WigOutputStream wout = null;
 			StringBuilder sb = new StringBuilder();
-			boolean isWig = format==null?false:format.equalsIgnoreCase("wig");
+			boolean isWig = format == null ? false : format.equalsIgnoreCase("wig");
 
 			if (isWig) {
 				wout = new WigOutputStream(out);
@@ -894,6 +938,7 @@ public class CoverageTools {
 			System.out.println("Command:\tcalculateScoreHistogram\tCalculate a histogram of the avg. DOC wrt. a given set of intervals");
 			System.out.println("Command:\tcalculateScoreHistogramFromVCF\tCalculate a histogram of the coverage per entry in a VCF file");
 			System.out.println("Command:\textractSample\tExtract a sample from a codoc file.");
+			System.out.println("Command:\tannotateVCF\tAnnotate a VCF file with coverage information from a CODOC file.");
 			System.out.println();
 		} else {
 
@@ -950,7 +995,42 @@ public class CoverageTools {
 
 			subcommand = line.getArgs()[0];
 
-			if (subcommand.equalsIgnoreCase("extractSample")) {
+			if (subcommand.equalsIgnoreCase("annotateVCF")) {
+				options = new Options();
+
+				Option opt = new Option("cov", true, "Coverage.");
+				opt.setRequired(true);
+				options.addOption(opt);
+
+				opt = new Option("vcf", true, "Input VCF.");
+				opt.setRequired(false);
+				options.addOption(opt);
+
+				opt = new Option("field", true, "Name of the field to be added/replaced. Default: DP. Note that a header will be added to the VCF.");
+				opt.setRequired(false);
+				options.addOption(opt);
+
+				opt = new Option("o", true, "Output.");
+				opt.setRequired(true);
+				options.addOption(opt);
+
+				options.addOption("v", "verbose", false, "be verbose.");
+
+				line = parser.parse(options, args);
+				if (line.hasOption("v"))
+					debug = true;
+				else
+					debug = false;
+
+				File covFile = new File(line.getOptionValue("cov"));
+				File vcfFile = new File(line.getOptionValue("vcf"));
+				File outFile = new File(line.getOptionValue("o"));
+				String field = line.hasOption("field") ? line.getOptionValue("field") : "DP";
+
+				annotateVCF(covFile, vcfFile, field, outFile);
+
+				return;
+			} else if (subcommand.equalsIgnoreCase("extractSample")) {
 				options = new Options();
 
 				Option opt = new Option("cov", true, "Coverage.");
@@ -1413,4 +1493,5 @@ public class CoverageTools {
 			usage(options, subcommand, e.toString());
 		}
 	}
+
 }
