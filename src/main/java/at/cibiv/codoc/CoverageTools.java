@@ -75,7 +75,7 @@ public class CoverageTools {
 		StringBuffer head = new StringBuffer(vi.getHeader());
 		head.insert(head.lastIndexOf("#CHROM"), "##INFO=<ID=" + field + ",Number=1,Type=Integer,Description=\"Coverage as extracted from " + covFile + ".\">\n");
 		PrintStream vout = new PrintStream(outFile);
-		vout.println(head.toString());
+		vout.print(head.toString());
 
 		CoverageDecompressor cov1 = CoverageDecompressor.loadFromFile(covFile, null);
 		StringBuffer buf = new StringBuffer();
