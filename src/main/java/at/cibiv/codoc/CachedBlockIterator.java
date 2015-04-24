@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import at.cibiv.ngs.tools.sam.iterator.ChromosomeIteratorListener;
 import at.cibiv.ngs.tools.sam.iterator.CoverageIterator;
@@ -199,6 +200,20 @@ public class CachedBlockIterator implements CoverageIterator<Float> {
 		if (currentChrom == null)
 			return null;
 		return new GenomicPosition(currentChrom, currentPosition, COORD_TYPE.ONEBASED);
+	}
+	
+	/**
+	 * Like getGenomicPosition() but will convert chrom names with aliases.
+	 * @param chromAliases
+	 * @return
+	 */
+	public GenomicPosition getGenomicPosition(Map<String, String> chromAliases) {
+		if (currentChrom == null)
+			return null;
+		String chr = currentChrom;
+		if ( chromAliases != null && chromAliases.get(chr)!=null)
+		    chr = chromAliases.get(chr);
+		return new GenomicPosition(chr, currentPosition, COORD_TYPE.ONEBASED);
 	}
 
 	public float getScaleFactor() {

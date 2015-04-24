@@ -39,6 +39,7 @@ import at.cibiv.ngs.tools.lds.GenomicInterval;
 import at.cibiv.ngs.tools.util.BinnedHistogram;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 import at.cibiv.ngs.tools.util.StringUtils;
+import at.cibiv.ngs.tools.util.TabIterator;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
 import at.cibiv.ngs.tools.vcf.SimpleVCFFile;
 import at.cibiv.ngs.tools.vcf.SimpleVCFVariant;
@@ -108,13 +109,26 @@ public class CoverageTools {
 	 * @param covTFile
 	 * @throws Throwable
 	 */
-	public static void dumpIterator(File cov1File, File cov1VcfFile, boolean printPos, PrintStream out) throws Throwable {
+	public static void dumpIterator(File cov1File, File cov1VcfFile, boolean printPos, File aliasFile,  PrintStream out) throws Throwable {
 		if (debug)
 			System.out.println("Load " + cov1File);
+		
+		// prepare alias file
+		Map<String, String> chromAliases = null;
+		if (aliasFile != null) {
+		    chromAliases = new HashMap<String, String>();
+		    TabIterator ti = new TabIterator(aliasFile, "#");
+		    while (ti.hasNext()) {
+			String[] t = ti.next();
+			chromAliases.put(t[0], t[1]);
+		    }
+		}
+
 		CoverageDecompressor cov1 = CoverageDecompressor.loadFromFile(cov1File, cov1VcfFile);
 		try {
 			cov1.setMaxCachedBlocks(1);
 			CompressedCoverageIterator it1 = cov1.getCoverageIterator();
+			it1.setChromAliases(chromAliases);
 			StringBuilder sb = new StringBuilder();
 			int c = 0;
 			while (it1.hasNext()) {
@@ -961,6 +975,9 @@ public class CoverageTools {
 	 * @throws Throwable
 	 */
 	public static void main(String[] args) throws Throwable {
+	    
+//	    args = new String[] { "dumpCoverage", "-cov", "src/test/resources/covcompress/small.compressed", "-o", "-", "-printCoords", 
+//		    "-alias", "src/test/resources/covcompress/chr.aliases"};
 
 		// args = new String[] { "extractSample",
 		// "-cov", "src/test/resources/covcompress/small.compressed",
@@ -1411,6 +1428,10 @@ public class CoverageTools {
 				opt = new Option("o", true, "Output.");
 				opt.setRequired(true);
 				options.addOption(opt);
+				
+				opt = new Option("alias", true, "Optional chromosome alias file. ");
+				opt.setRequired(false);
+				options.addOption(opt);
 
 				options.addOption("printCoords", false, "Print also coordinates");
 
@@ -1430,7 +1451,7 @@ public class CoverageTools {
 				if (!line.getOptionValue("o").equals("-"))
 					out = new PrintStream(line.getOptionValue("o"));
 
-				dumpIterator(covFile, covVcfFile, printCoords, out);
+				dumpIterator(covFile, covVcfFile, printCoords, line.hasOption("alias") ? new File(line.getOptionValue("alias")) : null, out);
 
 				if (!line.getOptionValue("o").equals("-"))
 					out.close();
