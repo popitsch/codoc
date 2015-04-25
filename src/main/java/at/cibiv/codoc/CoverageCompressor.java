@@ -1245,7 +1245,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	    opt_best.setRequired(false);
 	    options.addOption(opt_best);
 	    
-	    opt = new Option(OPT_VALIDATION_STRINGENCY, false,
+	    opt = new Option(OPT_VALIDATION_STRINGENCY, true,
 		    "Used validation stringency when reading the coverage from a SAM/BAM file. Default: LENIENT");
 	    opt.setRequired(false);
 	    options.addOption(opt);
