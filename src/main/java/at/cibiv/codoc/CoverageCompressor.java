@@ -59,6 +59,8 @@ import at.cibiv.ngs.tools.wig.WigIterator;
 /**
  * A compressor for DOC data.
  * 
+ * FIXME: there seems to be a bug with the first read of a filtered alignment
+ * 
  * @author niko.popitsch@univie.ac.at
  * 
  */
@@ -255,7 +257,6 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 					else
 						warnings.add(new CodocException("Unable to parse filter string " + t + " - IGNORING"));
 				}
-
 			}
 
 			if (config.hasProperty(OPT_MANUAL_GOLOMB_K)) {
@@ -705,7 +706,6 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			// of 0-coverage at the beginning of a chromosome.
 			boolean headingzeros = true;
 			chromWasChanged = true;
-
 			while (coverageIterator.hasNext()) {
 				statistics.inc("coverage-values");
 				c++;
@@ -739,6 +739,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				// Chromosome change. (i.e., chr is the new chrom already)
 				// ..................................................................
 				if (chromWasChanged) {
+
 
 					// finish chrom!
 					if (roiFile == null) {
@@ -1119,6 +1120,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		System.out.println("\tby a logical AND. Filters are of the form <FIELD><OPERATOR><VALUE>.");
 		System.out.println();
 		System.out.println("\tPossible fields:");
+		System.out.println("\tCHR\tChromosome");
 		System.out.println("\tMAPQ\tthe mapping quality");
 		System.out.println("\tFLAGS\tthe read flags");
 		System.out.println("\tSTRAND\tthe read strand (+/-)");
@@ -1128,14 +1130,14 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		System.out.println("\tset will be included. @see http://samtools.sourceforge.net/SAMv1.pdf");
 		System.out.println();
 		System.out.println("\tPossible operators:");
-		System.out.println("\t<, <=, =, >, >=, ^^ (flag unset), && (flag set)");
+		System.out.println("\t<, <=, =, !=, >, >=, ^^ (flag unset), && (flag set)");
 		System.out.println();
 		System.out.println("\tExample: (do NOT use reads with mapping quality <= 20, or multiple perfect hits)");
 		System.out.println("\t-filter 'MAPQ>20' -filter 'H0=1'");
 		System.out.println("\t----------------------------------------------------------------------------");
 
 		System.out.println();
-		System.out.println("\tCODOC " + (Main.VERSION == null ? "" : Main.VERSION) + " (c) 2013");
+		System.out.println("\tCODOC " + (Main.VERSION == null ? "" : Main.VERSION) + " (c) 2013-2015");
 
 		if (e != null)
 			System.out.println("\nError: " + e);
@@ -1148,7 +1150,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	 * @throws IOException
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
-
+	    
 		CommandLineParser parser = new PosixParser();
 
 		// create the Options
@@ -1302,7 +1304,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			CoverageCompressor compressor = new CoverageCompressor(conf);
 			compressor.dumpWarnings();
 			System.out.println("Finished.");
-			System.exit(0);
+			return;
 
 		} catch (MissingOptionException e) {
 			System.err.println("Error: " + e.getMessage());

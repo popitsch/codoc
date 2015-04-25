@@ -1,5 +1,6 @@
 package at.cibiv.codoc;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +10,7 @@ import at.cibiv.codoc.utils.CodocException;
 import at.cibiv.codoc.utils.PropertyConfiguration;
 import at.cibiv.ngs.tools.sam.iterator.ChromosomeIteratorListener;
 import at.cibiv.ngs.tools.sam.iterator.CoverageIterator;
+import at.cibiv.ngs.tools.sam.iterator.ParseException;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 
 /**
@@ -189,6 +191,31 @@ public class CompressedCoverageIterator implements CoverageIterator<Float>, Chro
 
     public void setChromAliases(Map<String, String> chromAliases) {
 	this.chromAliases = chromAliases;
+    }
+
+    public static void main(String[] args) throws CodocException, IOException, ParseException {
+	
+	String s = "reverse";
+	
+	CoverageCompressor.main( new String[] {
+		    "-cov", "src/test/resources/covcompress/"+s+".sam",
+		    "-o", "src/test/resources/covcompress/"+s+".sam.codoc",
+		    "-filter", "CHR!=chrM"
+	    });
+	System.out.println("compressed " + s);
+	
+	CoverageDecompressor d = null;
+	try {
+	    d = CoverageDecompressor.loadFromFile(new File("src/test/resources/covcompress/"+s+".sam.codoc"), null);
+	    CompressedCoverageIterator it = d.getCoverageIterator();
+	    while ( it.hasNext() ) {
+		float c = it.next() ;
+		System.out.println(it.getGenomicPosition().toString1basedOrig() + ">" + c);
+	    }
+	} finally {
+	    if (d != null)
+		d.close();
+	}
     }
 
 }
