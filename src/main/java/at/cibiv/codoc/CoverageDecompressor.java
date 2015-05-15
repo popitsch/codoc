@@ -1067,7 +1067,7 @@ public class CoverageDecompressor {
 
 		if (bedOut != null) {
 			bedOut.println("track name=" + name + " description=\"" + description + "\" " + additional);
-			for (GenomicInterval gi : regionTree.getIntervals()) {
+			for (GenomicInterval gi : regionTree.getIntervalsSorted()) {
 				bedOut.println(gi.toBED());
 			}
 			bedOut.close();

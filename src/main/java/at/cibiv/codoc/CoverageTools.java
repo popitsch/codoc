@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -28,6 +29,8 @@ import at.cibiv.codoc.io.CoverageInputStream;
 import at.cibiv.codoc.utils.CodocException;
 import at.cibiv.codoc.utils.FileUtils;
 import at.cibiv.codoc.utils.PropertyConfiguration;
+import at.cibiv.ngs.tools.bed.AbstractBedIterator;
+import at.cibiv.ngs.tools.bed.BedIterator;
 import at.cibiv.ngs.tools.bed.SimpleBEDFile;
 import at.cibiv.ngs.tools.exon.ExonChromosomeTree;
 import at.cibiv.ngs.tools.exon.ExonInterval;
@@ -934,6 +937,167 @@ public class CoverageTools {
     }
 
     /**
+     * Prettyprint double
+     * 
+     * @param d
+     * @return
+     */
+    private static String fmt(Double d) {
+	if (d == null)
+	    return "NA";
+	return ((double) Math.round(d * 100000) / 100000) + "";
+    }
+
+    /**
+     * 
+     * @param codocFiles
+     * @param minCov
+     * @param outputDir
+     * @throws Throwable
+     */
+    public static void calculateMinCoveredRegions(List<File> codocFiles, int minCov, List<File> scopeFiles, File outputDir) throws Throwable {
+
+	// create output Dir?
+	org.apache.commons.io.FileUtils.forceMkdir(outputDir);
+
+	File allCoveredWigFile = new File(outputDir, "Intersect.minCov" + minCov + ".wig");
+	WigOutputStream outWig = new WigOutputStream(allCoveredWigFile);
+	File allCoveredBedFile = new File(outputDir, "Intersect.minCov" + minCov + ".bed");
+	PrintStream outBed = new PrintStream(allCoveredBedFile);
+
+	CoverageDecompressor cd = null;
+
+	List<BedIterator> its = new ArrayList<>();
+	// sorted list of current intervals
+	List<GenomicInterval> pointers = new ArrayList<GenomicInterval>();
+
+	for (File f : codocFiles) {
+	    File bedOutFile = new File(outputDir, f.getName() + ".minCov" + minCov + ".bed");
+	    try {
+		cd = CoverageDecompressor.loadFromFile(f, null);
+		cd.toBED(bedOutFile, minCov, null, f.getName() + ".minCov" + minCov + ".bed", f.getName() + ".minCov" + minCov + ".bed", null);
+	    } finally {
+		if (cd != null)
+		    cd.close();
+	    }
+	    BedIterator bi = new BedIterator(bedOutFile);
+	    if (bi.hasNext())
+		pointers.add(bi.next());
+	    its.add(bi);
+
+	    scopeFiles.add(bedOutFile);
+	    if (debug)
+		System.out.println("Created " + bedOutFile);
+	}
+	Collections.sort(pointers);
+
+	if (pointers.size() == 0)
+	    throw new IOException("All iterators were empty - do chrom names match?");
+
+	GenomicPosition p = pointers.get(0).getLeftPosition();
+	GenomicPosition start = null;
+	int count = 0;
+	do {
+	    // we know that the BEDs are sorted and non-overlapping
+	    int matches = 0;
+	    for (GenomicInterval gi : pointers) {
+		if (gi.contains(p))
+		    matches++;
+	    }
+
+	    if (matches == its.size()) {
+		outWig.push(p, 1d);
+		if (start == null)
+		    start = p;
+	    } else {
+		outWig.push(p, 0d);
+		if (start != null) {
+		    outBed.println(start.getChromosomeOriginal() + "\t" + start.get0Position() + "\t" + p.get0Position() + "\tint" + (++count));
+		    start = null;
+		}
+	    }
+
+	    if (matches == 0) {
+		// close interval?
+		if (start != null) {
+		    outBed.println(start.getChromosomeOriginal() + "\t" + start.get0Position() + "\t" + p.get0Position() + "\tint" + (++count));
+		    start = null;
+		}
+		p = pointers.get(0).getLeftPosition();
+	    } else {
+		p = p.add(1);
+	    }
+
+	    // chrom switch?
+	    if (start != null && !p.getChromosome().equals(start.getChromosome())) {
+		outBed.println(start.getChromosomeOriginal() + "\t" + start.get0Position() + "\t" + p.get0Position() + "\tint" + (++count));
+		start = null;
+	    }
+
+	    for (BedIterator bi : its) {
+		GenomicInterval g = bi.getCurrentInterval();
+		if (g.getRightPosition().compareTo(p) < 0) {
+		    pointers.remove(g);
+		    if (bi.hasNext()) {
+			pointers.add(bi.next());
+			Collections.sort(pointers);
+		    }
+		}
+	    }
+
+	} while (!pointers.isEmpty());
+	if (start != null) {
+	    outBed.println(start.getChromosomeOriginal() + "\t" + start.get0Position() + "\t" + p.get0Position() + "\tint" + (++count));
+	    start = null;
+	}
+	outWig.close();
+	outBed.close();
+
+	// calc overlaps
+	for (File bf : scopeFiles) {
+	    BedIterator covered = new BedIterator(allCoveredBedFile);
+	    if (covered.hasNext())
+		covered.next();
+	    BedIterator scope = new BedIterator(bf);
+	    File covFile = new File(outputDir, "Coverage." + bf.getName() + ".txt");
+	    PrintStream out = new PrintStream(covFile);
+	    out.println("#This file shows for each annotation in " + bf + " what percentage is covered min. " + minCov + "X in all considered data files: "
+		    + codocFiles);
+	    out.println("#Coord\tName\t%Covered");
+
+	    while (scope.hasNext()) {
+		GenomicInterval prev = scope.getCurrentInterval();
+		GenomicInterval s = scope.next();
+		if (prev != null && prev.overlaps(s)) {
+		    out.close();
+		    throw new IOException("ERROR: Scope files with overlapping annotations are not implemented yet! " + prev.getId() + " overlaps " + s.getId());
+		}
+		double cov = 0;
+		do {
+		    GenomicInterval c = covered.getCurrentInterval();
+		    if (c.getLeftPosition().compareTo(s.getRightPosition()) > 0)
+			break;
+		    // if (s.getId().equals("DDX11L1"))
+		    // System.out.println("measuring " + c.toCoordString() +
+		    // " vs " + s.toCoordString() + " / " + s.overlaps(c));
+		    if (s.overlaps(c))
+			cov += (float) Math.min(s.getMax(), c.getMax()) - Math.max(s.getMin() - 1, c.getMin() - 1);
+
+		    if (covered.hasNext())
+			covered.next();
+		} while (covered.hasNext());
+		cov = (cov / (s.getMax() - s.getMin() + 1));
+		out.println(s.toCoordString() + "\t" + s.getId() + "\t" + fmt(cov));
+	    }
+	    out.close();
+	}
+
+	if (debug)
+	    System.out.println("Finished.");
+
+    }
+
+    /**
      * Print usage information.
      * 
      * @param options
@@ -976,11 +1140,29 @@ public class CoverageTools {
      * @throws Throwable
      */
     public static void main(String[] args) throws Throwable {
+
+	// CoverageCompressor.main(new String[] {
+	// "-cov",
+	// "C:/projects/ngs-tools/impl/core/trunk/src/test/resources/randomAlignments/B.sam",
+	// "-qparam", "0",
+	// "-o", "src/test/resources/covintersec/B.codoc"});
+	// if ( 1==1) return;
+
+//	args = new String[] { "calculateMinCoveredRegions",
+//
+//	"-cov", "src/test/resources/covintersec/A.codoc", "-cov", "src/test/resources/covintersec/B.codoc", "-cov", "src/test/resources/covintersec/C.codoc",
+//
+//	"-o", "src/test/resources/covintersec/A+B+C", "-minCov", "2",
+//
+//		// "-scope", "T:/Niko/ucsc_canonical_genes.canonical.bed.gz",
+//		"-v" };
+
 	//
 	// args = new String[] { "dumpCoverage", "-cov",
 	// "src/test/resources/covcompress/reverse.sam.codoc", "-o", "-",
 	// "-printCoords", "-alias",
-	// "src/test/resources/covcompress/chr.aliases", "-chroms", "21", "-chroms", "20" };
+	// "src/test/resources/covcompress/chr.aliases", "-chroms", "21",
+	// "-chroms", "20" };
 
 	// args = new String[] { "extractSample",
 	// "-cov", "src/test/resources/covcompress/small.compressed",
@@ -1014,6 +1196,48 @@ public class CoverageTools {
 	    }
 
 	    subcommand = line.getArgs()[0];
+
+	    if (subcommand.equalsIgnoreCase("calculateMinCoveredRegions")) {
+		options = new Options();
+
+		Option opt = new Option("cov", true, "CODOC coverage files");
+		opt.setRequired(true);
+		options.addOption(opt);
+
+		opt = new Option("scope", true, "Scope BED files. Overlap statistics will be calculated for each scope and each coverage track.");
+		opt.setRequired(false);
+		options.addOption(opt);
+
+		opt = new Option("minCov", true, "Minimum required coverage in each file.");
+		opt.setRequired(false);
+		options.addOption(opt);
+
+		opt = new Option("o", true, "Output directory.");
+		opt.setRequired(true);
+		options.addOption(opt);
+
+		options.addOption("v", "verbose", false, "be verbose.");
+
+		line = parser.parse(options, args);
+		if (line.hasOption("v"))
+		    debug = true;
+		else
+		    debug = false;
+
+		List<File> covFiles = new ArrayList<>();
+		for (String s : line.getOptionValues("cov"))
+		    covFiles.add(new File(s));
+		List<File> scopeFiles = new ArrayList<>();
+		if (line.hasOption("scope"))
+		    for (String s : line.getOptionValues("scope"))
+			scopeFiles.add(new File(s));
+		Integer minCov = Integer.parseInt(line.getOptionValue("minCov"));
+		File outDir = new File(line.getOptionValue("o"));
+
+		calculateMinCoveredRegions(covFiles, minCov, scopeFiles, outDir);
+
+		return;
+	    } else
 
 	    if (subcommand.equalsIgnoreCase("annotateVCF")) {
 		options = new Options();
@@ -1062,7 +1286,7 @@ public class CoverageTools {
 		options.addOption(opt);
 
 		opt = new Option("start", true, "Start position of the sample. Use 'random' for a random position. In this case, -bed must be set.");
-		opt.setRequired(false);
+		opt.setRequired(true);
 		options.addOption(opt);
 
 		opt = new Option("bed", true,
