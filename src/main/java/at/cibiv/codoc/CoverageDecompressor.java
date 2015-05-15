@@ -13,6 +13,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -80,6 +82,7 @@ public class CoverageDecompressor {
 	public static final String OPT_NO_CACHING = "nocache";
 	public static final String OPT_DUMP_HEADER_AND_EXIT = "dumpHeaderAndExit";
 	public static final String OPT_MAX_CACHED_BLOCKS = "maxCachedBlocks";
+	public static final String OPT_ROI = "roi";
 
 	/*
 	 * DEFAULTS
@@ -1140,7 +1143,7 @@ public class CoverageDecompressor {
 	 * @param wigFile
 	 * @throws Throwable
 	 */
-	private void toWIG(String wigFile) throws Throwable {
+	private void toWIG(String wigFile, SortedSet<GenomicInterval> regionsOfInterest) throws Throwable {
 		WigOutputStream out = new WigOutputStream(new PrintStream(wigFile), compressedConfig.getProperty(CoverageCompressor.OPT_OUT_FILE),
 				"WIG track created by CODOC CoverageDecompressor", "");
 		CompressedCoverageIterator it = getCoverageIterator();
@@ -1150,10 +1153,25 @@ public class CoverageDecompressor {
 				hit = 0f;
 			// This is done as normalized chr names are used internally
 			GenomicPosition pos = it.getGenomicPosition();
+			if (regionsOfInterest != null) {
+				boolean found = false;
+				for (GenomicInterval g : regionsOfInterest)
+					if (g.contains(pos))
+						found = true;
+				if (!found)
+					continue;
+
+			}
+
 			String origChr = chrNameMap.get(pos.getChromosome());
 			if (origChr != null)
 				pos.setScaffold(origChr);
 			out.push(pos, Math.round(hit));
+
+			// break if we went beyond the last considered ROI
+			if (regionsOfInterest != null)
+				if (pos.compareTo(regionsOfInterest.last().getRightPosition()) > 0)
+					break;
 		}
 		out.close();
 	}
@@ -1319,6 +1337,12 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
+					opt = new Option(OPT_ROI, true,
+							"Optional regions of interest. WIG signal will be extracted only for these intervals, e.g.: 1:100-200 (default: NONE).");
+					opt.setLongOpt("regionOfInterest");
+					opt.setRequired(false);
+					options.addOption(opt);
+
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
 					line = parser.parse(options, args);
@@ -1339,9 +1363,17 @@ public class CoverageDecompressor {
 					if (line.hasOption(OPT_MAX_CACHED_BLOCKS))
 						conf.setProperty(OPT_MAX_CACHED_BLOCKS, line.getOptionValue(OPT_MAX_CACHED_BLOCKS));
 
+					SortedSet<GenomicInterval> rois = line.hasOption(OPT_ROI) ? new TreeSet<GenomicInterval>() : null;
+					if (rois != null)
+						for (String s : line.getOptionValues(OPT_ROI)) {
+							GenomicInterval g = GenomicInterval.fromString(s);
+							// move 1bp downstream to match 1-based coords
+							GenomicInterval g1 = new GenomicInterval(g.getChr(), g.getMin() - 1, g.getMax() - 1, null);
+							rois.add(g1);
+						}
 					try {
 						decompressor = new CoverageDecompressor(conf);
-						decompressor.toWIG(line.getOptionValue(OPT_OUT_FILE));
+						decompressor.toWIG(line.getOptionValue(OPT_OUT_FILE), rois);
 					} finally {
 						if (decompressor != null)
 							decompressor.close();
