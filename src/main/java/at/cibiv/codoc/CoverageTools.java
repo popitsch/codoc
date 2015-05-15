@@ -1118,6 +1118,8 @@ public class CoverageTools {
 	    System.out.println("Command:\tcalculateScoreHistogramFromVCF\tCalculate a histogram of the coverage per entry in a VCF file");
 	    System.out.println("Command:\textractSample\tExtract a sample from a codoc file.");
 	    System.out.println("Command:\tannotateVCF\tAnnotate a VCF file with coverage information from a CODOC file.");
+	    System.out.println("Command:\tcalculateMinCoveredRegions\tCalculates the regions in a set of CODOC files with a given minum coverage.");
+	    
 	    System.out.println();
 	} else {
 
