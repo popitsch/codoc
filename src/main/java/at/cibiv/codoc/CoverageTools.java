@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -29,8 +28,8 @@ import at.cibiv.codoc.io.CoverageInputStream;
 import at.cibiv.codoc.utils.CodocException;
 import at.cibiv.codoc.utils.FileUtils;
 import at.cibiv.codoc.utils.PropertyConfiguration;
-import at.cibiv.ngs.tools.bed.AbstractBedIterator;
 import at.cibiv.ngs.tools.bed.BedIterator;
+import at.cibiv.ngs.tools.bed.BedTools;
 import at.cibiv.ngs.tools.bed.SimpleBEDFile;
 import at.cibiv.ngs.tools.exon.ExonChromosomeTree;
 import at.cibiv.ngs.tools.exon.ExonInterval;
@@ -937,25 +936,14 @@ public class CoverageTools {
     }
 
     /**
-     * Prettyprint double
-     * 
-     * @param d
-     * @return
-     */
-    private static String fmt(Double d) {
-	if (d == null)
-	    return "NA";
-	return ((double) Math.round(d * 100000) / 100000) + "";
-    }
-
-    /**
      * 
      * @param codocFiles
      * @param minCov
      * @param outputDir
      * @throws Throwable
      */
-    public static void calculateMinCoveredRegions(List<File> codocFiles, int minCov, List<File> scopeFiles, File outputDir) throws Throwable {
+    public static void calculateMinCoveredRegions(List<File> codocFiles, int minCov, List<File> scopeFiles, boolean dontCheckSorted, File outputDir)
+	    throws Throwable {
 
 	// create output Dir?
 	org.apache.commons.io.FileUtils.forceMkdir(outputDir);
@@ -985,7 +973,6 @@ public class CoverageTools {
 		pointers.add(bi.next());
 	    its.add(bi);
 
-	    scopeFiles.add(bedOutFile);
 	    if (debug)
 		System.out.println("Created " + bedOutFile);
 	}
@@ -1054,41 +1041,10 @@ public class CoverageTools {
 	outBed.close();
 
 	// calc overlaps
-	for (File bf : scopeFiles) {
-	    BedIterator covered = new BedIterator(allCoveredBedFile);
-	    if (covered.hasNext())
-		covered.next();
-	    BedIterator scope = new BedIterator(bf);
-	    File covFile = new File(outputDir, "Coverage." + bf.getName() + ".txt");
+	for (File scope : scopeFiles) {
+	    File covFile = new File(outputDir, "Coverage." + scope.getName() + ".tsv");
 	    PrintStream out = new PrintStream(covFile);
-	    out.println("#This file shows for each annotation in " + bf + " what percentage is covered min. " + minCov + "X in all considered data files: "
-		    + codocFiles);
-	    out.println("#Coord\tName\t%Covered");
-
-	    while (scope.hasNext()) {
-		GenomicInterval prev = scope.getCurrentInterval();
-		GenomicInterval s = scope.next();
-		if (prev != null && prev.overlaps(s)) {
-		    out.close();
-		    throw new IOException("ERROR: Scope files with overlapping annotations are not implemented yet! " + prev.getId() + " overlaps " + s.getId());
-		}
-		double cov = 0;
-		do {
-		    GenomicInterval c = covered.getCurrentInterval();
-		    if (c.getLeftPosition().compareTo(s.getRightPosition()) > 0)
-			break;
-		    // if (s.getId().equals("DDX11L1"))
-		    // System.out.println("measuring " + c.toCoordString() +
-		    // " vs " + s.toCoordString() + " / " + s.overlaps(c));
-		    if (s.overlaps(c))
-			cov += (float) Math.min(s.getMax(), c.getMax()) - Math.max(s.getMin() - 1, c.getMin() - 1);
-
-		    if (covered.hasNext())
-			covered.next();
-		} while (covered.hasNext());
-		cov = (cov / (s.getMax() - s.getMin() + 1));
-		out.println(s.toCoordString() + "\t" + s.getId() + "\t" + fmt(cov));
-	    }
+	    BedTools.calcPerFeatureCoverageStats(scope, allCoveredBedFile, dontCheckSorted, 0f, 1f, out);
 	    out.close();
 	}
 
@@ -1119,7 +1075,7 @@ public class CoverageTools {
 	    System.out.println("Command:\textractSample\tExtract a sample from a codoc file.");
 	    System.out.println("Command:\tannotateVCF\tAnnotate a VCF file with coverage information from a CODOC file.");
 	    System.out.println("Command:\tcalculateMinCoveredRegions\tCalculates the regions in a set of CODOC files with a given minum coverage.");
-	    
+
 	    System.out.println();
 	} else {
 
@@ -1150,14 +1106,16 @@ public class CoverageTools {
 	// "-o", "src/test/resources/covintersec/B.codoc"});
 	// if ( 1==1) return;
 
-//	args = new String[] { "calculateMinCoveredRegions",
-//
-//	"-cov", "src/test/resources/covintersec/A.codoc", "-cov", "src/test/resources/covintersec/B.codoc", "-cov", "src/test/resources/covintersec/C.codoc",
-//
-//	"-o", "src/test/resources/covintersec/A+B+C", "-minCov", "2",
-//
-//		// "-scope", "T:/Niko/ucsc_canonical_genes.canonical.bed.gz",
-//		"-v" };
+	// args = new String[] { "calculateMinCoveredRegions",
+	//
+	// "-cov", "src/test/resources/covintersec/A.codoc", "-cov",
+	// "src/test/resources/covintersec/B.codoc", "-cov",
+	// "src/test/resources/covintersec/C.codoc",
+	//
+	// "-o", "src/test/resources/covintersec/A+B+C", "-minCov", "2",
+	//
+	// // "-scope", "T:/Niko/ucsc_canonical_genes.canonical.bed.gz",
+	// "-v" };
 
 	//
 	// args = new String[] { "dumpCoverage", "-cov",
@@ -1211,12 +1169,14 @@ public class CoverageTools {
 		options.addOption(opt);
 
 		opt = new Option("minCov", true, "Minimum required coverage in each file.");
-		opt.setRequired(false);
+		opt.setRequired(true);
 		options.addOption(opt);
 
 		opt = new Option("o", true, "Output directory.");
 		opt.setRequired(true);
 		options.addOption(opt);
+
+		options.addOption("d", "dontCheckSorted", false, "Dont check sort status of beds.");
 
 		options.addOption("v", "verbose", false, "be verbose.");
 
@@ -1236,7 +1196,7 @@ public class CoverageTools {
 		Integer minCov = Integer.parseInt(line.getOptionValue("minCov"));
 		File outDir = new File(line.getOptionValue("o"));
 
-		calculateMinCoveredRegions(covFiles, minCov, scopeFiles, outDir);
+		calculateMinCoveredRegions(covFiles, minCov, scopeFiles, line.hasOption("dontCheckSorted"), outDir);
 
 		return;
 	    } else
