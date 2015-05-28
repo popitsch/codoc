@@ -1055,7 +1055,8 @@ public class CoverageDecompressor {
 	 *            maximum coverage
 	 * @throws Throwable
 	 */
-	public GenomicITree toBED(File bedOutFile, Integer minCoverage, Integer maxCoverage, String name, String description, String additional) throws Throwable {
+	public GenomicITree toBED(File bedOutFile, Integer minCoverage, Integer maxCoverage, String name, String description, String additional, boolean noHeader)
+			throws Throwable {
 
 		PrintStream bedOut = bedOutFile != null ? new PrintStream(bedOutFile) : null;
 		if (name == null)
@@ -1069,7 +1070,8 @@ public class CoverageDecompressor {
 		// regionTree.dump();
 
 		if (bedOut != null) {
-			bedOut.println("track name=" + name + " description=\"" + description + "\" " + additional);
+			if (!noHeader)
+				bedOut.println("track name=" + name + " description=\"" + description + "\" " + additional);
 			for (GenomicInterval gi : regionTree.getIntervalsSorted()) {
 				bedOut.println(gi.toBED());
 			}
@@ -1433,6 +1435,8 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
+					options.addOption("noHeader", false, "If set, no BED track header will be written.");
+
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
 					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor (default is 1.0).");
@@ -1469,7 +1473,7 @@ public class CoverageDecompressor {
 					try {
 						decompressor = new CoverageDecompressor(conf);
 						decompressor.toBED(new File(line.getOptionValue(OPT_OUT_FILE)), min, max, line.getOptionValue("name"),
-								line.getOptionValue("description"), line.getOptionValue("additional"));
+								line.getOptionValue("description"), line.getOptionValue("additional"), line.hasOption("noHeader"));
 					} finally {
 						if (decompressor != null)
 							decompressor.close();
