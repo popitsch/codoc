@@ -1,7 +1,9 @@
 package at.cibiv.codoc;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
@@ -1055,7 +1057,8 @@ public class CoverageDecompressor {
 	 *            maximum coverage
 	 * @throws Throwable
 	 */
-	public GenomicITree toBED(File bedOutFile, Integer minCoverage, Integer maxCoverage, String name, String description, String additional, boolean noHeader)
+	@Deprecated
+	public GenomicITree toBEDOLD(File bedOutFile, Integer minCoverage, Integer maxCoverage, String name, String description, String additional, boolean noHeader)
 			throws Throwable {
 
 		PrintStream bedOut = bedOutFile != null ? new PrintStream(bedOutFile) : null;
@@ -1080,6 +1083,86 @@ public class CoverageDecompressor {
 		regionTree.buildTree();
 
 		return regionTree;
+	}
+
+	/**
+	 * Queries the data to extract regions that match the passed coverage
+	 * thresholds and writes the data to a single-track BED file. The intervals
+	 * are returned as 0-based entries in a genomic interval tree.
+	 * 
+	 * @param bedOutFile
+	 *            may be null
+	 * @param minCoverage
+	 *            minimum coverage
+	 * @param maxCoverage
+	 *            maximum coverage
+	 * @throws Throwable
+	 */
+	public void toBED(File bedOutFile, Integer minCoverage, Integer maxCoverage, String name, String description, String additional, boolean noHeader)
+			throws Throwable {
+
+		if (minCoverage == null)
+			minCoverage = 0;
+		if (maxCoverage == null)
+			maxCoverage = Integer.MAX_VALUE;
+		
+		BufferedWriter bedOut = new BufferedWriter(new FileWriter(bedOutFile));
+		if (name == null)
+			name = "CoverageRegions";
+		if (description == null)
+			description = "created by CoverageDecompressor.toBED(min=" + (minCoverage == null ? "unbound" : minCoverage) + ",max="
+					+ (maxCoverage == null ? "unbound" : maxCoverage) + ")";
+		if (additional == null)
+			additional = "";
+		if (!noHeader)
+			bedOut.append("track name=" + name + " description=\"" + description + "\" " + additional + "\n");		
+
+		CompressedCoverageIterator it = getCoverageIterator();
+		int rc = 0;
+		GenomicPosition startPos = null, lastPos = null;
+		while (it.hasNext()) {
+			Float h = it.next();
+			int cov = (h != null ? Math.round(h) : 0);
+			GenomicPosition pos = it.getGenomicPosition();
+			boolean inCorridor = (cov >= minCoverage) && (cov <= maxCoverage);
+			if (startPos == null) {
+				if (inCorridor) {
+					// start interval
+					startPos = pos;
+				}
+			} else {
+				if ((!pos.getChromosome().equals(startPos.getChromosome())) && (lastPos != null)) {
+					// end interval due to chrom change
+					GenomicInterval gi = new GenomicInterval(startPos.getChromosome(), startPos.get0Position(), lastPos.get0Position(), "region" + (rc++));
+					gi.setOriginalChrom(startPos.getChromosomeOriginal());
+					
+					bedOut.append(gi.toBED()+ "\n");
+					
+					if (inCorridor)
+						startPos = pos;
+					else
+						startPos = null;
+				} else if (!inCorridor) {
+					// end interval as corridor was left
+					GenomicInterval gi = new GenomicInterval(pos.getChromosome(), startPos.get0Position(), lastPos.get0Position(), "region" + (rc++));
+					gi.setOriginalChrom(pos.getChromosomeOriginal());
+					
+					bedOut.append(gi.toBED() + "\n");
+					
+					startPos = null;
+				}
+			}
+			lastPos = pos;
+		}
+		if (startPos != null) {
+			// end last interval
+			GenomicInterval gi = new GenomicInterval(lastPos.getChromosome(), startPos.get0Position(), lastPos.get0Position(), "region" + (rc++));
+			gi.setOriginalChrom(lastPos.getChromosomeOriginal());
+			
+			bedOut.append(gi.toBED() + "\n");
+
+		}
+		bedOut.close();
 	}
 
 	/**

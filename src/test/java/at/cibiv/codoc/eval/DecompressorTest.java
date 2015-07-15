@@ -196,7 +196,7 @@ public class DecompressorTest {
 		CoverageDecompressor decompressor = new CoverageDecompressor(config);
 		try {
 
-			GenomicITree tree = decompressor.toBED(null, 1, null, "test", "test", "test");
+			GenomicITree tree = decompressor.toBEDOLD(null, 1, null, "test", "test", "test", false);
 			// tree.dump();
 			CompressedCoverageIterator it = decompressor.getCoverageIterator();
 			while (it.hasNext()) {
@@ -227,7 +227,7 @@ public class DecompressorTest {
 		config.setProperty(CoverageDecompressor.OPT_CHR_LEN_FILE, lenFile);
 		CoverageDecompressor decompressor = new CoverageDecompressor(config);
 		try {
-			GenomicITree tree = decompressor.toBED(null, null, 0, "test", "test", "test");
+			GenomicITree tree = decompressor.toBEDOLD(null, null, 0, "test", "test", "test", false);
 			tree.dump();
 			CompressedCoverageIterator it = decompressor.getCoverageIterator();
 			while (it.hasNext()) {

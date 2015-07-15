@@ -11,24 +11,20 @@
 	<repositories>
 
 		<repository>
-			<id>local-file-repo</id>
-			<name>LOCAL Maven Repository</name>
-			<url>file:///home/niko/Desktop/projects/repository/</url>
-			<releases>
-			</releases>
+			<id>well-repo-releases</id>
+			<name>WELL Maven Repository</name>
+			<url>http://brc14.well.ox.ac.uk:8081/artifactory/ext-release-local/</url>
 			<snapshots>
-				<enabled>false</enabled>
+				<enabled>true</enabled>
 			</snapshots>
 		</repository>
-		
+
 		<repository>
-			<id>cibiv-repo</id>
-			<name>CIBIV Maven Repository</name>
-			<url>http://aristoteles.cibiv.univie.ac.at/artifactory/repo/</url>
-			<releases>
-			</releases>
+			<id>well-repo-snapshots</id>
+			<name>WELL Maven Repository</name>
+			<url>http://brc14.well.ox.ac.uk:8081/artifactory/ext-snapshot-local/</url>
 			<snapshots>
-				<enabled>false</enabled>
+				<enabled>true</enabled>
 			</snapshots>
 		</repository>
 
