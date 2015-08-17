@@ -119,9 +119,9 @@
 	<dependencies>
 
 		<dependency>
-			<groupId>cibiv</groupId>
+			<groupId>wtchg</groupId>
 			<artifactId>ngs-tools</artifactId>
-			<version>0.0.1</version>
+			<version>0.0.2</version>
 		</dependency>
 
 		<dependency>
