@@ -897,7 +897,7 @@ public class CoverageTools {
 		pout = new PrintWriter(new File(outFile.getAbsolutePath() + ".temp"));
 	    } else {
 		pout = new PrintWriter(outFile);
-		sb.append("# Sampled " + N + " positions with step " + step + " starting at " + start.toString1basedCanonicalHuman() + " in " + cov1File + "\n");
+		sb.append("# Sampled " + N + " positions with step " + step + " starting at " + start + " in " + cov1File + "\n");
 	    }
 
 	    GenomicPosition pos = null;
@@ -907,6 +907,9 @@ public class CoverageTools {
 	    while (it1.hasNext()) {
 		cov = it1.nextCoverage();
 		pos = it1.getGenomicPosition();
+		if (start == null)
+		    start = pos;
+
 		// check ROI
 		if (sampleRegions != null && !sampleRegions.contains(pos))
 		    continue;
@@ -943,7 +946,7 @@ public class CoverageTools {
 		    pout.println("# Could no create complete sample as EOF was reached. Sample size: " + count);
 
 	    }
-	    
+
 	} finally {
 	    cov1.close();
 	    if (pout != null)
@@ -956,13 +959,13 @@ public class CoverageTools {
 	    // now compress the created coverage file
 	    PropertyConfiguration config = cov1.getCompressedConfig();
 	    config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE, new File(outFile.getAbsolutePath() + ".temp").getAbsolutePath());
-	    if ( CoverageCompressor.compress(config, outFile, true) )
+	    if (CoverageCompressor.compress(config, outFile, true))
 		System.out.println("Created " + outFile);
 	    // delete temp file.
 	    new File(outFile.getAbsolutePath() + ".temp").delete();
 	}
 	if (debug)
-		System.out.println("Finished.");
+	    System.out.println("Finished.");
     }
 
     /**
@@ -1164,13 +1167,15 @@ public class CoverageTools {
 	// "src/test/resources/covcompress/chr.aliases", "-chroms", "21",
 	// "-chroms", "20" };
 
-//	args = new String[] { "subSample", "-cov", "src/test/resources/covcompress/small.compressed", 
-//		"-bed", "src/test/resources/covcompress/small.roi", "-N", "100", "-step", "5", "-start", "first", "-v", "-o",
-//		"src/test/resources/subsample/small.subsample.codoc" };
+	// args = new String[] { "subSample", "-cov",
+	// "src/test/resources/covcompress/small.compressed",
+	// "-bed", "src/test/resources/covcompress/small.roi", "-N", "100",
+	// "-step", "5", "-start", "first", "-v", "-o",
+	// "src/test/resources/subsample/small.subsample.codoc" };
 
-	//args = new String[] { "dumpCoverage", "-cov", "src/test/resources/covcompress/small.compressed", "-o", "-" };
+	// args = new String[] { "dumpCoverage", "-cov",
+	// "src/test/resources/covcompress/small.compressed", "-o", "-" };
 
-	
 	// args = new String[] { "calculateScoreHistogramFromVCF", "-cov",
 	// "/temp/Niko/stats/4447.final.bam.codoc", "-vcf",
 	// "/temp/Niko/stats/4447.final.platypus.vcf.gz", "-csv", "-",
