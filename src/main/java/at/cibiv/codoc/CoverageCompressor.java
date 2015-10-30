@@ -638,8 +638,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
      * @throws Throwable
      */
     protected void compress(CoverageIterator<?> coverageIterator) throws Throwable {
-
-	this.coverageIterator = coverageIterator;
+ 	this.coverageIterator = coverageIterator;
 	long startTime = System.currentTimeMillis();
 	boolean keepWorkDir = config.getBooleanProperty(OPT_KEEP_WORKDIR, false);
 	boolean createStats = config.getBooleanProperty(OPT_CREATE_STATS, false);
@@ -1040,7 +1039,6 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
 	config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE, sortedBam.getAbsolutePath());
 	config.setProperty(CoverageCompressor.OPT_VCF_FILE, vcfFile.getAbsolutePath());
-	config.setProperty(CoverageCompressor.OPT_OUT_FILE, outFile.getAbsolutePath());
 	config.setProperty(CoverageCompressor.OPT_BAM_FILTER, "FLAGS^^1024;FLAGS^^512");
 	config.setProperty(CoverageCompressor.OPT_QUANT_METHOD, QUANT_METHOD.PERC.name());
 	config.setProperty(CoverageCompressor.OPT_QUANT_PARAM, "0.2");
@@ -1048,6 +1046,15 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	for (String f : flags)
 	    config.setProperty(f, "true");
 
+	return compress(config, outFile, verbose);
+    }
+
+    
+    /**
+     * Convenience method. Will compress with the passed configuration and write warnings and errors to stderr.
+     */
+    public static boolean compress(PropertyConfiguration config, File outFile, boolean verbose) {
+	config.setProperty(CoverageCompressor.OPT_OUT_FILE, outFile.getAbsolutePath());
 	if (verbose)
 	    debug = true;
 	CoverageCompressor compressor = null;
@@ -1062,7 +1069,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	    if (debug) {
 		if (compressor != null)
 		    for (String m : compressor.getMessages())
-			System.out.println("> " + m);
+			System.err.println("> " + m);
 	    }
 	    if ((compressor != null) && (compressor.getWarnings().size()) > 0) {
 		System.err.println("Warnings: ");
@@ -1071,6 +1078,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	}
     }
 
+    
     /**
      * Dump all warnings to stderr.
      */
@@ -1158,6 +1166,9 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
      * @throws IOException
      */
     public static void main(String[] args) throws IOException, ParseException {
+	
+	//args = new String[] { "-cov", "src/test/resources/covcompress/small.bam", "-o", "src/test/resources/covcompress/small.compressed", "-v"};
+	
 
 	CommandLineParser parser = new PosixParser();
 

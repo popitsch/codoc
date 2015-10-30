@@ -78,7 +78,7 @@ public class SimpleUsageExamples {
 	 * @throws ParseException
 	 */
 	public static void main(String[] args) throws CodocException, IOException, ParseException {
-		File covFile = new File("src/test/resources/covcompress/small.compressed");
+		File covFile = new File("src/test/resources/subsample/small.subsample.codoc");
 		File covFile2 = new File("src/test/resources/covcompress/small.compressed");
 		File covVcfFile = new File("src/test/resources/covcompress/small.vcf");
 
