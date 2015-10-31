@@ -41,6 +41,7 @@ import at.cibiv.ngs.tools.lds.GenomicInterval;
 import at.cibiv.ngs.tools.util.BinnedHistogram;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
+import at.cibiv.ngs.tools.util.Statistics;
 import at.cibiv.ngs.tools.util.StringUtils;
 import at.cibiv.ngs.tools.util.TabIterator;
 import at.cibiv.ngs.tools.vcf.SimpleVCFFile;
@@ -60,6 +61,29 @@ public class CoverageTools {
     public static boolean debug = false;
     public static final String CMD = "tools";
     public static final String CMD_INFO = "Various DOC tools.";
+
+    /** Calculate some iterator stats. */
+    private static Statistics calcStats(File covFile) throws IOException, CodocException {
+	Statistics stats = new Statistics();
+	CoverageDecompressor cov1 = CoverageDecompressor.loadFromFile(covFile, null);
+	try {
+	    long start = System.currentTimeMillis();
+	    CompressedCoverageIterator it1 = cov1.getCoverageIterator();
+	    while (it1.hasNext()) {
+		Float cov = it1.next();
+		String chr = it1.getGenomicPosition().getChromosomeOriginal();
+		stats.inc(chr + "-pos");
+		if (cov == 0)
+		    stats.inc("zero-pos");
+	    }
+	    stats.set("Time[min]", ((double) (System.currentTimeMillis() - start)) / 1000 / 60);
+	} finally {
+	    cov1.close();
+	}
+	if (debug)
+	    System.out.println(" Finished.");
+	return stats;
+    }
 
     /**
      * Annotate a VCF with coverage information from the given CODOC.
@@ -975,8 +999,9 @@ public class CoverageTools {
 	    if (CoverageCompressor.compress(config, outFile, true))
 		System.out.println("Created " + outFile + " / " + outFile.exists());
 	    // delete temp file.
-	    if ( ! new File(outFile.getAbsolutePath() + ".temp").delete())
-		System.err.println("Could not delete temp file " + new File(outFile.getAbsolutePath() + ".temp"));;
+	    if (!new File(outFile.getAbsolutePath() + ".temp").delete())
+		System.err.println("Could not delete temp file " + new File(outFile.getAbsolutePath() + ".temp"));
+	    ;
 
 	}
 	if (debug)
@@ -1157,6 +1182,10 @@ public class CoverageTools {
      */
     public static void main(String[] args) throws Throwable {
 
+//	args = new String[] { "stats",
+//
+//	"-cov", "src/test/resources/covcompress/small.bam.codoc" };
+
 //	args = new String[] { "subsample",
 //
 //	"-cov", "src/test/resources/covcompress/small.bam.codoc", "-start", "first", "-N", "100", "-step", "5", "-o",
@@ -1213,7 +1242,26 @@ public class CoverageTools {
 
 	    subcommand = line.getArgs()[0];
 
-	    if (subcommand.equalsIgnoreCase("calculateMinCoveredRegions")) {
+	    if (subcommand.equalsIgnoreCase("stats")) {
+		options = new Options();
+
+		Option opt = new Option("cov", true, "CODOC coverage files");
+		opt.setRequired(true);
+		options.addOption(opt);
+
+		options.addOption("v", "verbose", false, "be verbose.");
+
+		line = parser.parse(options, args);
+		if (line.hasOption("v"))
+		    debug = true;
+		else
+		    debug = false;
+
+		Statistics stats = calcStats(new File(line.getOptionValue("cov")));
+		System.out.println(stats);
+
+		return;
+	    } else if (subcommand.equalsIgnoreCase("calculateMinCoveredRegions")) {
 		options = new Options();
 
 		Option opt = new Option("cov", true, "CODOC coverage files");
@@ -1270,9 +1318,7 @@ public class CoverageTools {
 		calculateMinCoveredRegions(covFiles, minCov, scopeFiles, line.hasOption("dontCheckSorted"), line.hasOption("writeWig"), outDir);
 
 		return;
-	    } else
-
-	    if (subcommand.equalsIgnoreCase("annotateVCF")) {
+	    } else if (subcommand.equalsIgnoreCase("annotateVCF")) {
 		options = new Options();
 
 		Option opt = new Option("cov", true, "Coverage.");
@@ -1794,5 +1840,4 @@ public class CoverageTools {
 	    usage(options, subcommand, e.toString());
 	}
     }
-
 }
