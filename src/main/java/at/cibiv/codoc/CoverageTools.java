@@ -1157,10 +1157,10 @@ public class CoverageTools {
      */
     public static void main(String[] args) throws Throwable {
 
-	args = new String[] { "subsample",
-
-	"-cov", "src/test/resources/covcompress/small.bam.codoc", "-start", "first", "-N", "100", "-step", "5", "-o",
-		"src/test/resources/subsample/small.subsample.codoc", "-v" };
+//	args = new String[] { "subsample",
+//
+//	"-cov", "src/test/resources/covcompress/small.bam.codoc", "-start", "first", "-N", "100", "-step", "5", "-o",
+//		"src/test/resources/subsample/small.subsample.codoc", "-v" };
 
 	// args = new String[] { "calculateMinCoveredRegions",
 	//
