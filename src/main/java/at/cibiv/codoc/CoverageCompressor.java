@@ -638,7 +638,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
      * @throws Throwable
      */
     protected void compress(CoverageIterator<?> coverageIterator) throws Throwable {
- 	this.coverageIterator = coverageIterator;
+	this.coverageIterator = coverageIterator;
 	long startTime = System.currentTimeMillis();
 	boolean keepWorkDir = config.getBooleanProperty(OPT_KEEP_WORKDIR, false);
 	boolean createStats = config.getBooleanProperty(OPT_CREATE_STATS, false);
@@ -930,85 +930,91 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 	} finally {
 
-	    // quit immediately if no codewords were written
-	    if (statistics.get("codewords") == null)
-		return;
-
 	    // garbage collect
 	    System.gc();
+	    FileHeader header = null;
+	    
+	    // skip file creation of no codewords were written
+	    if (statistics.get("codewords") == null) {
+		System.err.println("No codewords were written - skipping CODOC file creation");
+	    } else {
+		// close and compress individual blocks
+		if (currentBlockIndex >= 0) {
+		    // close block to flush buffers.
+		    chrData.get(currentBlockIndex).close();
+		    posData.get(currentBlockIndex).close();
+		    cov1Data.get(currentBlockIndex).close();
+		    cov2Data.get(currentBlockIndex).close();
 
-	    // close and compress individual blocks
+		    // compress the block
+		    chrData.get(currentBlockIndex).compress();
+		    posData.get(currentBlockIndex).compress();
+		    cov1Data.get(currentBlockIndex).compress();
+		    cov2Data.get(currentBlockIndex).compress();
+		}
 
-	    if (currentBlockIndex >= 0) {
-		// close block to flush buffers.
-		chrData.get(currentBlockIndex).close();
-		posData.get(currentBlockIndex).close();
-		cov1Data.get(currentBlockIndex).close();
-		cov2Data.get(currentBlockIndex).close();
+		// get statistics
+		int val = 0;
+		for (FileDataOutputBlock<String> block : chrData) {
+		    val += block.getStream().getEncodedEntities();
+		}
+		statistics.set("encodedChroms", val);
+		val = 0;
+		for (FileDataOutputBlock<Integer> block : posData) {
+		    val += block.getStream().getEncodedEntities();
+		}
+		statistics.set("encodedPos", val);
+		val = 0;
+		for (FileDataOutputBlock<Integer> block : cov1Data) {
+		    val += block.getStream().getEncodedEntities();
+		}
+		statistics.set("encodedCov1", val);
+		val = 0;
+		for (FileDataOutputBlock<Integer> block : cov2Data) {
+		    val += block.getStream().getEncodedEntities();
+		}
+		statistics.set("encodedCov2", val);
 
-		// compress the block
-		chrData.get(currentBlockIndex).compress();
-		posData.get(currentBlockIndex).compress();
-		cov1Data.get(currentBlockIndex).compress();
-		cov2Data.get(currentBlockIndex).compress();
+		// create Header
+		header = new FileHeader(FileUtils.createTempFile(workDir, "header_"));
+		header.setConfiguration(config);
+		for (FileDataOutputBlock<?> b : chrData)
+		    header.addBlock(b);
+		for (FileDataOutputBlock<?> b : posData)
+		    header.addBlock(b);
+		for (FileDataOutputBlock<?> b : cov1Data)
+		    header.addBlock(b);
+		for (FileDataOutputBlock<?> b : cov2Data)
+		    header.addBlock(b);
+		header.toFile();
+		// merge all blocks
+		CompressedFile cf = new CompressedFile(header);
+		cf.toFile(outFile);
 	    }
-
-	    // get statistics
-	    int val = 0;
-	    for (FileDataOutputBlock<String> block : chrData) {
-		val += block.getStream().getEncodedEntities();
-	    }
-	    statistics.set("encodedChroms", val);
-	    val = 0;
-	    for (FileDataOutputBlock<Integer> block : posData) {
-		val += block.getStream().getEncodedEntities();
-	    }
-	    statistics.set("encodedPos", val);
-	    val = 0;
-	    for (FileDataOutputBlock<Integer> block : cov1Data) {
-		val += block.getStream().getEncodedEntities();
-	    }
-	    statistics.set("encodedCov1", val);
-	    val = 0;
-	    for (FileDataOutputBlock<Integer> block : cov2Data) {
-		val += block.getStream().getEncodedEntities();
-	    }
-	    statistics.set("encodedCov2", val);
-
-	    // create Header
-	    FileHeader header = new FileHeader(FileUtils.createTempFile(workDir, "header_"));
-	    header.setConfiguration(config);
-	    for (FileDataOutputBlock<?> b : chrData)
-		header.addBlock(b);
-	    for (FileDataOutputBlock<?> b : posData)
-		header.addBlock(b);
-	    for (FileDataOutputBlock<?> b : cov1Data)
-		header.addBlock(b);
-	    for (FileDataOutputBlock<?> b : cov2Data)
-		header.addBlock(b);
-	    header.toFile();
-	    // merge all blocks
-	    CompressedFile cf = new CompressedFile(header);
-	    cf.toFile(outFile);
-
+	    
 	    // delete temporary files.
 	    if (!keepWorkDir) {
 		if (header != null)
 		    if (!header.deleteFiles())
 			addWarning(new CodocException("Could not remove header file " + header.getF1()));
+		System.out.println("DELETE " + chrData);
 		for (FileDataOutputBlock<?> b : chrData) {
+		    b.close();
 		    if (!b.deleteFiles())
 			addWarning(new CodocException("Could not remove temporary file(s) of " + b));
 		}
 		for (FileDataOutputBlock<?> b : posData) {
+		    b.close();
 		    if (!b.deleteFiles())
 			addWarning(new CodocException("Could not remove temporary file(s) of " + b));
 		}
 		for (FileDataOutputBlock<?> b : cov1Data) {
+		    b.close();
 		    if (!b.deleteFiles())
 			addWarning(new CodocException("Could not remove temporary file(s) of " + b));
 		}
 		for (FileDataOutputBlock<?> b : cov2Data) {
+		    b.close();
 		    if (!b.deleteFiles())
 			addWarning(new CodocException("Could not remove temporary file(s) of " + b));
 		}
@@ -1049,9 +1055,9 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	return compress(config, outFile, verbose);
     }
 
-    
     /**
-     * Convenience method. Will compress with the passed configuration and write warnings and errors to stderr.
+     * Convenience method. Will compress with the passed configuration and write
+     * warnings and errors to stderr.
      */
     public static boolean compress(PropertyConfiguration config, File outFile, boolean verbose) {
 	config.setProperty(CoverageCompressor.OPT_OUT_FILE, outFile.getAbsolutePath());
@@ -1078,7 +1084,6 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	}
     }
 
-    
     /**
      * Dump all warnings to stderr.
      */
@@ -1166,9 +1171,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
      * @throws IOException
      */
     public static void main(String[] args) throws IOException, ParseException {
-	
-	//args = new String[] { "-cov", "src/test/resources/covcompress/small.bam", "-o", "src/test/resources/covcompress/small.compressed", "-v"};
-	
+
+	// args = new String[] { "-cov",
+	// "src/test/resources/covcompress/small.bam", "-o",
+	// "src/test/resources/covcompress/small.compressed", "-v"};
 
 	CommandLineParser parser = new PosixParser();
 
@@ -1255,9 +1261,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		    "Used best (bzip2) compression method. Compression/decompression times might be slighly slower with this method.");
 	    opt_best.setRequired(false);
 	    options.addOption(opt_best);
-	    
-	    opt = new Option(OPT_VALIDATION_STRINGENCY, true,
-		    "Used validation stringency when reading the coverage from a SAM/BAM file. Default: LENIENT");
+
+	    opt = new Option(OPT_VALIDATION_STRINGENCY, true, "Used validation stringency when reading the coverage from a SAM/BAM file. Default: LENIENT");
 	    opt.setRequired(false);
 	    options.addOption(opt);
 

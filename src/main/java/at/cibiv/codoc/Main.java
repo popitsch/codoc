@@ -19,7 +19,7 @@ import at.cibiv.codoc.utils.PropertyConfiguration;
  */
 public class Main {
 
-	static String VERSION = null;
+	static String VERSION = "0.0.2";
 
 	/**
 	 * Usage

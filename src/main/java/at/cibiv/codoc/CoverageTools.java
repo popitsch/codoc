@@ -832,6 +832,7 @@ public class CoverageTools {
      * @throws CodocException
      * @throws IOException
      */
+    @Deprecated
     private void coverageToWav(File covFile, File covVcfFile, File wavFile) throws CodocException, IOException {
 
 	if (debug)
@@ -948,6 +949,7 @@ public class CoverageTools {
 	    }
 
 	} finally {
+	    System.out.println("Subsampling finished.");
 	    cov1.close();
 	    if (pout != null)
 		pout.close();
@@ -956,13 +958,26 @@ public class CoverageTools {
 	}
 
 	if (isCodoc) {
+	    // garbage collect
+	    System.gc();
 	    // now compress the created coverage file
-	    PropertyConfiguration config = cov1.getCompressedConfig();
+	    PropertyConfiguration config = CoverageCompressor.getDefaultConfiguration(BLOCK_COMPRESSION_METHOD.GZIP);
+	    String[] copyParams = new String[] { CoverageCompressor.OPT_BAM_FILTER, CoverageCompressor.OPT_BED_FILE, CoverageCompressor.OPT_BEST_COMPRESSION,
+		    CoverageCompressor.OPT_BLOCKSIZE, CoverageCompressor.OPT_COMPRESSION_ALGORITHM, CoverageCompressor.OPT_MANUAL_GOLOMB_K,
+		    CoverageCompressor.OPT_QUANT_METHOD, CoverageCompressor.OPT_QUANT_PARAM, CoverageCompressor.OPT_SCALE_COVERAGE,
+		    CoverageCompressor.OPT_VALIDATION_STRINGENCY, CoverageCompressor.OPT_VCF_FILE };
+	    for (String p : copyParams)
+		if (cov1.getCompressionParameter(p) != null)
+		    config.setProperty(p, cov1.getCompressionParameter(p));
 	    config.setProperty(CoverageCompressor.OPT_COVERAGE_FILE, new File(outFile.getAbsolutePath() + ".temp").getAbsolutePath());
+	    config.setProperty(CoverageCompressor.OPT_VERBOSE, "true");
+	    System.out.println(config);
 	    if (CoverageCompressor.compress(config, outFile, true))
-		System.out.println("Created " + outFile);
+		System.out.println("Created " + outFile + " / " + outFile.exists());
 	    // delete temp file.
-	    new File(outFile.getAbsolutePath() + ".temp").delete();
+	    if ( ! new File(outFile.getAbsolutePath() + ".temp").delete())
+		System.err.println("Could not delete temp file " + new File(outFile.getAbsolutePath() + ".temp"));;
+
 	}
 	if (debug)
 	    System.out.println("Finished.");
@@ -1142,12 +1157,10 @@ public class CoverageTools {
      */
     public static void main(String[] args) throws Throwable {
 
-	// CoverageCompressor.main(new String[] {
-	// "-cov",
-	// "C:/projects/ngs-tools/impl/core/trunk/src/test/resources/randomAlignments/B.sam",
-	// "-qparam", "0",
-	// "-o", "src/test/resources/covintersec/B.codoc"});
-	// if ( 1==1) return;
+	args = new String[] { "subsample",
+
+	"-cov", "src/test/resources/covcompress/small.bam.codoc", "-start", "first", "-N", "100", "-step", "5", "-o",
+		"src/test/resources/subsample/small.subsample.codoc", "-v" };
 
 	// args = new String[] { "calculateMinCoveredRegions",
 	//
