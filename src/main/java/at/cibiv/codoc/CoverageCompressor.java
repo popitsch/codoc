@@ -115,6 +115,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
     public static final String OPT_SCALE_COVERAGE = "scaleCoverage";
     public static final String OPT_MANUAL_GOLOMB_K = "manualGolombK";
     public static final String OPT_VALIDATION_STRINGENCY = "validationStringency";
+    public static final String OPT_WEIGHT_BY_X0 = "weightByX0";
     public static final String OPT_VERBOSE = "v";
 
     public static final String OPT_BLOCK_BORDERS = "blockBorders";
@@ -280,7 +281,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		else if (config.getProperty(OPT_VALIDATION_STRINGENCY).equalsIgnoreCase("STRICT"))
 		    vs = ValidationStringency.STRICT;
 	    }
-	    it = new FastBamCoverageIterator(coverageFile, filters, false, false, vs);
+	    boolean weightByX0=config.getProperty(OPT_WEIGHT_BY_X0, "false").equalsIgnoreCase("true");
+	    boolean useFirstOfPairStrand=false;
+	    boolean countProperPairs=false;
+	    it = new FastBamCoverageIterator(coverageFile, filters, weightByX0, useFirstOfPairStrand, countProperPairs, vs);
 
 	} else if (ext.equalsIgnoreCase(".wig")) {
 	    if (debug)
@@ -1274,6 +1278,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		    + "'FLAGS^^512', 'none',... [default: -filter FLAGS^^1024 -filter FLAGS^^512]." + "See below for more help on filters.");
 	    filter.setRequired(false);
 	    options.addOption(filter);
+	    
+	    opt = new Option(OPT_WEIGHT_BY_X0, false, "Weight the coverage by X0 values. Used only if input coverage file is SAM/BAM (default: false)");
+	    opt.setRequired(false);
+	    options.addOption(opt);
 
 	    options.addOption(OPT_VERBOSE, "verbose", false, "be verbose");
 
@@ -1329,6 +1337,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		conf.setProperty(OPT_MANUAL_GOLOMB_K, line.getOptionValue(OPT_MANUAL_GOLOMB_K));
 	    if (line.hasOption(OPT_VALIDATION_STRINGENCY))
 		conf.setProperty(OPT_VALIDATION_STRINGENCY, line.getOptionValue(OPT_VALIDATION_STRINGENCY));
+	    if (line.hasOption(OPT_WEIGHT_BY_X0))
+		conf.setProperty(OPT_WEIGHT_BY_X0, line.getOptionValue(OPT_WEIGHT_BY_X0));
 
 	    conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
 

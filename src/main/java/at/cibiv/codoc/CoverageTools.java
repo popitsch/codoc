@@ -880,6 +880,7 @@ public class CoverageTools {
 
     /**
      * Extract a sample from a codoc file.
+     * FIXME N is not used!
      * 
      * @param covTFile
      * @throws Throwable
