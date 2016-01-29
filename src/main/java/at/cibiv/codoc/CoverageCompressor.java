@@ -280,7 +280,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		else if (config.getProperty(OPT_VALIDATION_STRINGENCY).equalsIgnoreCase("STRICT"))
 		    vs = ValidationStringency.STRICT;
 	    }
-	    it = new FastBamCoverageIterator(coverageFile, filters, false, false, vs);
+	    it = new FastBamCoverageIterator(coverageFile, filters, false, false, false, vs);
 
 	} else if (ext.equalsIgnoreCase(".wig")) {
 	    if (debug)
