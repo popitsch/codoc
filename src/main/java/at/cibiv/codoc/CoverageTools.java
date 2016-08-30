@@ -335,7 +335,7 @@ public class CoverageTools {
 
 		// write norm values
 		PrintWriter out = null, bedout=null;
-		WigOutputStream woutMean = null, woutMin = null, woutMax = null, woutUpper = null, woutLower = null;
+		WigOutputStream woutMean = null, woutMin = null, woutMax = null, woutUpper = null, woutLower = null, woutSD = null;
 
 		try {
 			out = new PrintWriter(tsvFile + ".norm");
@@ -344,6 +344,7 @@ public class CoverageTools {
 			woutMax = new WigOutputStream(tsvFile + ".max.wig");
 			woutUpper = new WigOutputStream(tsvFile + ".upper.wig");
 			woutLower = new WigOutputStream(tsvFile + ".lower.wig");
+			woutSD = new WigOutputStream(tsvFile + ".SD.wig");
 			bedout = new PrintWriter(tsvFile + ".extremes.bed");
 			ti = new TabIterator(tsvFile, null);
 			while (ti.hasNext()) {
@@ -380,8 +381,8 @@ public class CoverageTools {
 					Percentile perc = new Percentile();
 					perc.setData(sort);
 					double IQR = perc.evaluate(75)-perc.evaluate(25);
-					double upper=perc.evaluate(75)+IQR*1.5;
-					double lower=perc.evaluate(25)-IQR*1.5;
+					double upper=Math.max(0, perc.evaluate(75)+IQR*1.5);
+					double lower=Math.max(0, perc.evaluate(25)-IQR*1.5);
 							
 
 					woutMean.push(pos, summary.getMean(), win);
@@ -389,6 +390,7 @@ public class CoverageTools {
 					woutMax.push(pos, summary.getMax(), win);
 					woutUpper.push(pos, upper, win);
 					woutLower.push(pos, lower, win);
+					woutSD.push(pos, summary.getStandardDeviation(), win);
 
 					for (int i = 0; i < sums.length; i++) {
 						// calc norm factor
@@ -421,6 +423,7 @@ public class CoverageTools {
 			woutMax.close();
 			woutUpper.close();
 			woutLower.close();
+			woutSD.close();
 			bedout.close();
 		}
 		if (debug)
@@ -1534,8 +1537,8 @@ public class CoverageTools {
 	 */
 	public static void main(String[] args) throws Throwable {
 
-		args = new String[] { "normalizeTsv", "-tsv",
-				"/Volumes/Temp/Niko/data.tsv", "-v" };
+//		args = new String[] { "normalizeTsv", "-tsv",
+//				"/Volumes/Temp/Niko/data.tsv", "-v" };
 
 		// args = new String[] {
 		// "coverageToTsvColumn",
