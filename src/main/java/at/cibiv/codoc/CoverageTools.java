@@ -20,6 +20,8 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
+import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
+import org.apache.commons.math3.stat.descriptive.rank.Percentile;
 
 import at.ac.univie.cs.mis.lds.index.itree.ITree;
 import at.ac.univie.cs.mis.lds.index.itree.Interval;
@@ -41,6 +43,7 @@ import at.cibiv.ngs.tools.lds.GenomicInterval;
 import at.cibiv.ngs.tools.util.BinnedHistogram;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
+import at.cibiv.ngs.tools.util.MathUtil;
 import at.cibiv.ngs.tools.util.Statistics;
 import at.cibiv.ngs.tools.util.StringUtils;
 import at.cibiv.ngs.tools.util.TabIterator;
@@ -203,13 +206,13 @@ public class CoverageTools {
 	 * @param covTFile
 	 * @throws Throwable
 	 */
-	public static void coverageToTsvColumn(File cov1File, 
-			int n, int win, GenomicPosition startPos, File outF)
-			throws Throwable {
+	public static void coverageToTsvColumn(File cov1File, int n, int win,
+			GenomicPosition startPos, File outF) throws Throwable {
 		if (debug)
 			System.out.println("Load " + cov1File);
 
-		CoverageDecompressor cov1 = CoverageDecompressor.loadFromFile(cov1File, null);
+		CoverageDecompressor cov1 = CoverageDecompressor.loadFromFile(cov1File,
+				null);
 		if (debug)
 			System.out.println("Extracting coverage...");
 
@@ -291,6 +294,135 @@ public class CoverageTools {
 			outF.delete();
 		org.apache.commons.io.FileUtils
 				.moveFile(new File(outF + ".temp"), outF);
+		if (debug)
+			System.out.println("Finished.");
+	}
+
+	/**
+	 * Normalizes a file created by coveragetotsv function
+	 * 
+	 * @param covTFile
+	 * @throws Throwable
+	 */
+	public static void normalizeTsv(File tsvFile) throws IOException {
+
+		TabIterator ti = new TabIterator(tsvFile, null);
+		int col = 0;
+		int win = 0;
+		double[] sums = null;
+		while (ti.hasNext()) {
+			String[] t = ti.next();
+			if (t[0].startsWith("#")) {
+				if (t[0].startsWith("# win="))
+					win = Integer.parseInt(t[0].substring("# win=".length(),
+							t[0].length()));
+				continue;
+			} else if (t[0].equals("Pos")) {
+				col = t.length - 1;
+				sums = new double[col];
+			} else {
+				for (int i = 1; i < t.length; i++)
+					sums[i - 1] += Integer.parseInt(t[i]);
+			}
+		}
+		// get max
+		double max = 0;
+		for (double s : sums) {
+			max = Math.max(max, s);
+		}
+		System.out.println("max: " + max);
+		System.out.println("win: " + win);
+
+		// write norm values
+		PrintWriter out = null, bedout=null;
+		WigOutputStream woutMean = null, woutMin = null, woutMax = null, woutUpper = null, woutLower = null;
+
+		try {
+			out = new PrintWriter(tsvFile + ".norm");
+			woutMean = new WigOutputStream(tsvFile + ".mean.wig");
+			woutMin = new WigOutputStream(tsvFile + ".min.wig");
+			woutMax = new WigOutputStream(tsvFile + ".max.wig");
+			woutUpper = new WigOutputStream(tsvFile + ".upper.wig");
+			woutLower = new WigOutputStream(tsvFile + ".lower.wig");
+			bedout = new PrintWriter(tsvFile + ".extremes.bed");
+			ti = new TabIterator(tsvFile, null);
+			while (ti.hasNext()) {
+				String[] t = ti.next();
+				if (t[0].startsWith("#"))
+					out.println(StringUtils.concat(t, "\t"));
+				else if (t[0].equals("Pos")) {
+					out.println("# Normalized.");
+					out.print(StringUtils.concat(t, "\t"));
+					for (int i = 0; i < col; i++)
+						out.print("\t" + t[i + 1] + "-NORM");
+					out.print("\tMean\tSD");
+					out.println();
+				} else {
+					// write raw values
+					GenomicPosition pos = GenomicPosition.fromString(t[0],
+							COORD_TYPE.ONEBASED);
+					out.print(StringUtils.concat(t, "\t"));
+					SummaryStatistics summary = new SummaryStatistics();
+					double[] sort = new double[sums.length];
+					for (int i = 0; i < sums.length; i++) {
+						// calc norm factor
+						double fac = max / sums[i];
+						double val = Double.parseDouble(t[i + 1]) * fac;
+						out.print("\t" + MathUtil.fmt(val));
+						summary.addValue(val);
+						sort[i] = val;
+					}
+					out.print("\t" + MathUtil.fmt(summary.getMean()) + "\t"
+							+ MathUtil.fmt(summary.getStandardDeviation()));
+					out.println();
+
+					Arrays.sort(sort);
+					Percentile perc = new Percentile();
+					perc.setData(sort);
+					double IQR = perc.evaluate(75)-perc.evaluate(25);
+					double upper=perc.evaluate(75)+IQR*1.5;
+					double lower=perc.evaluate(25)-IQR*1.5;
+							
+
+					woutMean.push(pos, summary.getMean(), win);
+					woutMin.push(pos, summary.getMin(), win);
+					woutMax.push(pos, summary.getMax(), win);
+					woutUpper.push(pos, upper, win);
+					woutLower.push(pos, lower, win);
+
+					for (int i = 0; i < sums.length; i++) {
+						// calc norm factor
+						double fac = max / sums[i];
+						double val = Double.parseDouble(t[i + 1]) * fac;
+						if (val > upper)
+							bedout.println(pos
+									.getChromosomeOriginalCanonicalHuman()
+									+ "\t"
+									+ pos.get1Position()
+									+ "\t"
+									+ (pos.get1Position() + win - 1) + "\tGAIN-" + i);
+						if (val < lower)
+							bedout.println(pos
+									.getChromosomeOriginalCanonicalHuman()
+									+ "\t"
+									+ pos.get1Position()
+									+ "\t"
+									+ (pos.get1Position() + win - 1) + "\tLOSS-" + i);
+						summary.addValue(val);
+						sort[i] = val;
+					}
+
+				}
+			}
+		} finally {
+			out.close();
+			woutMean.close();
+			woutMin.close();
+			woutMax.close();
+			woutUpper.close();
+			woutLower.close();
+			bedout.close();
+		}
 		if (debug)
 			System.out.println("Finished.");
 	}
@@ -1375,6 +1507,8 @@ public class CoverageTools {
 					.println("Command:\tcalculateMinCoveredRegions\tCalculates the regions in a set of CODOC files with a given minum coverage.");
 			System.out
 					.println("Command:\tcoverageToTsvColumn\tAppend coverage to a TSV file.");
+			System.out
+					.println("Command:\tnormalizeTsv\tNormalize coverage in a TSV file.");
 
 			System.out.println();
 		} else {
@@ -1400,14 +1534,17 @@ public class CoverageTools {
 	 */
 	public static void main(String[] args) throws Throwable {
 
-//		args = new String[] {
-//				"coverageToTsvColumn",
-//				"-cov",
-//				"/Volumes/Temp/Niko/codocSubsamples/FFPEGeL222_FFPE.bam.subsample.N100000.step100.codoc",
-//				"-cov",
-//				"/Volumes/Temp/Niko/codocSubsamples/FFPEGeL300_FFPE.bam.subsample.N100000.step100.codoc",
-//				"-o", "/Volumes/Temp/Niko/codocSubsamples/test.tsv", "-start",
-//				"1:20000", "-v" };
+		args = new String[] { "normalizeTsv", "-tsv",
+				"/Volumes/Temp/Niko/data.tsv", "-v" };
+
+		// args = new String[] {
+		// "coverageToTsvColumn",
+		// "-cov",
+		// "/Volumes/Temp/Niko/codocSubsamples/FFPEGeL222_FFPE.bam.subsample.N100000.step100.codoc",
+		// "-cov",
+		// "/Volumes/Temp/Niko/codocSubsamples/FFPEGeL300_FFPE.bam.subsample.N100000.step100.codoc",
+		// "-o", "/Volumes/Temp/Niko/codocSubsamples/test.tsv", "-start",
+		// "1:20000", "-v" };
 
 		// args = new String[] { "stats",
 		//
@@ -2156,7 +2293,8 @@ public class CoverageTools {
 			} else if (subcommand.equalsIgnoreCase("coverageToTsvColumn")) {
 				options = new Options();
 
-				Option opt = new Option("cov", true, "Compressed coverage file(s).");
+				Option opt = new Option("cov", true,
+						"Compressed coverage file(s).");
 				opt.setRequired(true);
 				options.addOption(opt);
 
@@ -2196,10 +2334,28 @@ public class CoverageTools {
 				File outFile = new File(line.getOptionValue("o"));
 
 				long start = System.currentTimeMillis();
-				for ( String f : covFiles)
-				coverageToTsvColumn(new File(f), n, win, startPos, outFile);
+				for (String f : covFiles)
+					coverageToTsvColumn(new File(f), n, win, startPos, outFile);
 				System.out.println("Took "
 						+ (System.currentTimeMillis() - start) + " ms.");
+				System.exit(0);
+			} else if (subcommand.equalsIgnoreCase("normalizeTsv")) {
+				options = new Options();
+
+				Option opt = new Option("tsv", true, "TSV file.");
+				opt.setRequired(true);
+				options.addOption(opt);
+
+				options.addOption("v", "verbose", false, "be verbose.");
+
+				line = parser.parse(options, args);
+				if (line.hasOption("v"))
+					debug = true;
+				else
+					debug = false;
+
+				normalizeTsv(new File(line.getOptionValue("tsv")));
+
 				System.exit(0);
 
 			} else {
