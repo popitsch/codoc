@@ -22,6 +22,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 import org.apache.commons.math3.stat.descriptive.rank.Percentile;
+import org.apache.commons.math3.stat.inference.KolmogorovSmirnovTest;
 
 import at.ac.univie.cs.mis.lds.index.itree.ITree;
 import at.ac.univie.cs.mis.lds.index.itree.Interval;
@@ -309,7 +310,7 @@ public class CoverageTools {
 		TabIterator ti = new TabIterator(tsvFile, null);
 		int col = 0;
 		int win = 0;
-		double[] sums = null;
+		SummaryStatistics[] stats = null;
 		while (ti.hasNext()) {
 			String[] t = ti.next();
 			if (t[0].startsWith("#")) {
@@ -319,24 +320,21 @@ public class CoverageTools {
 				continue;
 			} else if (t[0].equals("Pos")) {
 				col = t.length - 1;
-				sums = new double[col];
+				stats = new SummaryStatistics[col];
+				for ( int i = 0; i < col; i++)
+					stats[i] = new SummaryStatistics();
 			} else {
 				for (int i = 1; i < t.length; i++)
-					sums[i - 1] += Integer.parseInt(t[i]);
+					stats[i - 1].addValue( Integer.parseInt(t[i]) );
 			}
 		}
-		// get max
-		double max = 0;
-		for (double s : sums) {
-			max = Math.max(max, s);
-		}
-		System.out.println("max: " + max);
 		System.out.println("win: " + win);
 
 		// write norm values
 		PrintWriter out = null, bedout=null;
 		WigOutputStream woutMean = null, woutMin = null, woutMax = null, woutUpper = null, woutLower = null, woutSD = null;
-
+		KolmogorovSmirnovTest ks = new KolmogorovSmirnovTest();
+		
 		try {
 			out = new PrintWriter(tsvFile + ".norm");
 			woutMean = new WigOutputStream(tsvFile + ".mean.wig");
@@ -364,10 +362,10 @@ public class CoverageTools {
 							COORD_TYPE.ONEBASED);
 					out.print(StringUtils.concat(t, "\t"));
 					SummaryStatistics summary = new SummaryStatistics();
-					double[] sort = new double[sums.length];
-					for (int i = 0; i < sums.length; i++) {
+					double[] sort = new double[stats.length];
+					for (int i = 0; i < stats.length; i++) {
 						// calc norm factor
-						double fac = max / sums[i];
+						double fac = 1/stats[i].getMean();
 						double val = Double.parseDouble(t[i + 1]) * fac;
 						out.print("\t" + MathUtil.fmt(val));
 						summary.addValue(val);
@@ -391,10 +389,12 @@ public class CoverageTools {
 					woutUpper.push(pos, upper, win);
 					woutLower.push(pos, lower, win);
 					woutSD.push(pos, summary.getStandardDeviation(), win);
-
-					for (int i = 0; i < sums.length; i++) {
+					
+					
+			
+					for (int i = 0; i < stats.length; i++) {
 						// calc norm factor
-						double fac = max / sums[i];
+						double fac = 1/stats[i].getMean();
 						double val = Double.parseDouble(t[i + 1]) * fac;
 						if (val > upper)
 							bedout.println(pos
@@ -483,7 +483,7 @@ public class CoverageTools {
 			normalAlso.print(vcfT.getHeader());
 		if (lowCoverage != null)
 			lowCoverage.print(vcfT.getHeader());
-
+		
 		if (debug)
 			System.out.println("Start");
 		int c = 0;
@@ -1537,8 +1537,8 @@ public class CoverageTools {
 	 */
 	public static void main(String[] args) throws Throwable {
 
-//		args = new String[] { "normalizeTsv", "-tsv",
-//				"/Volumes/Temp/Niko/data.tsv", "-v" };
+		args = new String[] { "normalizeTsv", "-tsv",
+				"/temp/Niko/data.tsv", "-v" };
 
 		// args = new String[] {
 		// "coverageToTsvColumn",

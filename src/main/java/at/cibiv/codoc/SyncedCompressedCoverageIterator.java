@@ -1,10 +1,12 @@
 package at.cibiv.codoc;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
+import at.cibiv.codoc.utils.CodocException;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 
 /**
@@ -44,9 +46,11 @@ public class SyncedCompressedCoverageIterator implements Iterator<GenomicPositio
 	 * 
 	 * @param it1
 	 * @param it2
+	 * @throws IOException 
+	 * @throws CodocException 
 	 * @throws Throwable
 	 */
-	public SyncedCompressedCoverageIterator(CoverageDecompressor d1, CoverageDecompressor d2, List<String> chromOrder) throws Throwable {
+	public SyncedCompressedCoverageIterator(CoverageDecompressor d1, CoverageDecompressor d2, List<String> chromOrder) throws CodocException, IOException {
 		this.d1 = d1;
 		this.d2 = d2;
 		if (chromOrder == null) {
