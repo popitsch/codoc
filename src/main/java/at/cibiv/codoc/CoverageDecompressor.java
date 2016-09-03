@@ -1298,7 +1298,7 @@ public class CoverageDecompressor {
 		String h = getCompressionParameter(CoverageCompressor.STAT_HIST);
 		if (h == null)
 			throw new NullPointerException("No histogram found! " + getCompressedConfig());
-		String med = getCompressionParameter(CoverageCompressor.STAT_HIST);
+		String med = getCompressionParameter(CoverageCompressor.STAT_PSEUDO_MEDIAN);
 		if (med == null)
 			throw new NullPointerException("No median found!" + getCompressedConfig());
 
