@@ -917,7 +917,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 			// Set statistics
 			statistics.set(STAT_MEAN, (coverageSum / (double) c));
-			statistics.set(STAT_PSEUDO_MEDIAN, hist.estimateMean());
+			statistics.set(STAT_PSEUDO_MEDIAN, hist.estimateMedian());
 			statistics.set(STAT_COUNT, c);
 			statistics.setString(STAT_HIST, hist.toString());
 
