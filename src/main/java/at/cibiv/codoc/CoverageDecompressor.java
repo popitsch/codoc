@@ -1298,13 +1298,15 @@ public class CoverageDecompressor {
 	public void extractHist(File outFile) throws IOException {
 		String h = getCompressionParameter(CoverageCompressor.STAT_HIST);
 		if (h == null)
-			throw new NullPointerException("No histogram found!");
+			throw new NullPointerException("No histogram found! " + getCompressedConfig());
 		String med = getCompressionParameter(CoverageCompressor.STAT_HIST);
 		if (med == null)
-			throw new NullPointerException("No median found!");
+			throw new NullPointerException("No median found!" + getCompressedConfig());
 
 		Histogram<Integer> hist = Histogram.fromString(h);
-		int maxBin = hist.getMaxBin();
+		Integer maxBin = hist.getMaxBin();
+		if (maxBin == null)
+			throw new NullPointerException("Histogram is empty: " + getCompressedConfig());
 		// make sure that there is data for every bin!
 		JSONArray bins = new JSONArray();
 		JSONArray counts = new JSONArray();
