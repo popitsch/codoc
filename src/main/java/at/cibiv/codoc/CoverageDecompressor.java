@@ -27,7 +27,6 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
 import org.h2.util.MemoryUtils;
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import at.cibiv.codoc.CoverageCompressor.STANDARD_STREAM;
@@ -1304,25 +1303,8 @@ public class CoverageDecompressor {
 			throw new NullPointerException("No median found!" + getCompressedConfig());
 
 		Histogram<Integer> hist = Histogram.fromString(h);
-		Integer maxBin = hist.getMaxBin();
-		if (maxBin == null)
-			throw new NullPointerException("Histogram is empty: " + getCompressedConfig());
-		// make sure that there is data for every bin!
-		JSONArray bins = new JSONArray();
-		JSONArray counts = new JSONArray();
-		for (int c = 0; c < maxBin; c++) {
-			Long count = hist.getCount(c);
-			if (count == null)
-				count = 0L;
-			bins.put(c);
-			counts.put(count);
-		}
-		JSONObject hobj = new JSONObject();
-		hobj.put("bins", bins);
-		hobj.put("counts", counts);
-
 		JSONObject obj = new JSONObject();
-		obj.put("histogram", hobj);
+		obj.put("histogram", hist.toJSON());
 		obj.put("median", Long.parseLong(med));
 
 		PrintWriter out = new PrintWriter(outFile);
