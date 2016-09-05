@@ -1207,7 +1207,9 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 		//
 		// args = new String[] { "-cov",
 		// "src/test/resources/covcompress/small.bam", "-o",
-		// "src/test/resources/covcompress/small.compressed", "-v"};
+		// "src/test/resources/covcompress/small.compressed",
+		// "-roi", "src/test/resources/covcompress/small.roi",
+		// "-v"};
 
 		CommandLineParser parser = new PosixParser();
 
@@ -1232,6 +1234,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			options.addOption(opt);
 
 			opt = new Option(OPT_BED_FILE, true, "Input BED file containing regions of interest (optional). The file will be interpreted 0-based!");
+			opt.setLongOpt("roi");
 			opt.setRequired(false);
 			options.addOption(opt);
 

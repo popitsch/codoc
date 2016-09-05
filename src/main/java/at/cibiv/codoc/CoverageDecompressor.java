@@ -26,6 +26,9 @@ import org.apache.commons.cli.MissingOptionException;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.PosixParser;
+import org.broad.igv.Globals;
+import org.broad.igv.tools.IgvTools;
+import org.broad.igv.track.WindowFunction;
 import org.h2.util.MemoryUtils;
 import org.json.JSONObject;
 
@@ -61,7 +64,7 @@ public class CoverageDecompressor {
 	public static final String CMD_INFO = "Decompresses coverage data.";
 
 	public static enum CMD_COMMANDS {
-		HEAD, QUERY, TOWIG, TOBED, HIST
+		HEAD, QUERY, TOWIG, TOBED, TOTDF, HIST
 	};
 
 	/**
@@ -650,7 +653,6 @@ public class CoverageDecompressor {
 				: new File(covFile.getParentFile(), "" + Math.random());
 		File chrLenFile = conf.hasProperty(OPT_CHR_LEN_FILE) ? new File(conf.getProperty(OPT_CHR_LEN_FILE)) : null;
 		this.keepWorkDir = conf.getBooleanProperty(OPT_KEEP_WORKDIR, false);
-		this.scaleFactor = Float.parseFloat(conf.getProperty(OPT_SCALE_FACTOR, " 1.0"));
 		this.maxCachedBlocks = Integer
 				.parseInt(conf.getProperty(OPT_MAX_CACHED_BLOCKS, DEFAULT_MAX_CACHED_BLOCKS + ""));
 		debug = conf.getBooleanProperty(OPT_VERBOSE, false);
@@ -690,6 +692,29 @@ public class CoverageDecompressor {
 			if (debug)
 				System.out.println("Finished.");
 			this.compressedConfig = header.getConfiguration();
+
+			// set scale factor
+			String sf = conf.getProperty(OPT_SCALE_FACTOR, "1.0");
+			if (sf.toLowerCase().startsWith("median")) {
+				// get median from config.
+				if (compressedConfig.getProperty(CoverageCompressor.STAT_PSEUDO_MEDIAN) == null)
+					throw new CodocException("Stats header does not contain median. Wrong CODOC format?");
+				Float median = Float.parseFloat(compressedConfig.getProperty(CoverageCompressor.STAT_PSEUDO_MEDIAN));
+				if ( sf.startsWith("median*")) {
+					float mult = Float.parseFloat(sf.substring("median*".length()));
+					this.scaleFactor = 1 / median * mult;
+				} else
+					this.scaleFactor = 1 / median;
+				if (debug)
+					System.out.println("Median: " + median + ", scale: " + this.scaleFactor);
+			} else
+				this.scaleFactor = Float.parseFloat(conf.getProperty(OPT_SCALE_FACTOR, "1.0"));
+			if (this.scaleFactor == 0f)
+				throw new CodocException("Scale factor is zero.");
+			if (this.scaleFactor == Float.POSITIVE_INFINITY || this.scaleFactor == Float.NEGATIVE_INFINITY)
+				throw new CodocException("Infinite scale factor not allowed.");
+			if (this.scaleFactor == 0)
+				throw new CodocException("Zero scale factor not allowed.");
 
 			// set vcf file
 			if (conf.hasProperty(OPT_VCF_FILE) && conf.getProperty(OPT_VCF_FILE).equalsIgnoreCase("AUTO")) {
@@ -1288,6 +1313,35 @@ public class CoverageDecompressor {
 	}
 
 	/**
+	 * Dump the coverage to a TDF file.
+	 * 
+	 * @param wigFile
+	 * @throws Throwable
+	 */
+	private void toTDF(String tdfFile, SortedSet<GenomicInterval> regionsOfInterest, String chrSizeF) throws Throwable {
+		// write to a temporary WIG file
+		toWIG(tdfFile + ".wig", regionsOfInterest);
+
+		// close writers and convert to TDF
+		Globals.setHeadless(true);
+		int maxZoomValue = IgvTools.MAX_ZOOM;
+		String probeFile = null;
+		String tmpDirName = null;
+		// new IgvTools().toTDF("wig", tdfFile + ".wig", tdfFile, probeFile,
+		// chrSizeF, maxZoomValue,
+		// Arrays.asList(WindowFunction.max, WindowFunction.min,
+		// WindowFunction.median), tmpDirName,
+		// IgvTools.MAX_RECORDS_IN_RAM);
+		new IgvTools().toTDF("wig", tdfFile + ".wig", tdfFile, probeFile, chrSizeF, maxZoomValue,
+				Arrays.asList(WindowFunction.max, WindowFunction.min, WindowFunction.median), tmpDirName,
+				IgvTools.MAX_RECORDS_IN_RAM);
+		// remove wig file
+		new File(tdfFile + ".wig").delete();
+		if (debug)
+			System.out.println("Finished.");
+	}
+
+	/**
 	 * Extracts the histogram and some other stats as JSON object to the passed
 	 * file
 	 * 
@@ -1326,6 +1380,7 @@ public class CoverageDecompressor {
 			System.out.println("Command:\t" + CMD_COMMANDS.HEAD + "\tprint header");
 			System.out.println("Command:\t" + CMD_COMMANDS.TOWIG + "\tconvert to WIG file");
 			System.out.println("Command:\t" + CMD_COMMANDS.TOBED + "\tconvert to BED file");
+			System.out.println("Command:\t" + CMD_COMMANDS.TOTDF + "\tconvert to TDF file");
 			System.out.println("Command:\t" + CMD_COMMANDS.HIST + "\tExtract coverage histogram");
 			System.out.println();
 		} else {
@@ -1348,6 +1403,12 @@ public class CoverageDecompressor {
 			case TOWIG:
 				footer += "Converts the coverage data to a WIG file.";
 				break;
+			case TOTDF:
+				footer += "Converts the coverage data to a TDF file.";
+				break;
+			case HIST:
+				footer += "Extracts a JSON file containing a coverage histogram + other summary statistics.";
+				break;
 			default:
 				break;
 			}
@@ -1366,8 +1427,14 @@ public class CoverageDecompressor {
 	 */
 	public static void main(String[] args) throws IOException, ParseException {
 
-		// args = new String[] { "HEAD", "-cov",
-		// "src/test/resources/covcompress/small.compressed" };
+		// args = new String[] { "TOTDF", "-cov",
+		// "src/test/resources/covcompress/small.compressed", "-chrLen",
+		// "T:/Niko/hs37d5.fa.chrSizes.chrom.sizes", "-o",
+		// "src/test/resources/covcompress/small.compressed.MED.tdf", "-scale", "median*100", "-v" };
+		
+//		args = new String[] { "TOTDF", "-cov", "src/test/resources/covcompress/small.compressed", "-chrLen",
+//				"T:/Niko/hs37d5.fa.chrSizes.chrom.sizes", "-o",
+//				"src/test/resources/covcompress/small.compressed.tdf", "-v" };
 
 		CommandLineParser parser = new PosixParser();
 
@@ -1524,6 +1591,97 @@ public class CoverageDecompressor {
 					}
 					break;
 
+				case TOTDF:
+					options = new Options();
+
+					opt = new Option(OPT_COV_FILE, true, "Compressed coverage input file.");
+					opt.setLongOpt("covFile");
+					opt.setRequired(true);
+					options.addOption(opt);
+
+					opt = new Option(OPT_VCF_FILE, true, "VCF file used for the compression (optional).");
+					opt.setLongOpt("vcfFile");
+					opt.setRequired(false);
+					options.addOption(opt);
+
+					opt = new Option(OPT_OUT_FILE, true,
+							"Output file that will contain the rounded approximated coverage values (optional).");
+					opt.setLongOpt("outFile");
+					opt.setRequired(true);
+					options.addOption(opt);
+
+					opt = new Option(OPT_CHR_LEN_FILE, true,
+							"Chromosome lengths (file format: chr\\tlength\\n). Use to get proper padding for zero-coverage regions.");
+					opt.setLongOpt("chrLenFile");
+					opt.setRequired(true); // mandatory for toTDF!
+					options.addOption(opt);
+
+					opt = new Option(OPT_TMP_DIR, true, "Temporary working directory (default is current dir).");
+					opt.setLongOpt("temp");
+					opt.setRequired(false);
+					options.addOption(opt);
+
+					opt = new Option(OPT_KEEP_WORKDIR, false,
+							"Do not delete the work directory (e.g., for debugging purposes).");
+					opt.setRequired(false);
+					options.addOption(opt);
+
+					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor (default is 1.0).");
+					opt.setLongOpt("scaleFactor");
+					opt.setRequired(false);
+					options.addOption(opt);
+
+					opt = new Option(OPT_MAX_CACHED_BLOCKS, true,
+							"Maximum number of memory-cached data blocks (BITs) (default is "
+									+ DEFAULT_MAX_CACHED_BLOCKS + ").");
+					opt.setLongOpt("maxCachedBlocks");
+					opt.setRequired(false);
+					options.addOption(opt);
+
+					opt = new Option(OPT_ROI, true,
+							"Optional regions of interest. Coverage signal will be extracted only for these intervals, e.g.: 1:100-200 (default: NONE).");
+					opt.setLongOpt("regionOfInterest");
+					opt.setRequired(false);
+					options.addOption(opt);
+
+					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
+
+					line = parser.parse(options, args);
+
+					conf = CoverageDecompressor.getDefaultConfiguration();
+					conf.setProperty(OPT_COV_FILE, line.getOptionValue(OPT_COV_FILE));
+
+					if (line.hasOption(OPT_CHR_LEN_FILE))
+						conf.setProperty(OPT_CHR_LEN_FILE, line.getOptionValue(OPT_CHR_LEN_FILE));
+					if (line.hasOption(OPT_VCF_FILE))
+						conf.setProperty(OPT_VCF_FILE, line.getOptionValue(OPT_VCF_FILE));
+					if (line.hasOption(OPT_TMP_DIR))
+						conf.setProperty(OPT_TMP_DIR, line.getOptionValue(OPT_TMP_DIR));
+					conf.setProperty(OPT_KEEP_WORKDIR, line.hasOption(OPT_KEEP_WORKDIR) + "");
+					conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
+					if (line.hasOption(OPT_SCALE_FACTOR))
+						conf.setProperty(OPT_SCALE_FACTOR, line.getOptionValue(OPT_SCALE_FACTOR));
+					if (line.hasOption(OPT_MAX_CACHED_BLOCKS))
+						conf.setProperty(OPT_MAX_CACHED_BLOCKS, line.getOptionValue(OPT_MAX_CACHED_BLOCKS));
+
+					rois = line.hasOption(OPT_ROI) ? new TreeSet<GenomicInterval>() : null;
+					if (rois != null)
+						for (String s : line.getOptionValues(OPT_ROI)) {
+							GenomicInterval g = GenomicInterval.fromString(s);
+							// move 1bp downstream to match 1-based coords
+							GenomicInterval g1 = new GenomicInterval(g.getChr(), g.getMin() - 1, g.getMax() - 1, null);
+							rois.add(g1);
+						}
+					try {
+						decompressor = new CoverageDecompressor(conf);
+						decompressor.toTDF(line.getOptionValue(OPT_OUT_FILE), rois,
+								line.getOptionValue(OPT_CHR_LEN_FILE));
+					} finally {
+						if (decompressor != null)
+							decompressor.close();
+					}
+					break;
+
 				case TOBED:
 					options = new Options();
 
@@ -1582,7 +1740,8 @@ public class CoverageDecompressor {
 
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
-					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor (default is 1.0).");
+					opt = new Option(OPT_SCALE_FACTOR, true,
+							"Signal scaling factor. Float number or 'median' (default is 1.0).");
 					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);
@@ -1657,7 +1816,8 @@ public class CoverageDecompressor {
 
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
-					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor (default is 1.0).");
+					opt = new Option(OPT_SCALE_FACTOR, true,
+							"Signal scaling factor. Float number or 'median' (default is 1.0).");
 					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);
@@ -1732,7 +1892,8 @@ public class CoverageDecompressor {
 
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
-					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor (default is 1.0).");
+					opt = new Option(OPT_SCALE_FACTOR, true,
+							"Signal scaling factor. Float number or 'median' (default is 1.0).");
 					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);
