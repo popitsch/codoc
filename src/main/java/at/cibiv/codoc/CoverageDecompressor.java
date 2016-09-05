@@ -64,7 +64,7 @@ public class CoverageDecompressor {
 	public static final String CMD_INFO = "Decompresses coverage data.";
 
 	public static enum CMD_COMMANDS {
-		HEAD, QUERY, TOWIG, TOBED, TOTDF, HIST
+		HEAD, QUERY, TOWIG, TOBED, TOTDF, HIST, DEBUG
 	};
 
 	/**
@@ -278,8 +278,7 @@ public class CoverageDecompressor {
 	public void dumpHeader(PropertyConfiguration conf) throws IOException, CodocException {
 		File covFile = new File(conf.getProperty(OPT_COV_FILE));
 		FileHeader header = null;
-		this.workDir = conf.hasProperty(OPT_TMP_DIR) ? new File(conf.getProperty(OPT_TMP_DIR))
-				: new File(covFile.getParentFile(), "" + Math.random());
+		this.workDir = conf.hasProperty(OPT_TMP_DIR) ? new File(conf.getProperty(OPT_TMP_DIR)) : new File(covFile.getParentFile(), "" + Math.random());
 
 		// prepare work dir
 		if (!workDir.exists()) {
@@ -541,9 +540,8 @@ public class CoverageDecompressor {
 		memoryBlockCache.add(0, cb);
 
 		if (debug)
-			System.out.println("CACHED BLOCK " + idx + " at " + firstChrom + ":" + cb.getFirstPos(firstChrom)
-					+ " with byte size " + (MemoryUtils.getMemoryUsed() - mem) + " and " + cb.size() + " codewords in "
-					+ (System.currentTimeMillis() - start) + " ms.");
+			System.out.println("CACHED BLOCK " + idx + " at " + firstChrom + ":" + cb.getFirstPos(firstChrom) + " with byte size "
+					+ (MemoryUtils.getMemoryUsed() - mem) + " and " + cb.size() + " codewords in " + (System.currentTimeMillis() - start) + " ms.");
 
 		return cb;
 	}
@@ -649,17 +647,14 @@ public class CoverageDecompressor {
 	 */
 	public void decompress(PropertyConfiguration conf) throws IOException, CodocException {
 		this.covFile = new File(conf.getProperty(OPT_COV_FILE));
-		this.workDir = conf.hasProperty(OPT_TMP_DIR) ? new File(conf.getProperty(OPT_TMP_DIR))
-				: new File(covFile.getParentFile(), "" + Math.random());
+		this.workDir = conf.hasProperty(OPT_TMP_DIR) ? new File(conf.getProperty(OPT_TMP_DIR)) : new File(covFile.getParentFile(), "" + Math.random());
 		File chrLenFile = conf.hasProperty(OPT_CHR_LEN_FILE) ? new File(conf.getProperty(OPT_CHR_LEN_FILE)) : null;
 		this.keepWorkDir = conf.getBooleanProperty(OPT_KEEP_WORKDIR, false);
-		this.maxCachedBlocks = Integer
-				.parseInt(conf.getProperty(OPT_MAX_CACHED_BLOCKS, DEFAULT_MAX_CACHED_BLOCKS + ""));
+		this.maxCachedBlocks = Integer.parseInt(conf.getProperty(OPT_MAX_CACHED_BLOCKS, DEFAULT_MAX_CACHED_BLOCKS + ""));
 		debug = conf.getBooleanProperty(OPT_VERBOSE, false);
 		this.inMemoryBlockCaching = !conf.getBooleanProperty(OPT_NO_CACHING, false);
 		if (debug) {
-			System.out.println("Caching options: In-memory BIT caching: " + inMemoryBlockCaching + ", maxCachedBlocks="
-					+ maxCachedBlocks);
+			System.out.println("Caching options: In-memory BIT caching: " + inMemoryBlockCaching + ", maxCachedBlocks=" + maxCachedBlocks);
 		}
 
 		long startTime = System.currentTimeMillis();
@@ -700,7 +695,7 @@ public class CoverageDecompressor {
 				if (compressedConfig.getProperty(CoverageCompressor.STAT_PSEUDO_MEDIAN) == null)
 					throw new CodocException("Stats header does not contain median. Wrong CODOC format?");
 				Float median = Float.parseFloat(compressedConfig.getProperty(CoverageCompressor.STAT_PSEUDO_MEDIAN));
-				if ( sf.startsWith("median*")) {
+				if (sf.startsWith("median*")) {
 					float mult = Float.parseFloat(sf.substring("median*".length()));
 					this.scaleFactor = 1 / median * mult;
 				} else
@@ -719,8 +714,8 @@ public class CoverageDecompressor {
 			// set vcf file
 			if (conf.hasProperty(OPT_VCF_FILE) && conf.getProperty(OPT_VCF_FILE).equalsIgnoreCase("AUTO")) {
 				// get from compressed file.
-				this.vcfFile = (compressedConfig.hasProperty(CoverageCompressor.OPT_VCF_FILE))
-						? new File(compressedConfig.getProperty(CoverageCompressor.OPT_VCF_FILE)) : null;
+				this.vcfFile = (compressedConfig.hasProperty(CoverageCompressor.OPT_VCF_FILE)) ? new File(
+						compressedConfig.getProperty(CoverageCompressor.OPT_VCF_FILE)) : null;
 			} else
 				this.vcfFile = conf.hasProperty(OPT_VCF_FILE) ? new File(conf.getProperty(OPT_VCF_FILE)) : null;
 
@@ -736,23 +731,19 @@ public class CoverageDecompressor {
 			for (FileDataOutputBlock<?> b : header.getBlocks()) {
 				if (b.getId().equals(STANDARD_STREAM.CHR.name())) {
 					FileDataInputBlock<String> block = new FileDataInputBlock<String>(b.getId(), b.getF1());
-					block.setCompressionMethod(AbstractDataBlock
-							.compFromString(compressedConfig.getProperty(b.getId() + "-compression", (String) null)));
+					block.setCompressionMethod(AbstractDataBlock.compFromString(compressedConfig.getProperty(b.getId() + "-compression", (String) null)));
 					chrData.add(block);
 				} else if (b.getId().equals(STANDARD_STREAM.POS.name())) {
 					FileDataInputBlock<Integer> block = new FileDataInputBlock<Integer>(b.getId(), b.getF1());
-					block.setCompressionMethod(AbstractDataBlock
-							.compFromString(compressedConfig.getProperty(b.getId() + "-compression", (String) null)));
+					block.setCompressionMethod(AbstractDataBlock.compFromString(compressedConfig.getProperty(b.getId() + "-compression", (String) null)));
 					posData.add(block);
 				} else if (b.getId().equals(STANDARD_STREAM.COV1.name())) {
 					FileDataInputBlock<Integer> block = new FileDataInputBlock<Integer>(b.getId(), b.getF1());
-					block.setCompressionMethod(AbstractDataBlock
-							.compFromString(compressedConfig.getProperty(b.getId() + "-compression", (String) null)));
+					block.setCompressionMethod(AbstractDataBlock.compFromString(compressedConfig.getProperty(b.getId() + "-compression", (String) null)));
 					cov1Data.add(block);
 				} else if (b.getId().equals(STANDARD_STREAM.COV2.name())) {
 					FileDataInputBlock<Integer> block = new FileDataInputBlock<Integer>(b.getId(), b.getF1());
-					block.setCompressionMethod(AbstractDataBlock
-							.compFromString(compressedConfig.getProperty(b.getId() + "-compression", (String) null)));
+					block.setCompressionMethod(AbstractDataBlock.compFromString(compressedConfig.getProperty(b.getId() + "-compression", (String) null)));
 					cov2Data.add(block);
 				} else
 					throw new IOException("Unknown block id " + b.getId());
@@ -789,8 +780,7 @@ public class CoverageDecompressor {
 				GenomicPosition p2 = new GenomicPosition(bb[i].split(":")[0], new Long(bb[i].split(":")[1]) - 1);
 				if (!p1.getChromosome().equals(p2.getChromosome())) {
 					// create interval from p1 to end of chrom
-					GenomicInterval gi1 = new GenomicInterval(p1.getChromosome(), p1.get1Position(), Long.MAX_VALUE,
-							"" + blockId);
+					GenomicInterval gi1 = new GenomicInterval(p1.getChromosome(), p1.get1Position(), Long.MAX_VALUE, "" + blockId);
 					gi1.setOriginalChrom(p1.getChromosomeOriginal());
 					gi1.setAnnotation("blockid", blockId);
 					blockIndexTree.insert(gi1);
@@ -799,14 +789,11 @@ public class CoverageDecompressor {
 					int cp1 = chrOrigList.indexOf(p1.getChromosomeOriginal());
 					int cp2 = chrOrigList.indexOf(p2.getChromosomeOriginal());
 					if (cp1 < 0)
-						throw new RuntimeException("chrom [" + p1.getChromosomeOriginal() + "] was not found in "
-								+ Arrays.toString(chrOrigList.toArray()));
+						throw new RuntimeException("chrom [" + p1.getChromosomeOriginal() + "] was not found in " + Arrays.toString(chrOrigList.toArray()));
 					if (cp2 < 0)
-						throw new RuntimeException("chrom " + p2.getChromosomeOriginal() + " was not found in "
-								+ Arrays.toString(chrOrigList.toArray()));
+						throw new RuntimeException("chrom " + p2.getChromosomeOriginal() + " was not found in " + Arrays.toString(chrOrigList.toArray()));
 					for (int x = cp1 + 1; x < cp2; x++) {
-						GenomicInterval giAdditional = new GenomicInterval(StringUtils.prefixedChr(chrOrigList.get(x)),
-								0l, Long.MAX_VALUE, "" + blockId);
+						GenomicInterval giAdditional = new GenomicInterval(StringUtils.prefixedChr(chrOrigList.get(x)), 0l, Long.MAX_VALUE, "" + blockId);
 						giAdditional.setAnnotation("blockid", blockId);
 						giAdditional.setOriginalChrom(chrOrigList.get(x));
 						blockIndexTree.insert(giAdditional);
@@ -817,8 +804,7 @@ public class CoverageDecompressor {
 					gi2.setOriginalChrom(p2.getChromosomeOriginal());
 					blockIndexTree.insert(gi2);
 				} else {
-					GenomicInterval gi1 = new GenomicInterval(p1.getChromosome(), p1.get1Position(), p2.get1Position(),
-							"" + blockId);
+					GenomicInterval gi1 = new GenomicInterval(p1.getChromosome(), p1.get1Position(), p2.get1Position(), "" + blockId);
 					gi1.setAnnotation("blockid", blockId);
 					gi1.setOriginalChrom(p1.getChromosomeOriginal());
 					blockIndexTree.insert(gi1);
@@ -933,8 +919,7 @@ public class CoverageDecompressor {
 					System.out.println("cov:\tN/A");
 				else {
 					if (hit.isFuzzy()) {
-						System.out.println("cov:\t" + hit.getInterpolatedCoverage() + " [" + hit.getLowerBoundary()
-								+ "-" + hit.getUpperBoundary() + "]");
+						System.out.println("cov:\t" + hit.getInterpolatedCoverage() + " [" + hit.getLowerBoundary() + "-" + hit.getUpperBoundary() + "]");
 					} else
 						System.out.println("cov:\t" + hit.getInterpolatedCoverage());
 
@@ -964,8 +949,8 @@ public class CoverageDecompressor {
 	public CoverageHit queryPadding(GenomicPosition pos) {
 		Long len = chromLengths.get(StringUtils.prefixedChr(pos.getChromosome()));
 		if (len != null && pos.get1Position() > 0 && pos.get1Position() < len) {
-			CoverageHit hit = new CoverageHit(pos.getChromosome(), (int) pos.get1Position(), (int) pos.get1Position(),
-					0, 0, (int) pos.get1Position(), scaleFactor);
+			CoverageHit hit = new CoverageHit(pos.getChromosome(), (int) pos.get1Position(), (int) pos.get1Position(), 0, 0, (int) pos.get1Position(),
+					scaleFactor);
 			hit.setLowerBoundary(0f);
 			hit.setUpperBoundary(0f);
 			hit.setPadding(true);
@@ -992,8 +977,7 @@ public class CoverageDecompressor {
 		GenomicInterval gi = blocks.iterator().next();
 
 		if (debug)
-			System.out.println(
-					"query " + pos.toString1basedOrig() + " => load block " + gi + " / " + gi.getAnnotation("blockid"));
+			System.out.println("query " + pos.toString1basedOrig() + " => load block " + gi + " / " + gi.getAnnotation("blockid"));
 
 		CachedBlock cb = loadBlock((Integer) gi.getAnnotation("blockid"));
 
@@ -1044,8 +1028,7 @@ public class CoverageDecompressor {
 			} else {
 				if ((!pos.getChromosome().equals(startPos.getChromosome())) && (lastPos != null)) {
 					// end interval due to chrom change
-					GenomicInterval gi = new GenomicInterval(startPos.getChromosome(), startPos.get0Position(),
-							lastPos.get0Position(), "region" + (rc++));
+					GenomicInterval gi = new GenomicInterval(startPos.getChromosome(), startPos.get0Position(), lastPos.get0Position(), "region" + (rc++));
 					gi.setOriginalChrom(startPos.getChromosomeOriginal());
 					ret.insert(gi);
 					if (inCorridor)
@@ -1054,8 +1037,7 @@ public class CoverageDecompressor {
 						startPos = null;
 				} else if (!inCorridor) {
 					// end interval as corridor was left
-					GenomicInterval gi = new GenomicInterval(pos.getChromosome(), startPos.get0Position(),
-							lastPos.get0Position(), "region" + (rc++));
+					GenomicInterval gi = new GenomicInterval(pos.getChromosome(), startPos.get0Position(), lastPos.get0Position(), "region" + (rc++));
 					gi.setOriginalChrom(pos.getChromosomeOriginal());
 					ret.insert(gi);
 					startPos = null;
@@ -1065,8 +1047,7 @@ public class CoverageDecompressor {
 		}
 		if (startPos != null) {
 			// end last interval
-			GenomicInterval gi = new GenomicInterval(lastPos.getChromosome(), startPos.get0Position(),
-					lastPos.get0Position(), "region" + (rc++));
+			GenomicInterval gi = new GenomicInterval(lastPos.getChromosome(), startPos.get0Position(), lastPos.get0Position(), "region" + (rc++));
 			gi.setOriginalChrom(lastPos.getChromosomeOriginal());
 			ret.insert(gi);
 
@@ -1105,15 +1086,15 @@ public class CoverageDecompressor {
 	 * @throws Throwable
 	 */
 	@Deprecated
-	public GenomicITree toBEDOLD(File bedOutFile, Integer minCoverage, Integer maxCoverage, String name,
-			String description, String additional, boolean noHeader) throws Throwable {
+	public GenomicITree toBEDOLD(File bedOutFile, Integer minCoverage, Integer maxCoverage, String name, String description, String additional, boolean noHeader)
+			throws Throwable {
 
 		PrintStream bedOut = bedOutFile != null ? new PrintStream(bedOutFile) : null;
 		if (name == null)
 			name = "CoverageRegions";
 		if (description == null)
-			description = "created by CoverageDecompressor.toBED(min=" + (minCoverage == null ? "unbound" : minCoverage)
-					+ ",max=" + (maxCoverage == null ? "unbound" : maxCoverage) + ")";
+			description = "created by CoverageDecompressor.toBED(min=" + (minCoverage == null ? "unbound" : minCoverage) + ",max="
+					+ (maxCoverage == null ? "unbound" : maxCoverage) + ")";
 		if (additional == null)
 			additional = "";
 		GenomicITree regionTree = regionsByCoverage(minCoverage, maxCoverage);
@@ -1145,8 +1126,8 @@ public class CoverageDecompressor {
 	 *            maximum coverage
 	 * @throws Throwable
 	 */
-	public void toBED(File bedOutFile, Integer minCoverage, Integer maxCoverage, String name, String description,
-			String additional, boolean noHeader) throws Throwable {
+	public void toBED(File bedOutFile, Integer minCoverage, Integer maxCoverage, String name, String description, String additional, boolean noHeader)
+			throws Throwable {
 
 		if (minCoverage == null)
 			minCoverage = 0;
@@ -1157,8 +1138,8 @@ public class CoverageDecompressor {
 		if (name == null)
 			name = "CoverageRegions";
 		if (description == null)
-			description = "created by CoverageDecompressor.toBED(min=" + (minCoverage == null ? "unbound" : minCoverage)
-					+ ",max=" + (maxCoverage == null ? "unbound" : maxCoverage) + ")";
+			description = "created by CoverageDecompressor.toBED(min=" + (minCoverage == null ? "unbound" : minCoverage) + ",max="
+					+ (maxCoverage == null ? "unbound" : maxCoverage) + ")";
 		if (additional == null)
 			additional = "";
 		if (!noHeader)
@@ -1180,8 +1161,7 @@ public class CoverageDecompressor {
 			} else {
 				if ((!pos.getChromosome().equals(startPos.getChromosome())) && (lastPos != null)) {
 					// end interval due to chrom change
-					GenomicInterval gi = new GenomicInterval(startPos.getChromosome(), startPos.get0Position(),
-							lastPos.get0Position(), "region" + (rc++));
+					GenomicInterval gi = new GenomicInterval(startPos.getChromosome(), startPos.get0Position(), lastPos.get0Position(), "region" + (rc++));
 					gi.setOriginalChrom(startPos.getChromosomeOriginal());
 
 					bedOut.append(gi.toBED() + "\n");
@@ -1192,8 +1172,7 @@ public class CoverageDecompressor {
 						startPos = null;
 				} else if (!inCorridor) {
 					// end interval as corridor was left
-					GenomicInterval gi = new GenomicInterval(pos.getChromosome(), startPos.get0Position(),
-							lastPos.get0Position(), "region" + (rc++));
+					GenomicInterval gi = new GenomicInterval(pos.getChromosome(), startPos.get0Position(), lastPos.get0Position(), "region" + (rc++));
 					gi.setOriginalChrom(pos.getChromosomeOriginal());
 
 					bedOut.append(gi.toBED() + "\n");
@@ -1205,8 +1184,7 @@ public class CoverageDecompressor {
 		}
 		if (startPos != null) {
 			// end last interval
-			GenomicInterval gi = new GenomicInterval(lastPos.getChromosome(), startPos.get0Position(),
-					lastPos.get0Position(), "region" + (rc++));
+			GenomicInterval gi = new GenomicInterval(lastPos.getChromosome(), startPos.get0Position(), lastPos.get0Position(), "region" + (rc++));
 			gi.setOriginalChrom(lastPos.getChromosomeOriginal());
 
 			bedOut.append(gi.toBED() + "\n");
@@ -1279,8 +1257,7 @@ public class CoverageDecompressor {
 	 * @throws Throwable
 	 */
 	private void toWIG(String wigFile, SortedSet<GenomicInterval> regionsOfInterest) throws Throwable {
-		WigOutputStream out = new WigOutputStream(new PrintStream(wigFile),
-				compressedConfig.getProperty(CoverageCompressor.OPT_OUT_FILE),
+		WigOutputStream out = new WigOutputStream(new PrintStream(wigFile), compressedConfig.getProperty(CoverageCompressor.OPT_OUT_FILE),
 				"WIG track created by CODOC CoverageDecompressor", "");
 		CompressedCoverageIterator it = getCoverageIterator();
 		while (it.hasNext()) {
@@ -1333,8 +1310,7 @@ public class CoverageDecompressor {
 		// WindowFunction.median), tmpDirName,
 		// IgvTools.MAX_RECORDS_IN_RAM);
 		new IgvTools().toTDF("wig", tdfFile + ".wig", tdfFile, probeFile, chrSizeF, maxZoomValue,
-				Arrays.asList(WindowFunction.max, WindowFunction.min, WindowFunction.median), tmpDirName,
-				IgvTools.MAX_RECORDS_IN_RAM);
+				Arrays.asList(WindowFunction.max, WindowFunction.min, WindowFunction.median), tmpDirName, IgvTools.MAX_RECORDS_IN_RAM);
 		// remove wig file
 		new File(tdfFile + ".wig").delete();
 		if (debug)
@@ -1430,11 +1406,13 @@ public class CoverageDecompressor {
 		// args = new String[] { "TOTDF", "-cov",
 		// "src/test/resources/covcompress/small.compressed", "-chrLen",
 		// "T:/Niko/hs37d5.fa.chrSizes.chrom.sizes", "-o",
-		// "src/test/resources/covcompress/small.compressed.MED.tdf", "-scale", "median*100", "-v" };
-		
-//		args = new String[] { "TOTDF", "-cov", "src/test/resources/covcompress/small.compressed", "-chrLen",
-//				"T:/Niko/hs37d5.fa.chrSizes.chrom.sizes", "-o",
-//				"src/test/resources/covcompress/small.compressed.tdf", "-v" };
+		// "src/test/resources/covcompress/small.compressed.MED.tdf", "-scale",
+		// "median*100", "-v" };
+
+		// args = new String[] { "TOTDF", "-cov",
+		// "src/test/resources/covcompress/small.compressed", "-chrLen",
+		// "T:/Niko/hs37d5.fa.chrSizes.chrom.sizes", "-o",
+		// "src/test/resources/covcompress/small.compressed.tdf", "-v" };
 
 		CommandLineParser parser = new PosixParser();
 
@@ -1476,8 +1454,7 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_KEEP_WORKDIR, false,
-							"Do not delete the work directory (e.g., for debugging purposes).");
+					opt = new Option(OPT_KEEP_WORKDIR, false, "Do not delete the work directory (e.g., for debugging purposes).");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1514,8 +1491,7 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_OUT_FILE, true,
-							"Output file that will contain the rounded approximated coverage values (optional).");
+					opt = new Option(OPT_OUT_FILE, true, "Output file that will contain the rounded approximated coverage values (optional).");
 					opt.setLongOpt("outFile");
 					opt.setRequired(true);
 					options.addOption(opt);
@@ -1531,8 +1507,7 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_KEEP_WORKDIR, false,
-							"Do not delete the work directory (e.g., for debugging purposes).");
+					opt = new Option(OPT_KEEP_WORKDIR, false, "Do not delete the work directory (e.g., for debugging purposes).");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1541,9 +1516,8 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_MAX_CACHED_BLOCKS, true,
-							"Maximum number of memory-cached data blocks (BITs) (default is "
-									+ DEFAULT_MAX_CACHED_BLOCKS + ").");
+					opt = new Option(OPT_MAX_CACHED_BLOCKS, true, "Maximum number of memory-cached data blocks (BITs) (default is " + DEFAULT_MAX_CACHED_BLOCKS
+							+ ").");
 					opt.setLongOpt("maxCachedBlocks");
 					opt.setRequired(false);
 					options.addOption(opt);
@@ -1604,8 +1578,7 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_OUT_FILE, true,
-							"Output file that will contain the rounded approximated coverage values (optional).");
+					opt = new Option(OPT_OUT_FILE, true, "Output file that will contain the rounded approximated coverage values (optional).");
 					opt.setLongOpt("outFile");
 					opt.setRequired(true);
 					options.addOption(opt);
@@ -1621,8 +1594,7 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_KEEP_WORKDIR, false,
-							"Do not delete the work directory (e.g., for debugging purposes).");
+					opt = new Option(OPT_KEEP_WORKDIR, false, "Do not delete the work directory (e.g., for debugging purposes).");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1631,9 +1603,8 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_MAX_CACHED_BLOCKS, true,
-							"Maximum number of memory-cached data blocks (BITs) (default is "
-									+ DEFAULT_MAX_CACHED_BLOCKS + ").");
+					opt = new Option(OPT_MAX_CACHED_BLOCKS, true, "Maximum number of memory-cached data blocks (BITs) (default is " + DEFAULT_MAX_CACHED_BLOCKS
+							+ ").");
 					opt.setLongOpt("maxCachedBlocks");
 					opt.setRequired(false);
 					options.addOption(opt);
@@ -1668,14 +1639,14 @@ public class CoverageDecompressor {
 					if (rois != null)
 						for (String s : line.getOptionValues(OPT_ROI)) {
 							GenomicInterval g = GenomicInterval.fromString(s);
+							System.out.println("ROI: " + g.toCoordString());
 							// move 1bp downstream to match 1-based coords
 							GenomicInterval g1 = new GenomicInterval(g.getChr(), g.getMin() - 1, g.getMax() - 1, null);
 							rois.add(g1);
 						}
 					try {
 						decompressor = new CoverageDecompressor(conf);
-						decompressor.toTDF(line.getOptionValue(OPT_OUT_FILE), rois,
-								line.getOptionValue(OPT_CHR_LEN_FILE));
+						decompressor.toTDF(line.getOptionValue(OPT_OUT_FILE), rois, line.getOptionValue(OPT_CHR_LEN_FILE));
 					} finally {
 						if (decompressor != null)
 							decompressor.close();
@@ -1711,8 +1682,7 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_KEEP_WORKDIR, false,
-							"Do not delete the work directory (e.g., for debugging purposes).");
+					opt = new Option(OPT_KEEP_WORKDIR, false, "Do not delete the work directory (e.g., for debugging purposes).");
 					opt.setRequired(false);
 					options.addOption(opt);
 
@@ -1740,15 +1710,13 @@ public class CoverageDecompressor {
 
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
-					opt = new Option(OPT_SCALE_FACTOR, true,
-							"Signal scaling factor. Float number or 'median' (default is 1.0).");
+					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor. Float number or 'median' (default is 1.0).");
 					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_MAX_CACHED_BLOCKS, true,
-							"Maximum number of memory-cached data blocks (BITs) (default is "
-									+ DEFAULT_MAX_CACHED_BLOCKS + ").");
+					opt = new Option(OPT_MAX_CACHED_BLOCKS, true, "Maximum number of memory-cached data blocks (BITs) (default is " + DEFAULT_MAX_CACHED_BLOCKS
+							+ ").");
 					opt.setLongOpt("maxCachedBlocks");
 					opt.setRequired(false);
 					options.addOption(opt);
@@ -1775,9 +1743,8 @@ public class CoverageDecompressor {
 
 					try {
 						decompressor = new CoverageDecompressor(conf);
-						decompressor.toBED(new File(line.getOptionValue(OPT_OUT_FILE)), min, max,
-								line.getOptionValue("name"), line.getOptionValue("description"),
-								line.getOptionValue("additional"), line.hasOption("noHeader"));
+						decompressor.toBED(new File(line.getOptionValue(OPT_OUT_FILE)), min, max, line.getOptionValue("name"),
+								line.getOptionValue("description"), line.getOptionValue("additional"), line.hasOption("noHeader"));
 					} finally {
 						if (decompressor != null)
 							decompressor.close();
@@ -1809,22 +1776,19 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_KEEP_WORKDIR, false,
-							"Do not delete the work directory (e.g., for debugging purposes).");
+					opt = new Option(OPT_KEEP_WORKDIR, false, "Do not delete the work directory (e.g., for debugging purposes).");
 					opt.setRequired(false);
 					options.addOption(opt);
 
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
-					opt = new Option(OPT_SCALE_FACTOR, true,
-							"Signal scaling factor. Float number or 'median' (default is 1.0).");
+					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor. Float number or 'median' (default is 1.0).");
 					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_MAX_CACHED_BLOCKS, true,
-							"Maximum number of memory-cached data blocks (BITs) (default is "
-									+ DEFAULT_MAX_CACHED_BLOCKS + ").");
+					opt = new Option(OPT_MAX_CACHED_BLOCKS, true, "Maximum number of memory-cached data blocks (BITs) (default is " + DEFAULT_MAX_CACHED_BLOCKS
+							+ ").");
 					opt.setLongOpt("maxCachedBlocks");
 					opt.setRequired(false);
 					options.addOption(opt);
@@ -1885,22 +1849,19 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_KEEP_WORKDIR, false,
-							"Do not delete the work directory (e.g., for debugging purposes).");
+					opt = new Option(OPT_KEEP_WORKDIR, false, "Do not delete the work directory (e.g., for debugging purposes).");
 					opt.setRequired(false);
 					options.addOption(opt);
 
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
-					opt = new Option(OPT_SCALE_FACTOR, true,
-							"Signal scaling factor. Float number or 'median' (default is 1.0).");
+					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor. Float number or 'median' (default is 1.0).");
 					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_MAX_CACHED_BLOCKS, true,
-							"Maximum number of memory-cached data blocks (BITs) (default is "
-									+ DEFAULT_MAX_CACHED_BLOCKS + ").");
+					opt = new Option(OPT_MAX_CACHED_BLOCKS, true, "Maximum number of memory-cached data blocks (BITs) (default is " + DEFAULT_MAX_CACHED_BLOCKS
+							+ ").");
 					opt.setLongOpt("maxCachedBlocks");
 					opt.setRequired(false);
 					options.addOption(opt);
@@ -1925,6 +1886,66 @@ public class CoverageDecompressor {
 					try {
 						decompressor = new CoverageDecompressor(conf);
 						decompressor.extractHist(new File(line.getOptionValue(OPT_OUT_FILE)));
+					} finally {
+						if (decompressor != null)
+							decompressor.close();
+					}
+					break;
+
+				case DEBUG:
+
+					options = new Options();
+
+					opt = new Option(OPT_COV_FILE, true, "Compressed coverage input file.");
+					opt.setLongOpt("covFile");
+					opt.setRequired(true);
+					options.addOption(opt);
+
+					opt = new Option(OPT_VCF_FILE, true, "VCF file used for the compression (optional).");
+					opt.setLongOpt("vcfFile");
+					opt.setRequired(false);
+					options.addOption(opt);
+
+					opt = new Option(OPT_TMP_DIR, true, "Temporary working directory (default is current dir).");
+					opt.setLongOpt("temp");
+					opt.setRequired(false);
+					options.addOption(opt);
+
+					opt = new Option(OPT_KEEP_WORKDIR, false, "Do not delete the work directory (e.g., for debugging purposes).");
+					opt.setRequired(false);
+					options.addOption(opt);
+
+					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
+
+					opt = new Option(OPT_MAX_CACHED_BLOCKS, true, "Maximum number of memory-cached data blocks (BITs) (default is " + DEFAULT_MAX_CACHED_BLOCKS
+							+ ").");
+					opt.setLongOpt("maxCachedBlocks");
+					opt.setRequired(false);
+					options.addOption(opt);
+
+					line = parser.parse(options, args);
+
+					conf = CoverageDecompressor.getDefaultConfiguration();
+					conf.setProperty(OPT_COV_FILE, line.getOptionValue(OPT_COV_FILE));
+					if (line.hasOption(OPT_VCF_FILE))
+						conf.setProperty(OPT_VCF_FILE, line.getOptionValue(OPT_VCF_FILE));
+					if (line.hasOption(OPT_TMP_DIR))
+						conf.setProperty(OPT_TMP_DIR, line.getOptionValue(OPT_TMP_DIR));
+					conf.setProperty(OPT_KEEP_WORKDIR, line.hasOption(OPT_KEEP_WORKDIR) + "");
+					conf.setProperty(OPT_VERBOSE, line.hasOption(OPT_VERBOSE) + "");
+					if (line.hasOption(OPT_MAX_CACHED_BLOCKS))
+						conf.setProperty(OPT_MAX_CACHED_BLOCKS, line.getOptionValue(OPT_MAX_CACHED_BLOCKS));
+
+					try {
+						decompressor = new CoverageDecompressor(conf);
+						CompressedCoverageIterator it = decompressor.getCoverageIterator();
+						Long start = System.currentTimeMillis();
+						long c = 0;
+						while (it.hasNext()) {
+							it.next();
+							c++;
+						}
+						System.out.println("Took " + (System.currentTimeMillis() - start) + " ms. to iterate " + c + " positions.");
 					} finally {
 						if (decompressor != null)
 							decompressor.close();
