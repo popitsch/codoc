@@ -46,6 +46,8 @@ import at.cibiv.ngs.tools.sam.iterator.ChromosomeIteratorListener;
 import at.cibiv.ngs.tools.sam.iterator.CoverageIterator;
 import at.cibiv.ngs.tools.sam.iterator.FastBamCoverageIterator;
 import at.cibiv.ngs.tools.sam.iterator.ParseException;
+import at.cibiv.ngs.tools.util.CanonicalChromsomeComparator;
+import at.cibiv.ngs.tools.util.CanonicalChromsomeComparator.CHROM_CATEGORY;
 import at.cibiv.ngs.tools.util.FileUtils;
 import at.cibiv.ngs.tools.util.GenomicPosition;
 import at.cibiv.ngs.tools.util.GenomicPosition.COORD_TYPE;
@@ -122,12 +124,24 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 	public static final String OPT_BLOCK_BORDERS = "blockBorders";
 	public static final String OPT_CHR_LIST = "originalChromosomes";
 
-	public static final String STAT_MIN = "minimum-coverage";
-	public static final String STAT_MAX = "maximum-coverage";
-	public static final String STAT_PSEUDO_MEDIAN = "pseudo-median-coverage";
-	public static final String STAT_MEAN = "mean-coverage";
-	public static final String STAT_COUNT = "count-coverage";
-	public static final String STAT_HIST = "count-histogram";
+	public static final String STAT_MIN = "minimum-coverage-autosomes";
+	public static final String STAT_MAX = "maximum-coverage-autosomes";
+
+	public static final String STAT_PSEUDO_MEDIAN_AUTO = "pseudo-median-coverage-autosomes";
+	public static final String STAT_PSEUDO_MEDIAN_X = "pseudo-median-coverage-X";
+	public static final String STAT_PSEUDO_MEDIAN_Y = "pseudo-median-coverage-Y";
+
+	public static final String STAT_MEAN_AUTO = "mean-coverage-autosomes";
+	public static final String STAT_MEAN_X = "mean-coverage-X";
+	public static final String STAT_MEAN_Y = "mean-coverage-Y";
+
+	public static final String STAT_COUNT_AUTO = "count-coverage-autosomes";
+	public static final String STAT_COUNT_X = "count-coverage-X";
+	public static final String STAT_COUNT_Y = "count-coverage-Y";
+
+	public static final String STAT_HIST_AUTO = "count-histogram-autosomes";
+	public static final String STAT_HIST_X = "count-histogram-X";
+	public static final String STAT_HIST_Y = "count-histogram-Y";
 
 	/**
 	 * # of codewords per block.
@@ -682,7 +696,6 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 		currentBlockIndex = -1;
 		lastwrittenpos1 = null;
-
 		// statistics
 		statistics = new Statistics();
 		try {
@@ -725,9 +738,15 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			// of 0-coverage at the beginning of a chromosome.
 			boolean headingzeros = true;
 			chromWasChanged = true;
-			double coverageSum = 0l;
+			double coverageSumAuto = 0, coverageCountAuto = 0;
+			double coverageSumX = 0, coverageCountX = 0;
+			double coverageSumY = 0, coverageCountY = 0;
+
 			// for calculating the histogram and the pseudo-median.
-			Histogram<Integer> hist = new Histogram<>();
+			Histogram<Integer> histAutosomes = new Histogram<>();
+			Histogram<Integer> histX = new Histogram<>();
+			Histogram<Integer> histY = new Histogram<>();
+			CHROM_CATEGORY chromCat = CHROM_CATEGORY.OTHER;
 
 			while (coverageIterator.hasNext()) {
 				statistics.inc("coverage-values");
@@ -799,6 +818,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 					maxBorder = quant.getMaxBorder(lastCoverage);
 					headingzeros = true;
 					header.addValue("sequence", prefixedChr);
+					// chromosomal category
+					chromCat = CanonicalChromsomeComparator.getCategory(chr);
 				}
 
 				// ..................................................................
@@ -876,8 +897,24 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				// ..................................................................
 				statistics.setMin(STAT_MIN, coverage);
 				statistics.setMax(STAT_MAX, coverage);
-				coverageSum += coverage;
-				hist.push(coverage);
+				switch (chromCat) {
+				case AUTOSOME:
+					histAutosomes.push(coverage);
+					coverageSumAuto += coverage;
+					coverageCountAuto++;
+					break;
+				case X:
+					histX.push(coverage);
+					coverageSumX += coverage;
+					coverageCountX++;
+					break;
+				case Y:
+					histY.push(coverage);
+					coverageSumY += coverage;
+					coverageCountY++;
+					break;
+				default:
+				}
 
 				// ..................................................................
 				// check coverages
@@ -916,18 +953,34 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			}
 
 			// Set statistics
-			statistics.set(STAT_MEAN, (coverageSum / (double) c));
-			statistics.set(STAT_PSEUDO_MEDIAN, hist.estimateMedian());
-			statistics.set(STAT_COUNT, c);
-			statistics.setString(STAT_HIST, hist.toString());
+			statistics.set(STAT_MEAN_AUTO, nonull(coverageSumAuto / coverageCountAuto));
+			statistics.set(STAT_COUNT_AUTO, c);
+			statistics.set(STAT_PSEUDO_MEDIAN_AUTO, nonull(histAutosomes.estimateMedian()));
 
-			// write statistics to header.
+			statistics.set(STAT_MEAN_X, nonull(coverageSumX / coverageCountX));
+			statistics.set(STAT_COUNT_X, c);
+			statistics.set(STAT_PSEUDO_MEDIAN_X, nonull(histX.estimateMedian()));
+
+			statistics.set(STAT_MEAN_Y, nonull(coverageSumY / coverageCountY));
+			statistics.set(STAT_COUNT_Y, c);
+			statistics.set(STAT_PSEUDO_MEDIAN_Y, nonull( histY.estimateMedian()));
+
+			// write statistics to compressed header.
 			config.setProperty(STAT_MIN, statistics.get(STAT_MIN).intValue() + "");
 			config.setProperty(STAT_MAX, statistics.get(STAT_MAX).intValue() + "");
-			config.setProperty(STAT_MEAN, statistics.get(STAT_MEAN) + "");
-			config.setProperty(STAT_COUNT, statistics.get(STAT_COUNT).intValue() + "");
-			config.setProperty(STAT_HIST, hist.toString());
-			config.setProperty(STAT_PSEUDO_MEDIAN, statistics.get(STAT_PSEUDO_MEDIAN).intValue() + "");
+			config.setProperty(STAT_MEAN_AUTO, nonull(coverageSumAuto / coverageCountAuto) + "");
+			config.setProperty(STAT_COUNT_AUTO, c + "");
+			config.setProperty(STAT_PSEUDO_MEDIAN_AUTO, nonull(histAutosomes.estimateMedian()) + "");
+			config.setProperty(STAT_MEAN_X, nonull(coverageSumX / coverageCountX) + "");
+			config.setProperty(STAT_COUNT_X, c + "");
+			config.setProperty(STAT_PSEUDO_MEDIAN_X, nonull(histX.estimateMedian()) + "");
+			config.setProperty(STAT_MEAN_Y, nonull(coverageSumY / coverageCountY) + "");
+			config.setProperty(STAT_COUNT_Y, c + "");
+			config.setProperty(STAT_PSEUDO_MEDIAN_Y, nonull(histY.estimateMedian()) + "");
+			// write histograms to compressed header.
+			config.setProperty(STAT_HIST_AUTO, histAutosomes.toString());
+			config.setProperty(STAT_HIST_X, histX.toString());
+			config.setProperty(STAT_HIST_Y, histY.toString());
 
 			// write last codeword (only if not ROI).
 			if (roiFile == null)
@@ -1066,6 +1119,18 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				statsOut.close();
 			}
 		}
+	}
+
+	/**
+	 * Replace null with 0
+	 * @param val
+	 * @return
+	 */
+	private Number nonull(Number val) {
+		if ( val == null ) return 0;
+		if ( val instanceof Double && ((Double) val == Double.NaN))
+			return 0;
+		return val;
 	}
 
 	/**

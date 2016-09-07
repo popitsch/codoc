@@ -692,9 +692,9 @@ public class CoverageDecompressor {
 			String sf = conf.getProperty(OPT_SCALE_FACTOR, "1.0");
 			if (sf.toLowerCase().startsWith("median")) {
 				// get median from config.
-				if (compressedConfig.getProperty(CoverageCompressor.STAT_PSEUDO_MEDIAN) == null)
-					throw new CodocException("Stats header does not contain median. Wrong CODOC format?");
-				Float median = Float.parseFloat(compressedConfig.getProperty(CoverageCompressor.STAT_PSEUDO_MEDIAN));
+				if (compressedConfig.getProperty(CoverageCompressor.STAT_PSEUDO_MEDIAN_AUTO) == null)
+					throw new CodocException("Stats header does not contain autosomal median. Wrong CODOC format?");
+				Float median = Float.parseFloat(compressedConfig.getProperty(CoverageCompressor.STAT_PSEUDO_MEDIAN_AUTO));
 				if (sf.startsWith("median*")) {
 					float mult = Float.parseFloat(sf.substring("median*".length()));
 					this.scaleFactor = 1 / median * mult;
@@ -847,7 +847,7 @@ public class CoverageDecompressor {
 	 * @throws Throwable
 	 */
 	public CompressedCoverageIterator getCoverageIterator(GenomicPosition pos) throws CodocException, IOException {
-		CompressedCoverageIterator it = new CompressedCoverageIterator(this, chrOrigList, 1.0f);
+		CompressedCoverageIterator it = new CompressedCoverageIterator(this, chrOrigList, scaleFactor);
 		while (it.hasNext()) {
 			it.next();
 			if (it.getGenomicPosition() != null)
@@ -910,7 +910,7 @@ public class CoverageDecompressor {
 				}
 
 				String chr = cmd.split(":")[0].trim();
-				Integer off1 = new Integer(cmd.split(":")[1]);
+				Integer off1 = new Integer(cmd.split(":")[1].replaceAll(",", ""));
 				GenomicPosition pos = new GenomicPosition(chr, off1, COORD_TYPE.ONEBASED);
 				// System.out.println("Query " + pos);
 
@@ -1325,17 +1325,37 @@ public class CoverageDecompressor {
 	 * @throws CodocException
 	 */
 	public void extractHist(File outFile) throws IOException {
-		String h = getCompressionParameter(CoverageCompressor.STAT_HIST);
-		if (h == null)
-			throw new NullPointerException("No histogram found! " + getCompressedConfig());
-		String med = getCompressionParameter(CoverageCompressor.STAT_PSEUDO_MEDIAN);
-		if (med == null)
-			throw new NullPointerException("No median found!" + getCompressedConfig());
+		String hautoStr = getCompressionParameter(CoverageCompressor.STAT_HIST_AUTO);
+		if (hautoStr == null)
+			throw new NullPointerException("No autosome histogram found! " + getCompressedConfig());
+		String hxStr = getCompressionParameter(CoverageCompressor.STAT_HIST_X);
+		if (hxStr == null)
+			throw new NullPointerException("No X-histogram found! " + getCompressedConfig());
+		String hyStr = getCompressionParameter(CoverageCompressor.STAT_HIST_Y);
+		if (hyStr == null)
+			throw new NullPointerException("No Y-histogram found! " + getCompressedConfig());
 
-		Histogram<Integer> hist = Histogram.fromString(h);
+		String medAuto = getCompressionParameter(CoverageCompressor.STAT_PSEUDO_MEDIAN_AUTO);
+		if (medAuto == null)
+			throw new NullPointerException("No autosome median found!" + getCompressedConfig());
+		String medX = getCompressionParameter(CoverageCompressor.STAT_PSEUDO_MEDIAN_X);
+		if (medX == null)
+			throw new NullPointerException("No X median found!" + getCompressedConfig());
+		String medY = getCompressionParameter(CoverageCompressor.STAT_PSEUDO_MEDIAN_Y);
+		if (medY == null)
+			throw new NullPointerException("No Y median found!" + getCompressedConfig());
+
+		Histogram<Integer> hauto = Histogram.fromString(hautoStr);
+		Histogram<Integer> hx = Histogram.fromString(hxStr);
+		Histogram<Integer> hy = Histogram.fromString(hyStr);
+
 		JSONObject obj = new JSONObject();
-		obj.put("histogram", hist.toJSON());
-		obj.put("median", Long.parseLong(med));
+		obj.put("histogram-autosomes", hauto.toJSON());
+		obj.put("histogram-X", hx.toJSON());
+		obj.put("histogram-Y", hy.toJSON());
+		obj.put("median-autosomes", Long.parseLong(medAuto));
+		obj.put("median-X", Long.parseLong(medX));
+		obj.put("median-Y", Long.parseLong(medY));
 
 		PrintWriter out = new PrintWriter(outFile);
 		out.print(obj.toString());
@@ -1710,7 +1730,8 @@ public class CoverageDecompressor {
 
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
-					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor. Float number or 'median' (default is 1.0).");
+					opt = new Option(OPT_SCALE_FACTOR, true,
+							"Signal scaling factor. Float number or 'median*X' for scaling to the median of the autosomal coverage times X (default is 1.0).");
 					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);
@@ -1782,7 +1803,8 @@ public class CoverageDecompressor {
 
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
-					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor. Float number or 'median' (default is 1.0).");
+					opt = new Option(OPT_SCALE_FACTOR, true,
+							"Signal scaling factor. Float number or 'median*X' for scaling to the median of the autosomal coverage times X (default is 1.0).");
 					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);
@@ -1855,7 +1877,8 @@ public class CoverageDecompressor {
 
 					options.addOption(OPT_VERBOSE, "verbose", false, "be verbose.");
 
-					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor. Float number or 'median' (default is 1.0).");
+					opt = new Option(OPT_SCALE_FACTOR, true,
+							"Signal scaling factor. Float number or 'median*X' for scaling to the median of the autosomal coverage times X (default is 1.0).");
 					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);

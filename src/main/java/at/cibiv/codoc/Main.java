@@ -33,6 +33,8 @@ public class Main {
 		System.out.println("\t\t" + CoverageCompressor.CMD + "\t" + CoverageCompressor.CMD_INFO);
 		System.out.println("\t\t" + CoverageDecompressor.CMD + "\t" + CoverageDecompressor.CMD_INFO);
 		System.out.println("\t\t" + CoverageTools.CMD + "\t\t" + CoverageTools.CMD_INFO);
+		System.out.println();
+		System.out.println("NOTE: To restrict CODOC to using a single CPU (e.g., in a cluster environment), please use the -XX:+UseSerialGC JVM switch." );
 		System.exit(1);
 	}
 

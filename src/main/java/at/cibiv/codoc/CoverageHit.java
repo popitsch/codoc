@@ -60,8 +60,8 @@ public class CoverageHit {
 	 */
 	public static float getInterpolatedCoverage(int l, int r, int lc, int rc, int qp, float scaleFactor) {
 		int w = (r - l);
-		if (w == 0) 
-			return (float) rc* scaleFactor;
+		if (w == 0)
+			return (float) rc * scaleFactor;
 		float prec = (float) (qp - l) / (float) w;
 		float ret = lc + ((rc - lc) * prec);
 		return ret * scaleFactor;
@@ -281,11 +281,15 @@ public class CoverageHit {
 	 */
 	@Override
 	public String toString() {
-		return (isFuzzy() ? "~" : "") + String.format("%.2f", getInterpolatedCoverage());
+		String val = (isFuzzy() ? "~" : "") + String.format("%.2f", getInterpolatedCoverage());
+		if (scaleFactor != 1.0f)
+			val += " (scale: " + scaleFactor + ", raw: " + String.format("%.2f", getInterpolatedCoverageRaw());
+		return val;
 	}
 
 	/**
 	 * Verbose toString() method.
+	 * 
 	 * @return
 	 */
 	public String toStringVerbose() {
