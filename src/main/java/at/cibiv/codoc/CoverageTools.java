@@ -1537,8 +1537,8 @@ public class CoverageTools {
 	 */
 	public static void main(String[] args) throws Throwable {
 
-		args = new String[] { "normalizeTsv", "-tsv",
-				"/temp/Niko/data.tsv", "-v" };
+//		args = new String[] { "normalizeTsv", "-tsv",
+//				"/temp/Niko/data.tsv", "-v" };
 
 		// args = new String[] {
 		// "coverageToTsvColumn",
