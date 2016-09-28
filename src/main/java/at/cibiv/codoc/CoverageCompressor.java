@@ -781,11 +781,9 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				// Chromosome change. (i.e., chr is the new chrom already)
 				// ..................................................................
 				if (chromWasChanged) {
-
 					// finish chrom!
-					if (roiFile == null) {
-						writeCodeword(lastChr, lastPos1 + 1, lastCoverage, 0, "last1");
-					}
+					writeCodeword(lastChr, lastPos1 + 1, lastCoverage, 0, "last1");
+
 					String prefixedChr = StringUtils.prefixedChr(chr);
 
 					// load ROIs
@@ -793,8 +791,9 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 						if (roiFile.getIntervalsPerChrom().get(prefixedChr) != null) {
 							SortedSet<GenomicInterval> tmp = new TreeSet<GenomicInterval>(roiFile.getIntervalsPerChrom().get(prefixedChr));
 							rois = tmp.iterator();
-						} else
+						} else {
 							skipChrom = true;
+						}
 					}
 
 					// load VCF data
@@ -826,10 +825,13 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				// check whether we are in a ROI
 				// ..................................................................
 				if (roiFile != null) {
+					// System.out.println(pos1 + "/" + currentRoi + "/" +
+					// (currentRoi!=null?currentRoi.contains(pos1 - 1):null));
 					if (currentRoi == null) {
 						// is there a roi?
-						if ((rois == null) || (!rois.hasNext()))
+						if ((rois == null) || (!rois.hasNext())) {
 							continue;
+						}
 						currentRoi = rois.next();
 						statistics.inc("ROIs");
 					}
@@ -840,13 +842,15 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 						inRoi = currentRoi.contains(pos1 - 1);
 						if (!inRoi) {
 							// LEFT ROI
+							// System.out.println("LEFT ROI");
 							writeCodeword(lastChr, lastPos1, lastCoverage, coverage, "left roi");
 							currentRoi = null;
 							maxRois--;
 							if (maxRois <= 0)
 								break;
-							if ((rois == null) || (!rois.hasNext()))
+							if ((rois == null) || (!rois.hasNext())) {
 								skipChrom = true;
+							}
 						}
 					} else {
 						// NOTE that BED intervals are 0-based
@@ -859,8 +863,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 						}
 					}
 				}
-				if (!inRoi)
+				if (!inRoi) {
+					// System.out.println("skip " + pos1);
 					continue;
+				}
 
 				// ..................................................................
 				// check whether we "HIT" a variant
@@ -891,6 +897,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 					headingzeros = false;
 				if ((rawCoverage != null) && (!headingzeros))
 					rawCoverage.println(chr + "\t" + pos1 + "\t" + coverage);
+
+				//System.out.println(chr + "\t" + pos1 + "\t" + coverage);
 
 				// ..................................................................
 				// calculate stats
@@ -963,7 +971,7 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 			statistics.set(STAT_MEAN_Y, nonull(coverageSumY / coverageCountY));
 			statistics.set(STAT_COUNT_Y, c);
-			statistics.set(STAT_PSEUDO_MEDIAN_Y, nonull( histY.estimateMedian()));
+			statistics.set(STAT_PSEUDO_MEDIAN_Y, nonull(histY.estimateMedian()));
 
 			// write statistics to compressed header.
 			config.setProperty(STAT_MIN, statistics.get(STAT_MIN).intValue() + "");
@@ -982,9 +990,8 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 			config.setProperty(STAT_HIST_X, histX.toString());
 			config.setProperty(STAT_HIST_Y, histY.toString());
 
-			// write last codeword (only if not ROI).
-			if (roiFile == null)
-				writeCodeword(chr, pos1 + 1, lastCoverage, coverage, "last");
+			// write last codeword
+			writeCodeword(lastChr, lastPos1 + 1, lastCoverage, 0, "last1");
 
 			// write block borders.
 			blockBorders.add(new GenomicPosition(chr, pos1));
@@ -1083,7 +1090,6 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 				if (header != null)
 					if (!header.deleteFiles())
 						addWarning(new CodocException("Could not remove header file " + header.getF1()));
-				System.out.println("DELETE " + chrData);
 				for (FileDataOutputBlock<?> b : chrData) {
 					b.close();
 					if (!b.deleteFiles())
@@ -1123,12 +1129,14 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 	/**
 	 * Replace null with 0
+	 * 
 	 * @param val
 	 * @return
 	 */
 	private Number nonull(Number val) {
-		if ( val == null ) return 0;
-		if ( val instanceof Double && ((Double) val == Double.NaN))
+		if (val == null)
+			return 0;
+		if (val instanceof Double && ((Double) val == Double.NaN))
 			return 0;
 		return val;
 	}
