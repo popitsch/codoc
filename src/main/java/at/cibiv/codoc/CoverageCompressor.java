@@ -842,8 +842,10 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 						inRoi = currentRoi.contains(pos1 - 1);
 						if (!inRoi) {
 							// LEFT ROI
-							// System.out.println("LEFT ROI");
-							writeCodeword(lastChr, lastPos1, lastCoverage, coverage, "left roi");
+							//System.out.println("LEFT ROI");
+							writeCodeword(lastChr, lastPos1, lastCoverage, coverage, "left roi");							
+							writeCodeword(lastChr, pos1, coverage, 0, "left roi");
+							lastCoverage=-1;
 							currentRoi = null;
 							maxRois--;
 							if (maxRois <= 0)
@@ -857,14 +859,16 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 						inRoi = currentRoi.contains(pos1 - 1);
 						if (inRoi) {
 							// ENTERED a ROI
-							// writeCodeword(originalChr, pos1, coverage,
-							// coverage);
+							System.out.println("Entered "+ currentRoi);
+							//writeCodeword(lastChr, pos1-1, 0, coverage, "entered roi");
+							//writeCodeword(lastChr, pos1, coverage, coverage, "entered roi");
 							// System.out.println("ENTERED ROI " + currentRoi);
+							System.out.println("ok");
 						}
 					}
 				}
 				if (!inRoi) {
-					// System.out.println("skip " + pos1);
+					//System.out.println("skip " + pos1);
 					continue;
 				}
 

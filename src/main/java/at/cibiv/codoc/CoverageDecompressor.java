@@ -40,6 +40,7 @@ import at.cibiv.codoc.io.FileHeader;
 import at.cibiv.codoc.quant.QuantizationFunction;
 import at.cibiv.codoc.utils.CodocException;
 import at.cibiv.codoc.utils.PropertyConfiguration;
+import at.cibiv.ngs.tools.bed.SimpleBEDFile;
 import at.cibiv.ngs.tools.lds.GenomicITree;
 import at.cibiv.ngs.tools.lds.GenomicInterval;
 import at.cibiv.ngs.tools.sam.iterator.ParseException;
@@ -1630,7 +1631,7 @@ public class CoverageDecompressor {
 					options.addOption(opt);
 
 					opt = new Option(OPT_ROI, true,
-							"Optional regions of interest. Coverage signal will be extracted only for these intervals, e.g.: 1:100-200 (default: NONE).");
+							"Optional regions of interest. Coverage signal will be extracted only for these intervals, e.g.: 1:100-200,2:200-300 (using 1-based coordinates) or an existing bed file (default: NONE).");
 					opt.setLongOpt("regionOfInterest");
 					opt.setRequired(false);
 					options.addOption(opt);
@@ -1658,11 +1659,18 @@ public class CoverageDecompressor {
 					rois = line.hasOption(OPT_ROI) ? new TreeSet<GenomicInterval>() : null;
 					if (rois != null)
 						for (String s : line.getOptionValues(OPT_ROI)) {
-							GenomicInterval g = GenomicInterval.fromString(s);
-							System.out.println("ROI: " + g.toCoordString());
-							// move 1bp downstream to match 1-based coords
-							GenomicInterval g1 = new GenomicInterval(g.getChr(), g.getMin() - 1, g.getMax() - 1, null);
-							rois.add(g1);
+							if (new File(s).exists()) {
+								for (GenomicInterval g : (new SimpleBEDFile(new File(s))).getIntervalsList()) {
+									rois.add(g);
+								}
+							} else {
+								GenomicInterval g = GenomicInterval.fromString(s);
+								if (g == null)
+									throw new CodocException("Could not parse ROI from string " + s);
+								// move 1bp downstream to match 1-based coords
+								GenomicInterval g1 = new GenomicInterval(g.getChr(), g.getMin() - 1, g.getMax() - 1, null);
+								rois.add(g1);
+							}
 						}
 					try {
 						decompressor = new CoverageDecompressor(conf);
