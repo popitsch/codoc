@@ -18,42 +18,41 @@
 		</repository>
 
 		<repository>
-			<id>biotop-repo-releases</id>
-			<name>biotop-repo-releases</name>
+			<id>biotop-ext-releases</id>
+			<name>biotop-ext-releases</name>
 			<url>http://178.62.13.94/artifactory/ext-release-local/</url>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>
 		</repository>
 
 		<repository>
-			<id>biotop-repo-snapshots</id>
-			<name>biotop-repo-snapshots</name>
+			<id>biotop-ext-snapshots</id>
+			<name>biotop-ext-snapshots</name>
 			<url>http://178.62.13.94/artifactory/ext-snapshot-local/</url>
-			<snapshots>
-				<enabled>true</enabled>
-			</snapshots>
-		</repository>
-
-
-		<repository>
-			<id>well-repo-releases</id>
-			<name>WELL Maven Repository</name>
-			<url>http://brc14.well.ox.ac.uk:8081/artifactory/ext-release-local/</url>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
 			<snapshots>
 				<enabled>true</enabled>
 			</snapshots>
 		</repository>
 
 		<repository>
-			<id>well-repo-snapshots</id>
-			<name>WELL Maven Repository</name>
-			<url>http://brc14.well.ox.ac.uk:8081/artifactory/ext-snapshot-local/</url>
+			<id>biotop-libs-snapshots</id>
+			<name>biotop-libs-snapshots</name>
+			<url>http://178.62.13.94/artifactory/libs-snapshot-local/</url>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
 			<snapshots>
 				<enabled>true</enabled>
 			</snapshots>
 		</repository>
-
+		
 		<repository>
 			<id>apache-repo-releases</id>
 			<url>https://repository.apache.org/content/repositories/releases/</url>

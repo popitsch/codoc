@@ -1532,7 +1532,7 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor (default is 1.0).");
+					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor. Float number or 'median*X' for scaling to the median of the autosomal coverage times X (default is 1.0).");
 					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);
@@ -1619,7 +1619,7 @@ public class CoverageDecompressor {
 					opt.setRequired(false);
 					options.addOption(opt);
 
-					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor (default is 1.0).");
+					opt = new Option(OPT_SCALE_FACTOR, true, "Signal scaling factor. Float number or 'median*X' for scaling to the median of the autosomal coverage times X (default is 1.0).");
 					opt.setLongOpt("scaleFactor");
 					opt.setRequired(false);
 					options.addOption(opt);

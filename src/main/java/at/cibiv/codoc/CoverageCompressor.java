@@ -857,14 +857,14 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 					} else {
 						// NOTE that BED intervals are 0-based
 						inRoi = currentRoi.contains(pos1 - 1);
-						if (inRoi) {
-							// ENTERED a ROI
-							System.out.println("Entered "+ currentRoi);
-							//writeCodeword(lastChr, pos1-1, 0, coverage, "entered roi");
-							//writeCodeword(lastChr, pos1, coverage, coverage, "entered roi");
-							// System.out.println("ENTERED ROI " + currentRoi);
-							System.out.println("ok");
-						}
+//						if (inRoi) {
+//							// ENTERED a ROI
+//							System.out.println("Entered "+ currentRoi);
+//							//writeCodeword(lastChr, pos1-1, 0, coverage, "entered roi");
+//							//writeCodeword(lastChr, pos1, coverage, coverage, "entered roi");
+//							// System.out.println("ENTERED ROI " + currentRoi);
+//							System.out.println("ok");
+//						}
 					}
 				}
 				if (!inRoi) {

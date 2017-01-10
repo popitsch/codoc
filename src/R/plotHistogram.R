@@ -2,6 +2,8 @@
 # FIXME: works only if all bins are there! This is currently ensured by the extractHist() method in CoverageDecompressor.
 library(jsonlite)
 args <- commandArgs(trailingOnly = TRUE)
+args=c("c:/data/tmp/tdf_StA_BS/tdf_StA_ES.codoc.hist", "c:/data/tmp/tdf_StA_BS/tdf_StA_ES.codoc.pdf")
+
 print(args)
 if (length(args) < 2) {
   stop("usage: Rscript plotHistogram.R <input-json> <output-pdf> [<max-bins> <chrsizes>]
@@ -92,9 +94,9 @@ for ( region in c("Autosomal", "X-Chromosome", "Y-Chromosome")) {
 # overlay
 p=NA
 ylim=max(
-  d$`histogram-autosomes`$counts[d$`median-autosomes`]*normmult/autosize, 
-  d$`histogram-X`$counts[d$`median-X`]*normmult/xsize,  
-  d$`histogram-Y`$countsd$`median-Y`*normmult/ysize)
+  d$`histogram-autosomes`$counts[d$`median-autosomes`+1]*normmult/autosize, 
+  d$`histogram-X`$counts[d$`median-X`+1]*normmult/xsize,  
+  d$`histogram-Y`$counts[d$`median-Y`+1]*normmult/ysize)
 leg=c()
 legc=c()
 
