@@ -30,6 +30,18 @@
 		</repository>
 
 		<repository>
+			<id>biotop-libs-releases</id>
+			<name>biotop-libs-releases</name>
+			<url>http://178.62.13.94/artifactory/libs-release-local/</url>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
+
+		<repository>
 			<id>biotop-ext-snapshots</id>
 			<name>biotop-ext-snapshots</name>
 			<url>http://178.62.13.94/artifactory/ext-snapshot-local/</url>
