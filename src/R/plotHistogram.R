@@ -2,7 +2,7 @@
 # FIXME: works only if all bins are there! This is currently ensured by the extractHist() method in CoverageDecompressor.
 library(jsonlite)
 args <- commandArgs(trailingOnly = TRUE)
-args=c("c:/data/tmp/tdf_StA_BS/tdf_StA_ES.codoc.hist", "c:/data/tmp/tdf_StA_BS/tdf_StA_ES.codoc.pdf")
+#args=c("c:/data/tmp/tdf_StA_BS/tdf_StA_ES.codoc.hist", "c:/data/tmp/tdf_StA_BS/tdf_StA_ES.codoc.pdf")
 
 print(args)
 if (length(args) < 2) {
