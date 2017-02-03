@@ -821,9 +821,11 @@ public class CoverageDecompressor {
 				System.out.println("Finished loading in " + (System.currentTimeMillis() - startTime) + "ms.");
 		} catch (Exception e) {
 			// delete temporary directory
-			if (workDirWasCreated)
+			if (workDirWasCreated) {
+				System.err.println("Removing work dir " + workDir.getAbsolutePath() );
 				if (!workDir.delete())
 					System.err.println("Could not remove temporary directory " + workDir);
+			}
 			throw new CodocException(e.toString());
 		}
 
