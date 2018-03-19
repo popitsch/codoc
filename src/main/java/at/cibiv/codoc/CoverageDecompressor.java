@@ -90,6 +90,7 @@ public class CoverageDecompressor {
     public static final String OPT_DUMP_HEADER_AND_EXIT = "dumpHeaderAndExit";
     public static final String OPT_MAX_CACHED_BLOCKS = "maxCachedBlocks";
     public static final String OPT_ROI = "roi";
+    public static final String OPT_TRACK_NAME = "trackname";
 
     /* DEFAULTS */
 
@@ -1281,9 +1282,9 @@ public class CoverageDecompressor {
      * @param wigFile
      * @throws Throwable
      */
-    private void toWIG(String wigFile, String trackTitle, SortedSet<GenomicInterval> regionsOfInterest) throws Throwable {
+    private void toWIG(String wigFile, String trackname, SortedSet<GenomicInterval> regionsOfInterest) throws Throwable {
 	WigOutputStream out = new WigOutputStream(new PrintStream(wigFile),
-		trackTitle,
+		trackname,
 		"WIG track created by CODOC CoverageDecompressor", "");
 	CompressedCoverageIterator it = getCoverageIterator();
 	while (it.hasNext()) {
@@ -1321,9 +1322,9 @@ public class CoverageDecompressor {
      * @param wigFile
      * @throws Throwable
      */
-    private void toTDF(String tdfFile, SortedSet<GenomicInterval> regionsOfInterest, String chrSizeF) throws Throwable {
+    private void toTDF(String tdfFile, SortedSet<GenomicInterval> regionsOfInterest, String trackname, String chrSizeF) throws Throwable {
 	// write to a temporary WIG file
-	toWIG(tdfFile + ".wig", regionsOfInterest);
+	toWIG(tdfFile + ".wig", trackname, regionsOfInterest);
 
 	if (!chrSizeF.equals(".chrom.sizes"))
 	    System.err.println("Chromosome size file should have suffix '.chrom.sizes' to be IGV-compatible!");
@@ -1668,6 +1669,12 @@ public class CoverageDecompressor {
 		    opt.setRequired(false);
 		    options.addOption(opt);
 
+		    
+		    opt = new Option(OPT_TRACK_NAME, true,
+			    "Optional track name (default is CODOC file name).");
+		    opt.setRequired(false);
+		    options.addOption(opt);
+
 		    opt = new Option(OPT_ROI, true,
 			    "Optional regions of interest. Coverage signal will be extracted only for these intervals, e.g.: 1:100-200,2:200-300 (using 1-based coordinates) or an existing bed file (default: NONE).");
 		    opt.setLongOpt("regionOfInterest");
@@ -1714,7 +1721,7 @@ public class CoverageDecompressor {
 		    try {
 			decompressor = new CoverageDecompressor(conf);
 			decompressor.toTDF(line.getOptionValue(OPT_OUT_FILE), rois,
-				line.getOptionValue(OPT_CHR_LEN_FILE));
+				line.getOptionValue(OPT_TRACK_NAME), line.getOptionValue(OPT_CHR_LEN_FILE));
 		    } finally {
 			if (decompressor != null)
 			    decompressor.close();
