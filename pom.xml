@@ -64,7 +64,7 @@
 				<enabled>true</enabled>
 			</snapshots>
 		</repository>
-		
+
 		<repository>
 			<id>apache-repo-releases</id>
 			<url>https://repository.apache.org/content/repositories/releases/</url>
@@ -156,6 +156,45 @@
 		</dependency>
 
 		<dependency>
+			<groupId>lds</groupId>
+			<artifactId>lds-core</artifactId>
+			<version>0.0.1</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>jena</artifactId>
+					<groupId>com.hp.hpl.jena</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>pubby-api</artifactId>
+					<groupId>de.fuberlin.wiwiss</groupId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<dependency>
+			<groupId>commons-cli</groupId>
+			<artifactId>commons-cli</artifactId>
+			<version>1.2</version>
+		</dependency>
+		<dependency>
+			<groupId>h2</groupId>
+			<artifactId>h2</artifactId>
+			<version>1.2.123</version>
+		</dependency>
+		<!-- Sam jar from picard project -->
+		<dependency>
+			<groupId>sam</groupId>
+			<artifactId>sam</artifactId>
+			<version>1.93</version>
+		</dependency>
+		<!-- compression -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-compress</artifactId>
+			<version>1.3</version>
+		</dependency>
+
+		<dependency>
 			<groupId>igv</groupId>
 			<artifactId>igv</artifactId>
 			<version>20130628</version>
@@ -172,7 +211,7 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
-		
+
 		<!-- https://mvnrepository.com/artifact/org.json/json -->
 		<dependency>
 			<groupId>org.json</groupId>

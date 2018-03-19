@@ -220,4 +220,16 @@ public class CachedBlockIterator implements CoverageIterator<Float> {
 		return scaleFactor;
 	}
 
+	@Override
+	public boolean gotoChrom(String chr) throws IOException {
+	    // TODO Auto-generated method stub
+	    return false;
+	}
+
+	@Override
+	public boolean gotoPosition(GenomicPosition pos) throws IOException {
+	    // TODO Auto-generated method stub
+	    return false;
+	}
+
 }

@@ -202,4 +202,16 @@ public class CoverageIteratorTest implements CoverageIterator<Integer>, Chromoso
 		System.out.println("-------------------------");
 	}
 
+	@Override
+	public boolean gotoChrom(String chr) throws IOException {
+	    // TODO Auto-generated method stub
+	    return false;
+	}
+
+	@Override
+	public boolean gotoPosition(GenomicPosition pos) throws IOException {
+	    // TODO Auto-generated method stub
+	    return false;
+	}
+
 }

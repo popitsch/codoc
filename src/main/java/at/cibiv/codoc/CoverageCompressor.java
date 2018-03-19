@@ -966,15 +966,15 @@ public class CoverageCompressor implements ChromosomeIteratorListener {
 
 			// Set statistics
 			statistics.set(STAT_MEAN_AUTO, nonull(coverageSumAuto / coverageCountAuto));
-			statistics.set(STAT_COUNT_AUTO, c);
+			statistics.set(STAT_COUNT_AUTO, coverageCountAuto);
 			statistics.set(STAT_PSEUDO_MEDIAN_AUTO, nonull(histAutosomes.estimateMedian()));
 
 			statistics.set(STAT_MEAN_X, nonull(coverageSumX / coverageCountX));
-			statistics.set(STAT_COUNT_X, c);
+			statistics.set(STAT_COUNT_X, coverageCountX);
 			statistics.set(STAT_PSEUDO_MEDIAN_X, nonull(histX.estimateMedian()));
 
 			statistics.set(STAT_MEAN_Y, nonull(coverageSumY / coverageCountY));
-			statistics.set(STAT_COUNT_Y, c);
+			statistics.set(STAT_COUNT_Y, coverageCountY);
 			statistics.set(STAT_PSEUDO_MEDIAN_Y, nonull(histY.estimateMedian()));
 
 			// write statistics to compressed header.

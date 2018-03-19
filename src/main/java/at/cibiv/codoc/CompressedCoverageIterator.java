@@ -49,8 +49,9 @@ public class CompressedCoverageIterator implements CoverageIterator<Float>, Chro
 	 * @throws CodocException
 	 * @throws IOException
 	 */
-	public CompressedCoverageIterator(CoverageDecompressor decomp, List<String> chroms, float scaleFactor) throws CodocException, IOException {
-		//System.out.println("SCALE factor: " + scaleFactor);
+	public CompressedCoverageIterator(CoverageDecompressor decomp, List<String> chroms, float scaleFactor)
+			throws CodocException, IOException {
+		// System.out.println("SCALE factor: " + scaleFactor);
 		this.decomp = decomp;
 		this.chroms = chroms;
 		this.scaleFactor = scaleFactor;
@@ -68,7 +69,8 @@ public class CompressedCoverageIterator implements CoverageIterator<Float>, Chro
 	 * @throws CodocException
 	 * @throws IOException
 	 */
-	public CompressedCoverageIterator(PropertyConfiguration conf, List<String> chroms, float scaleFactor) throws CodocException, IOException {
+	public CompressedCoverageIterator(PropertyConfiguration conf, List<String> chroms, float scaleFactor)
+			throws CodocException, IOException {
 		this.decomp = new CoverageDecompressor(conf);
 		this.chroms = chroms;
 		this.scaleFactor = scaleFactor;
@@ -194,6 +196,11 @@ public class CompressedCoverageIterator implements CoverageIterator<Float>, Chro
 		this.chromAliases = chromAliases;
 	}
 
+	public void close() throws IOException {
+		if (this.decomp != null)
+			this.decomp.close();
+	}
+
 	public static void main(String[] args) throws CodocException, IOException, ParseException {
 
 		String s = "reverse";
@@ -214,6 +221,18 @@ public class CompressedCoverageIterator implements CoverageIterator<Float>, Chro
 			if (d != null)
 				d.close();
 		}
+	}
+
+	@Override
+	public boolean gotoChrom(String chr) throws IOException {
+	    // TODO Auto-generated method stub
+	    return false;
+	}
+
+	@Override
+	public boolean gotoPosition(GenomicPosition pos) throws IOException {
+	    // TODO Auto-generated method stub
+	    return false;
 	}
 
 }
